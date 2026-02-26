@@ -26,6 +26,10 @@ use runtime_common::{
 	prod_or_fast, slots, BlockHashCount, BlockLength, CurrencyToVote, SlowAdjustingFeeUpdate,
 };
 
+pub mod impls;
+#[cfg(not(feature = "runtime-benchmarks"))]
+use impls::CreditToBlockAuthor;
+
 use runtime_parachains::{
 	assigner_parachains as parachains_assigner_parachains,
 	configuration as parachains_configuration, disputes as parachains_disputes,
@@ -53,7 +57,7 @@ use frame_support::{
 	weights::{ConstantMultiplier, WeightMeter},
 	PalletId,
 };
-use frame_system::EnsureRoot;
+use frame_system::{EnsureRoot, EnsureWithSuccess};
 use pallet_grandpa::{fg_primitives, AuthorityId as GrandpaId};
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_session::historical as session_historical;
@@ -114,7 +118,14 @@ pub type GeneralAdmin = frame_system::EnsureRoot<AccountId>;
 pub type LeaseAdmin = frame_system::EnsureRoot<AccountId>;
 pub type StakingAdmin = frame_system::EnsureRoot<AccountId>;
 pub type Treasurer = frame_system::EnsureRoot<AccountId>;
-pub type TreasurySpender = frame_system::EnsureRoot<AccountId>;
+pub type TreasurySpender = EitherOf<
+	frame_system::EnsureRootWithSuccess<AccountId, RootSpendOriginMaxAmount>,
+	EnsureWithSuccess<
+		pallet_collective::EnsureProportionAtLeast<AccountId, CouncilCollective, 3, 5>,
+		AccountId,
+		CouncilSpendOriginMaxAmount,
+	>,
+>;
 
 pub mod xcm_config;
 
@@ -1462,6 +1473,8 @@ impl pallet_sudo::Config for Runtime {
 	type WeightInfo = ();
 }
 
+impl runtime_common::paras_sudo_wrapper::Config for Runtime {}
+
 impl pallet_dao::Config for Runtime {
 	type UnixTime = Timestamp;
 	type Currency = Balances;
@@ -1518,8 +1531,8 @@ impl pallet_asset_tx_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Fungibles = Assets;
 	type OnChargeAssetTransaction = pallet_asset_tx_payment::FungiblesAdapter<
-		pallet_assets::BalanceToAssetBalance<Balances, Runtime, runtime_common::impls::ToAuthor<Runtime>>,
-		runtime_common::impls::ToAuthor<Runtime>,
+		pallet_assets::BalanceToAssetBalance<Balances, Runtime, ConvertInto>,
+		CreditToBlockAuthor,
 	>;
 }
 
