@@ -74,6 +74,7 @@ polkadot-native = [ "service/polkadot-native" ]
 kusama-native = [ "service/kusama-native" ]
 westend-native = [ "service/westend-native" ]
 rococo-native = [ "service/rococo-native" ]
+thxnet-native = [ "service/thxnet-native" ]
 
 malus = [ "full-node", "service/malus" ]
 runtime-metrics = [
