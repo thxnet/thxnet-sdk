@@ -110,12 +110,14 @@ polkadot-runtime-constants = { path = "../../runtime/polkadot/constants", option
 kusama-runtime-constants = { path = "../../runtime/kusama/constants", optional = true }
 rococo-runtime-constants = { path = "../../runtime/rococo/constants", optional = true }
 westend-runtime-constants = { path = "../../runtime/westend/constants", optional = true }
+thxnet-runtime-constants = { path = "../../runtime/thxnet/constants", optional = true }
 
 # Polkadot Runtimes
 polkadot-runtime = { path = "../../runtime/polkadot", optional = true }
 kusama-runtime = { package = "staging-kusama-runtime", path = "../../runtime/kusama", optional = true }
 westend-runtime = { path = "../../runtime/westend", optional = true }
 rococo-runtime = { path = "../../runtime/rococo", optional = true }
+thxnet-runtime = { path = "../../runtime/thxnet", optional = true }
 
 # Polkadot Subsystems
 polkadot-approval-distribution = { path = "../network/approval-distribution", optional = true }
@@ -190,6 +192,7 @@ polkadot-native = [ "polkadot-runtime", "polkadot-runtime-constants" ]
 kusama-native = [ "kusama-runtime", "kusama-runtime-constants" ]
 westend-native = [ "westend-runtime", "westend-runtime-constants" ]
 rococo-native = [ "rococo-runtime", "rococo-runtime-constants" ]
+thxnet-native = [ "thxnet-runtime", "thxnet-runtime-constants" ]
 
 runtime-benchmarks = [
 	"frame-benchmarking-cli/runtime-benchmarks",
@@ -205,6 +208,7 @@ runtime-benchmarks = [
 	"polkadot-runtime-common/runtime-benchmarks",
 	"polkadot-runtime-parachains/runtime-benchmarks",
 	"polkadot-runtime?/runtime-benchmarks",
+	"thxnet-runtime?/runtime-benchmarks",
 	"polkadot-test-client/runtime-benchmarks",
 	"rococo-runtime?/runtime-benchmarks",
 	"sc-client-db/runtime-benchmarks",
@@ -223,6 +227,7 @@ try-runtime = [
 	"polkadot-runtime-common/try-runtime",
 	"polkadot-runtime-parachains/try-runtime",
 	"polkadot-runtime?/try-runtime",
+	"thxnet-runtime?/try-runtime",
 	"rococo-runtime?/try-runtime",
 	"sp-runtime/try-runtime",
 	"westend-runtime?/try-runtime",
@@ -231,6 +236,7 @@ fast-runtime = [
 	"kusama-runtime?/fast-runtime",
 	"polkadot-runtime?/fast-runtime",
 	"rococo-runtime?/fast-runtime",
+	"thxnet-runtime?/fast-runtime",
 	"westend-runtime?/fast-runtime",
 ]
 
@@ -240,6 +246,7 @@ runtime-metrics = [
 	"polkadot-runtime-parachains/runtime-metrics",
 	"polkadot-runtime?/runtime-metrics",
 	"rococo-runtime?/runtime-metrics",
+	"thxnet-runtime?/runtime-metrics",
 	"westend-runtime?/runtime-metrics",
 ]
 
