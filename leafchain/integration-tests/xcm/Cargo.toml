@@ -1,0 +1,53 @@
+[package]
+name = "xcm-integration-tests"
+version = "0.1.0"
+authors.workspace = true
+license.workspace = true
+edition.workspace = true
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "3.0.0" }
+log = "0.4"
+
+# Local crates
+xcm-emulator = { package = "thxnet-xcm-emulator", path = "../../xcm/xcm-emulator" }
+general-runtime = { path = "../../runtime/general" }
+
+# Rootchain runtime (now in rootchain/ dir within monorepo)
+thxnet-runtime = { path = "../../../rootchain/runtime", default-features = false, features = ["std"] }
+
+# XCM
+xcm = { package = "staging-xcm", path = "../../../polkadot/xcm" }
+xcm-executor = { package = "staging-xcm-executor", path = "../../../polkadot/xcm/xcm-executor" }
+pallet-xcm = { path = "../../../polkadot/xcm/pallet-xcm" }
+polkadot-parachain = { package = "polkadot-parachain-primitives", path = "../../../polkadot/parachain" }
+
+# Cumulus
+cumulus-primitives-core = { path = "../../../cumulus/primitives/core" }
+parachains-common = { path = "../../../cumulus/parachains/common" }
+cumulus-pallet-xcmp-queue = { path = "../../../cumulus/pallets/xcmp-queue" }
+cumulus-pallet-dmp-queue = { path = "../../../cumulus/pallets/dmp-queue" }
+cumulus-pallet-parachain-system = { path = "../../../cumulus/pallets/parachain-system" }
+parachain-info = { path = "../../../cumulus/parachains/pallets/parachain-info" }
+
+# Substrate
+frame-support = { path = "../../../substrate/frame/support" }
+frame-system = { path = "../../../substrate/frame/system" }
+sp-core = { path = "../../../substrate/primitives/core" }
+sp-runtime = { path = "../../../substrate/primitives/runtime" }
+sp-io = { path = "../../../substrate/primitives/io" }
+sp-consensus-babe = { path = "../../../substrate/primitives/consensus/babe" }
+sp-consensus-grandpa = { path = "../../../substrate/primitives/consensus/grandpa" }
+sp-authority-discovery = { path = "../../../substrate/primitives/authority-discovery" }
+pallet-im-online = { path = "../../../substrate/frame/im-online" }
+pallet-balances = { path = "../../../substrate/frame/balances" }
+pallet-message-queue = { path = "../../../substrate/frame/message-queue" }
+pallet-staking = { path = "../../../substrate/frame/staking" }
+
+# Polkadot primitives
+polkadot-primitives = { path = "../../../polkadot/primitives" }
+
+# Required for test macros
+sp-tracing = { path = "../../../substrate/primitives/tracing" }
+
+[dev-dependencies]
