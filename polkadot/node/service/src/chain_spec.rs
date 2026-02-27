@@ -47,7 +47,8 @@ use sc_chain_spec::ChainSpecExtension;
 	feature = "polkadot-native",
 	feature = "kusama-native",
 	feature = "westend-native",
-	feature = "rococo-native"
+	feature = "rococo-native",
+	feature = "thxnet-native"
 ))]
 use sc_chain_spec::ChainType;
 use serde::{Deserialize, Serialize};
@@ -211,7 +212,8 @@ pub fn wococo_config() -> Result<RococoChainSpec, String> {
 	feature = "rococo-native",
 	feature = "kusama-native",
 	feature = "westend-native",
-	feature = "polkadot-native"
+	feature = "polkadot-native",
+	feature = "thxnet-native"
 ))]
 fn default_parachains_host_configuration(
 ) -> polkadot_runtime_parachains::configuration::HostConfiguration<polkadot_primitives::BlockNumber>
@@ -1258,7 +1260,8 @@ pub fn get_authority_keys_from_seed_no_beefy(
 	feature = "polkadot-native",
 	feature = "kusama-native",
 	feature = "westend-native",
-	feature = "rococo-native"
+	feature = "rococo-native",
+	feature = "thxnet-native"
 ))]
 fn testnet_accounts() -> Vec<AccountId> {
 	vec![

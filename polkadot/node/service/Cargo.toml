@@ -110,14 +110,14 @@ polkadot-runtime-constants = { path = "../../runtime/polkadot/constants", option
 kusama-runtime-constants = { path = "../../runtime/kusama/constants", optional = true }
 rococo-runtime-constants = { path = "../../runtime/rococo/constants", optional = true }
 westend-runtime-constants = { path = "../../runtime/westend/constants", optional = true }
-thxnet-runtime-constants = { path = "../../runtime/thxnet/constants", optional = true }
+thxnet-runtime-constants = { path = "../../../rootchain/runtime/constants", optional = true }
 
 # Polkadot Runtimes
 polkadot-runtime = { path = "../../runtime/polkadot", optional = true }
 kusama-runtime = { package = "staging-kusama-runtime", path = "../../runtime/kusama", optional = true }
 westend-runtime = { path = "../../runtime/westend", optional = true }
 rococo-runtime = { path = "../../runtime/rococo", optional = true }
-thxnet-runtime = { path = "../../runtime/thxnet", optional = true }
+thxnet-runtime = { path = "../../../rootchain/runtime", optional = true }
 
 # Polkadot Subsystems
 polkadot-approval-distribution = { path = "../network/approval-distribution", optional = true }
