@@ -231,7 +231,7 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		#[pallet::call_index(0)]
-		#[pallet::weight(0)]
+		#[pallet::weight(T::DbWeight::get().reads_writes(1, 1))]
 		pub fn raise_topic(
 			origin: OriginFor<T>,
 			title: Vec<u8>,
@@ -262,7 +262,7 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(3)]
-		#[pallet::weight(0)]
+		#[pallet::weight(T::DbWeight::get().reads_writes(1, 1))]
 		pub fn force_raise_topic(
 			origin: OriginFor<T>,
 			raiser: T::AccountId,
@@ -288,7 +288,7 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(1)]
-		#[pallet::weight(0)]
+		#[pallet::weight(T::DbWeight::get().reads_writes(1, 1))]
 		pub fn issue_voting_right_token(
 			origin: OriginFor<T>,
 			topic_id: T::TopicId,
@@ -345,7 +345,7 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(2)]
-		#[pallet::weight(0)]
+		#[pallet::weight(T::DbWeight::get().reads_writes(1, 1))]
 		pub fn vote_topic(
 			origin: OriginFor<T>,
 			topic_id: T::TopicId,
