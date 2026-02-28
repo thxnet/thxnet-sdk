@@ -5,6 +5,8 @@
 
 #[cfg(feature = "try-runtime")]
 use frame_support::ensure;
+#[cfg(feature = "try-runtime")]
+use sp_std::vec::Vec;
 use frame_support::{
     traits::{Get, GetStorageVersion, OnRuntimeUpgrade, StorageVersion},
     weights::Weight,
@@ -56,10 +58,12 @@ pub mod v1 {
         fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
             let current_version = Pallet::<T>::on_chain_storage_version();
 
-            // Ensure we're migrating from v0
-            ensure!(current_version == StorageVersion::new(0), "Can only upgrade from v0 to v1");
+            // Skip if already at v1 (deployed in v0.9.43)
+            if current_version >= StorageVersion::new(1) {
+                return Ok(Vec::new());
+            }
 
-            // Check that no data exists (this is initial deployment)
+            // If at v0, check that no data exists (this is initial deployment)
             let agent_count = NextAgentId::<T>::get();
             let feedback_count = NextFeedbackId::<T>::get();
 
@@ -73,17 +77,8 @@ pub mod v1 {
         fn post_upgrade(_state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
             let current_version = Pallet::<T>::on_chain_storage_version();
 
-            // Ensure we're now at v1
-            ensure!(current_version == STORAGE_VERSION, "Storage version not updated correctly");
-
-            // Verify counters are initialized
-            let agent_id = NextAgentId::<T>::get();
-            let feedback_id = NextFeedbackId::<T>::get();
-            let auth_id = NextAuthorizationId::<T>::get();
-
-            ensure!(agent_id == 0, "NextAgentId not initialized correctly");
-            ensure!(feedback_id == 0, "NextFeedbackId not initialized correctly");
-            ensure!(auth_id == 0, "NextAuthorizationId not initialized correctly");
+            // Ensure we're at v1
+            ensure!(current_version >= STORAGE_VERSION, "Storage version not updated correctly");
 
             Ok(())
         }
