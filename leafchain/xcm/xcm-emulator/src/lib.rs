@@ -30,9 +30,11 @@ pub use sp_core::{storage::Storage, sr25519, Pair, Public};
 pub use sp_io;
 pub use sp_std::{cell::RefCell, collections::vec_deque::VecDeque, marker::PhantomData};
 pub use sp_trie::StorageProof;
+pub use sp_consensus_aura;
 pub use sp_tracing;
 pub use sp_runtime::traits::{IdentifyAccount, Verify};
 
+pub use cumulus_pallet_aura_ext;
 pub use cumulus_pallet_dmp_queue;
 pub use cumulus_pallet_parachain_system;
 pub use cumulus_pallet_xcmp_queue;
@@ -580,6 +582,26 @@ macro_rules! __impl_test_ext_for_parachain {
 
 				$ext_name.with(|v| {
 					v.borrow_mut().execute_with(|| {
+						// Initialize AuraExt SlotInfo before set_validation_data.
+						// FixedVelocityConsensusHook::on_state_proof reads SlotInfo and panics if
+						// it hasn't been set. The emulator doesn't run full block initialization
+						// (no Aura pre-runtime digest), so we set SlotInfo directly.
+						// The sproof builder uses current_slot = 0, so we match with Slot(0).
+						<$crate::cumulus_pallet_aura_ext::SlotInfo::<
+							<Self as Parachain>::Runtime,
+						>>::put(($crate::sp_consensus_aura::Slot::from(0u64), 1u32));
+
+						// Clear the UnincludedSegment to avoid "no space left" panics.
+						// The emulator doesn't simulate relay chain inclusion, so the segment
+						// never gets drained naturally. Clearing it ensures each execute_with
+						// call starts with an empty segment.
+						{
+							let key1 = frame_support::storage::storage_prefix(b"ParachainSystem", b"UnincludedSegment");
+							let key2 = frame_support::storage::storage_prefix(b"ParachainSystem", b"AggregatedUnincludedSegment");
+							frame_support::storage::unhashed::kill(&key1);
+							frame_support::storage::unhashed::kill(&key2);
+						}
+
 						// Make sure it has been recorded properly
 						let relay_block_number = <$name>::relay_block_number();
 						let _ = <Self as Parachain>::ParachainSystem::set_validation_data(
@@ -702,6 +724,19 @@ macro_rules! __impl_parachain {
 					use $crate::{Get, Hooks};
 
 					let block_number = <Self as Parachain>::System::block_number();
+
+					// Initialize AuraExt SlotInfo (see execute_with for explanation)
+					<$crate::cumulus_pallet_aura_ext::SlotInfo::<
+						<Self as Parachain>::Runtime,
+					>>::put(($crate::sp_consensus_aura::Slot::from(0u64), 1u32));
+
+					// Clear UnincludedSegment (see execute_with for explanation)
+					{
+						let key1 = frame_support::storage::storage_prefix(b"ParachainSystem", b"UnincludedSegment");
+						let key2 = frame_support::storage::storage_prefix(b"ParachainSystem", b"AggregatedUnincludedSegment");
+						frame_support::storage::unhashed::kill(&key1);
+						frame_support::storage::unhashed::kill(&key2);
+					}
 
 					let _ = <Self as Parachain>::ParachainSystem::set_validation_data(
 						<Self as Parachain>::RuntimeOrigin::none(),
@@ -860,6 +895,11 @@ macro_rules! decl_test_networks {
 
 					let mut sproof = $crate::RelayStateSproofBuilder::default();
 					sproof.para_id = para_id.into();
+					// v1.1.0: set_validation_data now requires the parachain head in relay
+					// state proof ("included head not present in relay storage proof").
+					sproof.included_para_head = Some(
+						$crate::cumulus_primitives_core::relay_chain::HeadData(vec![0u8]),
+					);
 
 					// egress channel
 					let e_index = sproof.hrmp_egress_channel_index.get_or_insert_with(Vec::new);
