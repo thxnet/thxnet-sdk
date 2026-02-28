@@ -117,64 +117,20 @@ pub type UncheckedExtrinsic =
 /// Extrinsic type that has already been checked.
 pub type CheckedExtrinsic = generic::CheckedExtrinsic<AccountId, RuntimeCall, SignedExtra>;
 
-/// Storage version fixups for the v0.9.40 → v0.9.43 runtime upgrade.
+/// All migrations for the v0.9.43 → v1.1.0 runtime upgrade.
 ///
-/// Handles version bumps where no data migration is needed, and corrects
-/// an upstream cumulus bug where STORAGE_VERSION constants are one behind
-/// what migrate_to_latest() actually writes (sequential `if` blocks, not
-/// `else if`, cause an extra migration step at genesis).
-pub struct SetStorageVersions;
-
-impl frame_support::traits::OnRuntimeUpgrade for SetStorageVersions {
-    fn on_runtime_upgrade() -> Weight {
-        use frame_support::traits::{GetStorageVersion, StorageVersion};
-        let mut writes = 0u64;
-
-        // pallet_balances: v0 → v1 (no data migration needed, just version bump)
-        if Balances::on_chain_storage_version() < 1 {
-            StorageVersion::new(1).put::<Balances>();
-            writes += 1;
-        }
-
-        // Fix upstream cumulus bug in xcmp-queue: STORAGE_VERSION constant is v2,
-        // but migrate_to_latest() uses sequential `if` blocks that chain v1→v2→v3.
-        // At genesis the pallet starts at declared v2, then on_runtime_upgrade hooks
-        // run migrate_to_latest() which sees v2 and advances to v3. On-chain is now
-        // v3 but code declares v2. Downgrade to match declared version. The v2→v3
-        // migration (Overweight counter init) is idempotent, so this is safe. On
-        // future upgrades the hooks will re-run the idempotent counter init and
-        // chain into any new migrations correctly.
-        if XcmpQueue::on_chain_storage_version() > 2 {
-            StorageVersion::new(2).put::<XcmpQueue>();
-            writes += 1;
-        }
-
-        // Same upstream bug in dmp-queue: STORAGE_VERSION = 1, but
-        // migrate_to_latest() chains v0→v1→v2. Genesis starts at v1,
-        // hooks advance to v2. Downgrade to match declared v1.
-        if DmpQueue::on_chain_storage_version() > 1 {
-            StorageVersion::new(1).put::<DmpQueue>();
-            writes += 1;
-        }
-
-        <Runtime as frame_system::Config>::DbWeight::get()
-            .reads_writes(3, writes)
-    }
-}
-
-/// All migrations for the v0.9.40 → v0.9.43 runtime upgrade.
-///
-/// Note: Cumulus pallets (parachain_system, dmp_queue, xcmp_queue) self-migrate
-/// via their own `#[pallet::hooks]` on_runtime_upgrade — they are NOT listed here.
-/// pallet_collator_selection has no StorageVersion and no migration.
-/// pallet_xcm and pallet_nfts are already at v1 on-chain (set at genesis by
-/// v0.9.40), so their MigrateToV1 structs are not needed.
+/// On-chain state after v0.9.43 upgrade (spec v4):
+/// - CollatorSelection: v0 (never had a migration) → v1 (sort invulnerables)
+/// - XcmpQueue: v2 (downgraded from v3 by SetStorageVersions in v0.9.43) → v3 (counter init)
+/// - DmpQueue: v1 (downgraded from v2 by SetStorageVersions in v0.9.43) → v2 (counter init)
+/// - pallet-trustless-agent: v1 (deployed in v0.9.43) → no migration needed
 pub type Migrations = (
-    // Storage version fixups (no data migration, corrects upstream cumulus bug)
-    SetStorageVersions,
-
-    // New pallet initial deployment
-    pallet_trustless_agent::migrations::Migrations<Runtime>,
+    // CollatorSelection v0 → v1: sort Invulnerables list
+    pallet_collator_selection::migration::v1::MigrateToV1<Runtime>,
+    // XcmpQueue v2 → v3: initialize Overweight counter
+    cumulus_pallet_xcmp_queue::migration::Migration<Runtime>,
+    // DmpQueue v1 → v2: initialize Overweight counter
+    cumulus_pallet_dmp_queue::migration::Migration<Runtime>,
 );
 
 /// Executive: handles dispatch to the various modules.
