@@ -23,10 +23,13 @@ sp-arithmetic = { path = "../../../substrate/primitives/arithmetic" }
 sp-trie = { path = "../../../substrate/primitives/trie" }
 sp-runtime = { path = "../../../substrate/primitives/runtime" }
 sp-tracing = { path = "../../../substrate/primitives/tracing" }
+sp-consensus-aura = { path = "../../../substrate/primitives/consensus/aura" }
 pallet-balances = { path = "../../../substrate/frame/balances" }
+pallet-aura = { path = "../../../substrate/frame/aura" }
 pallet-message-queue = { path = "../../../substrate/frame/message-queue" }
 
 # Cumulus crates
+cumulus-pallet-aura-ext = { path = "../../../cumulus/pallets/aura-ext" }
 cumulus-primitives-core = { path = "../../../cumulus/primitives/core" }
 cumulus-pallet-xcmp-queue = { path = "../../../cumulus/pallets/xcmp-queue" }
 cumulus-pallet-dmp-queue = { path = "../../../cumulus/pallets/dmp-queue" }

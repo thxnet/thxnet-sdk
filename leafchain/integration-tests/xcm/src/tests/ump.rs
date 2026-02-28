@@ -75,11 +75,13 @@ fn send_xcm_from_parachain_to_relay() {
     LeafchainA::execute_with(|| {
         let dest = MultiLocation::parent();
 
-        // Create a simple XCM message (query response or ping)
+        // Create a simple XCM message to withdraw from sovereign account on relay.
+        // Note: Assets use `Here` (not `Parent`) because this message is executed on the
+        // relay chain, where the native token location is `Here`.
         let message: Xcm<()> = Xcm(vec![
-            WithdrawAsset((Parent, 1_000_000_000u128).into()),
+            WithdrawAsset((Here, 1_000_000_000u128).into()),
             BuyExecution {
-                fees: (Parent, 1_000_000_000u128).into(),
+                fees: (Here, 1_000_000_000u128).into(),
                 weight_limit: WeightLimit::Unlimited,
             },
             // Just a simple operation

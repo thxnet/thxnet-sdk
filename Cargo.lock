@@ -19043,6 +19043,7 @@ name = "thxnet-xcm-emulator"
 version = "0.1.0"
 dependencies = [
  "casey",
+ "cumulus-pallet-aura-ext",
  "cumulus-pallet-dmp-queue",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-xcmp-queue",
@@ -19052,6 +19053,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "log",
+ "pallet-aura",
  "pallet-balances",
  "pallet-message-queue",
  "parachain-info",
@@ -19063,6 +19065,7 @@ dependencies = [
  "polkadot-runtime-parachains",
  "quote",
  "sp-arithmetic",
+ "sp-consensus-aura",
  "sp-core",
  "sp-io",
  "sp-runtime",

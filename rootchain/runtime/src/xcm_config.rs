@@ -23,7 +23,7 @@ use super::{
 };
 use frame_support::{
 	match_types, parameter_types,
-	traits::{Contains, Everything, Nothing},
+	traits::{Contains, ContainsPair, Everything, Nothing},
 	weights::Weight,
 };
 use frame_system::EnsureRoot;
@@ -142,6 +142,40 @@ parameter_types! {
 /// Polkadot Relay recognizes/respects the Statemint chain as a teleporter.
 pub type TrustedTeleporters =
 	(xcm_builder::Case<DotForStatemint>, xcm_builder::Case<DotForCollectives>);
+
+/// Accept reserve deposits of the native token from any child parachain.
+/// Parachains hold derivative relay chain tokens and send `ReserveAssetDeposited`
+/// when transferring them back to the relay chain.
+pub struct ChildParachainNativeTokenReserve;
+impl frame_support::traits::ContainsPair<MultiAsset, MultiLocation>
+	for ChildParachainNativeTokenReserve
+{
+	fn contains(asset: &MultiAsset, origin: &MultiLocation) -> bool {
+		matches!(
+			(asset, origin),
+			(
+				MultiAsset { id: Concrete(MultiLocation { parents: 0, interior: Here }), .. },
+				MultiLocation { parents: 0, interior: X1(Parachain(_)) }
+			)
+		)
+	}
+}
+
+/// Accept teleports of the native token from any child parachain.
+pub struct ChildParachainNativeTokenTeleporter;
+impl frame_support::traits::ContainsPair<MultiAsset, MultiLocation>
+	for ChildParachainNativeTokenTeleporter
+{
+	fn contains(asset: &MultiAsset, origin: &MultiLocation) -> bool {
+		matches!(
+			(asset, origin),
+			(
+				MultiAsset { id: Concrete(MultiLocation { parents: 0, interior: Here }), .. },
+				MultiLocation { parents: 0, interior: X1(Parachain(_)) }
+			)
+		)
+	}
+}
 
 match_types! {
 	pub type OnlyParachains: impl Contains<MultiLocation> = {
@@ -316,9 +350,9 @@ impl xcm_executor::Config for XcmConfig {
 	type XcmSender = XcmRouter;
 	type AssetTransactor = LocalAssetTransactor;
 	type OriginConverter = LocalOriginConverter;
-	// Polkadot Relay recognises no chains which act as reserves.
-	type IsReserve = ();
-	type IsTeleporter = TrustedTeleporters;
+	// Accept reserve deposits of native token from child parachains.
+	type IsReserve = ChildParachainNativeTokenReserve;
+	type IsTeleporter = (TrustedTeleporters, ChildParachainNativeTokenTeleporter);
 	type UniversalLocation = UniversalLocation;
 	type Barrier = Barrier;
 	type Weigher = WeightInfoBounds<
