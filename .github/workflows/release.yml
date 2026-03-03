@@ -1,0 +1,55 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  wasm:
+    name: Build WASM runtimes
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v27
+
+      - name: Pre Cache
+        run: |
+          rm -rf ~/.cargo/registry/index/ ~/.cargo/registry/cache/ ~/.cargo/git/db/
+
+      - name: Cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Build WASM runtimes
+        run: |
+          nix develop --command bash -c "cargo build --release \
+            --package thxnet-runtime \
+            --package thxnet-testnet-runtime \
+            --package general-runtime"
+          cp target/release/wbuild/thxnet-runtime/thxnet_runtime.compact.compressed.wasm thxnet-runtime.wasm
+          cp target/release/wbuild/thxnet-testnet-runtime/thxnet_testnet_runtime.compact.compressed.wasm thxnet-testnet-runtime.wasm
+          cp target/release/wbuild/general-runtime/general_runtime.compact.compressed.wasm general-runtime.wasm
+
+      - name: Publish WASM runtimes
+        uses: softprops/action-gh-release@v1
+        with:
+          draft: false
+          prerelease: false
+          files: |
+            thxnet-runtime.wasm
+            thxnet-testnet-runtime.wasm
+            general-runtime.wasm
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
