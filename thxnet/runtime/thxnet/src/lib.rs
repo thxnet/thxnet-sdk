@@ -51,9 +51,9 @@ use frame_election_provider_support::{
 use frame_support::{
 	construct_runtime, parameter_types,
 	traits::{
-		ConstBool, ConstU32, ConstU128, Contains, EitherOf, EitherOfDiverse, InstanceFilter,
-		KeyOwnerProofSystem, LinearStoragePrice, PrivilegeCmp, ProcessMessage, ProcessMessageError,
-		fungible::HoldConsideration, WithdrawReasons,
+		fungible::HoldConsideration, ConstBool, ConstU128, ConstU32, Contains, EitherOf,
+		EitherOfDiverse, InstanceFilter, KeyOwnerProofSystem, LinearStoragePrice, PrivilegeCmp,
+		ProcessMessage, ProcessMessageError, WithdrawReasons,
 	},
 	weights::{ConstantMultiplier, WeightMeter},
 	PalletId,
@@ -94,8 +94,8 @@ use xcm::latest::Junction;
 
 pub use frame_system::Call as SystemCall;
 pub use pallet_balances::Call as BalancesCall;
-pub use pallet_election_provider_multi_phase::{GeometricDepositBase};
 use pallet_election_provider_multi_phase::Call as EPMCall;
+pub use pallet_election_provider_multi_phase::GeometricDepositBase;
 #[cfg(feature = "std")]
 pub use pallet_staking::StakerStatus;
 use pallet_staking::UseValidatorsMap;
@@ -1021,18 +1021,17 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 				RuntimeCall::NominationPools(..) |
 				RuntimeCall::FastUnstake(..)
 			),
-			ProxyType::Governance => matches!(
-				c,
-				RuntimeCall::Treasury(..) |
-					RuntimeCall::Bounties(..) |
-					RuntimeCall::Utility(..) |
-					RuntimeCall::ChildBounties(..) |
-					RuntimeCall::Democracy(..) |
-					RuntimeCall::Council(..) |
-					RuntimeCall::TechnicalCommittee(..) |
-					RuntimeCall::PhragmenElection(..) |
-					RuntimeCall::TechnicalMembership(..)
-			),
+			ProxyType::Governance =>
+				matches!(
+					c,
+					RuntimeCall::Treasury(..) |
+						RuntimeCall::Bounties(..) |
+						RuntimeCall::Utility(..) | RuntimeCall::ChildBounties(..) |
+						RuntimeCall::Democracy(..) |
+						RuntimeCall::Council(..) | RuntimeCall::TechnicalCommittee(..) |
+						RuntimeCall::PhragmenElection(..) |
+						RuntimeCall::TechnicalMembership(..)
+				),
 			ProxyType::Staking => {
 				matches!(
 					c,
@@ -1519,7 +1518,8 @@ impl pallet_assets::Config for Runtime {
 	type AssetId = u32;
 	type AssetIdParameter = parity_scale_codec::Compact<u32>;
 	type Currency = Balances;
-	type CreateOrigin = frame_support::traits::AsEnsureOriginWithArg<frame_system::EnsureSigned<AccountId>>;
+	type CreateOrigin =
+		frame_support::traits::AsEnsureOriginWithArg<frame_system::EnsureSigned<AccountId>>;
 	type ForceOrigin = frame_system::EnsureRoot<AccountId>;
 	type AssetDeposit = AssetDeposit;
 	type AssetAccountDeposit = AssetAccountDeposit;
@@ -1583,7 +1583,8 @@ impl pallet_nfts::Config for Runtime {
 	type WeightInfo = pallet_nfts::weights::SubstrateWeight<Runtime>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = ();
-	type CreateOrigin = frame_support::traits::AsEnsureOriginWithArg<frame_system::EnsureSigned<AccountId>>;
+	type CreateOrigin =
+		frame_support::traits::AsEnsureOriginWithArg<frame_system::EnsureSigned<AccountId>>;
 	type Locker = ();
 }
 
@@ -2582,8 +2583,8 @@ mod test_fees {
 
 	#[test]
 	fn nominator_limit() {
-		pub use pallet_election_provider_multi_phase::{GeometricDepositBase};
-use pallet_election_provider_multi_phase::WeightInfo;
+		pub use pallet_election_provider_multi_phase::GeometricDepositBase;
+		use pallet_election_provider_multi_phase::WeightInfo;
 		// starting point of the nominators.
 		let target_voters: u32 = 50_000;
 
