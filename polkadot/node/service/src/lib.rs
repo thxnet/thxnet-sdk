@@ -84,9 +84,7 @@ use telemetry::TelemetryWorker;
 #[cfg(feature = "full-node")]
 use telemetry::{Telemetry, TelemetryWorkerHandle};
 
-pub use chain_spec::{
-	KusamaChainSpec, PolkadotChainSpec, RococoChainSpec, ThxnetChainSpec, WestendChainSpec,
-};
+pub use chain_spec::{GenericChainSpec, RococoChainSpec, ThxnetChainSpec, WestendChainSpec};
 pub use consensus_common::{Proposal, SelectChain};
 use frame_benchmarking_cli::SUBSTRATE_REFERENCE_HARDWARE;
 use mmr_gadget::MmrGadget;
@@ -105,15 +103,11 @@ pub use sp_runtime::{
 	generic,
 	traits::{self as runtime_traits, BlakeTwo256, Block as BlockT, Header as HeaderT, NumberFor},
 };
-
-#[cfg(feature = "kusama-native")]
-pub use {kusama_runtime, kusama_runtime_constants};
-#[cfg(feature = "polkadot-native")]
-pub use {polkadot_runtime, polkadot_runtime_constants};
-#[cfg(feature = "rococo-native")]
-pub use {rococo_runtime, rococo_runtime_constants};
 #[cfg(feature = "thxnet-native")]
 pub use {thxnet_runtime, thxnet_runtime_constants};
+
+#[cfg(feature = "rococo-native")]
+pub use {rococo_runtime, rococo_runtime_constants};
 #[cfg(feature = "westend-native")]
 pub use {westend_runtime, westend_runtime_constants};
 
@@ -299,11 +293,11 @@ pub trait IdentifyVariant {
 	/// Returns if this is a configuration for the `Versi` test network.
 	fn is_versi(&self) -> bool;
 
-	/// Returns if this is a configuration for the `THXnet` network.
-	fn is_thxnet(&self) -> bool;
-
 	/// Returns true if this configuration is for a development network.
 	fn is_dev(&self) -> bool;
+
+	/// Returns if this is a configuration for the `THXnet` network.
+	fn is_thxnet(&self) -> bool;
 
 	/// Identifies the variant of the chain.
 	fn identify_chain(&self) -> Chain;
@@ -335,9 +329,7 @@ impl IdentifyVariant for Box<dyn ChainSpec> {
 		self.id().ends_with("dev")
 	}
 	fn identify_chain(&self) -> Chain {
-		if self.is_thxnet() {
-			Chain::Thxnet
-		} else if self.is_polkadot() {
+		if self.is_polkadot() {
 			Chain::Polkadot
 		} else if self.is_kusama() {
 			Chain::Kusama
@@ -345,6 +337,8 @@ impl IdentifyVariant for Box<dyn ChainSpec> {
 			Chain::Westend
 		} else if self.is_rococo() || self.is_versi() || self.is_wococo() {
 			Chain::Rococo
+		} else if self.is_thxnet() {
+			Chain::Thxnet
 		} else {
 			Chain::Unknown
 		}
@@ -872,7 +866,7 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 	let (collation_req_v1_receiver, cfg) =
 		IncomingRequest::get_config_receiver(&req_protocol_names);
 	net_config.add_request_response_protocol(cfg);
-	let (collation_req_vstaging_receiver, cfg) =
+	let (collation_req_v2_receiver, cfg) =
 		IncomingRequest::get_config_receiver(&req_protocol_names);
 	net_config.add_request_response_protocol(cfg);
 	let (available_data_req_receiver, cfg) =
@@ -880,7 +874,7 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 	net_config.add_request_response_protocol(cfg);
 	let (statement_req_receiver, cfg) = IncomingRequest::get_config_receiver(&req_protocol_names);
 	net_config.add_request_response_protocol(cfg);
-	let (candidate_req_vstaging_receiver, cfg) =
+	let (candidate_req_v2_receiver, cfg) =
 		IncomingRequest::get_config_receiver(&req_protocol_names);
 	net_config.add_request_response_protocol(cfg);
 	let (dispute_req_receiver, cfg) = IncomingRequest::get_config_receiver(&req_protocol_names);
@@ -908,6 +902,7 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 			import_queue,
 			block_announce_validator_builder: None,
 			warp_sync_params: Some(WarpSyncParams::WithProvider(warp_sync)),
+			block_relay: None,
 		})?;
 
 	if config.offchain_worker.enabled {
@@ -1068,10 +1063,10 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 					pov_req_receiver,
 					chunk_req_receiver,
 					collation_req_v1_receiver,
-					collation_req_vstaging_receiver,
+					collation_req_v2_receiver,
 					available_data_req_receiver,
 					statement_req_receiver,
-					candidate_req_vstaging_receiver,
+					candidate_req_v2_receiver,
 					dispute_req_receiver,
 					registry: prometheus_registry.as_ref(),
 					spawner,

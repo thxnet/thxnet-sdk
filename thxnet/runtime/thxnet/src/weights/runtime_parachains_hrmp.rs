@@ -292,4 +292,16 @@ impl<T: frame_system::Config> runtime_parachains::hrmp::WeightInfo for WeightInf
 			.saturating_add(T::DbWeight::get().reads(14))
 			.saturating_add(T::DbWeight::get().writes(8))
 	}
+	fn establish_system_channel() -> Weight {
+		Weight::from_parts(640_174_000, 0)
+			.saturating_add(Weight::from_parts(0, 6357))
+			.saturating_add(T::DbWeight::get().reads(12))
+			.saturating_add(T::DbWeight::get().writes(8))
+	}
+	fn poke_channel_deposits() -> Weight {
+		Weight::from_parts(175_860_000, 0)
+			.saturating_add(Weight::from_parts(0, 3728))
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
 }
