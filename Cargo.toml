@@ -166,6 +166,7 @@ members = [
 	"thxnet/leafchain/pallets/trustless-agent",
 	"thxnet/leafchain/xcm/xcm-emulator",
 	"thxnet/leafchain/integration-tests/xcm",
+	"thxnet/tools/upgrade-cli",
 	"polkadot/runtime/common/slot_range_helper",
 	"polkadot/runtime/kusama",
 	"polkadot/runtime/kusama/constants",

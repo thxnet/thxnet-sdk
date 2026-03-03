@@ -2362,6 +2362,7 @@ dependencies = [
  "iana-time-zone",
  "js-sys",
  "num-traits",
+ "serde",
  "time 0.1.45",
  "wasm-bindgen",
  "windows-targets 0.48.5",
@@ -19161,6 +19162,31 @@ dependencies = [
  "sp-core",
  "sp-runtime",
  "sp-weights",
+]
+
+[[package]]
+name = "thxnet-upgrade"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "clap 4.4.2",
+ "env_logger 0.10.0",
+ "hex",
+ "jsonrpsee",
+ "log",
+ "parity-scale-codec",
+ "polkadot-core-primitives",
+ "sc-executor-common",
+ "sc-transaction-pool-api",
+ "serde",
+ "serde_json",
+ "sp-core",
+ "sp-maybe-compressed-blob",
+ "sp-runtime",
+ "sp-version",
+ "thiserror",
+ "tokio",
 ]
 
 [[package]]
