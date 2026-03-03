@@ -82,7 +82,7 @@ pallet-whitelist = { path = "../../../substrate/frame/whitelist", default-featur
 pallet-vesting = { path = "../../../substrate/frame/vesting", default-features = false }
 pallet-utility = { path = "../../../substrate/frame/utility", default-features = false }
 frame-election-provider-support = { path = "../../../substrate/frame/election-provider-support", default-features = false }
-pallet-xcm = { path = "../../../polkadot/xcm/pallet-xcm", default-features = false, features=["experimental"] }
+pallet-xcm = { path = "../../../polkadot/xcm/pallet-xcm", default-features = false }
 pallet-xcm-benchmarks = { path = "../../../polkadot/xcm/pallet-xcm-benchmarks", default-features = false, optional = true }
 
 # THXNet-specific pallets
@@ -103,7 +103,7 @@ pallet-nomination-pools-benchmarking = { path = "../../../substrate/frame/nomina
 hex-literal = { version = "0.4.1", optional = true }
 
 polkadot-runtime-constants = { path = "../../../polkadot/runtime/polkadot/constants", default-features = false }
-runtime-common = { package = "polkadot-runtime-common", path = "../../../polkadot/runtime/common", default-features = false, features = ["experimental"] }
+runtime-common = { package = "polkadot-runtime-common", path = "../../../polkadot/runtime/common", default-features = false }
 runtime-parachains = { package = "polkadot-runtime-parachains", path = "../../../polkadot/runtime/parachains", default-features = false }
 primitives = { package = "polkadot-primitives", path = "../../../polkadot/primitives", default-features = false }
 
