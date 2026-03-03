@@ -107,7 +107,7 @@ pub type ThxnetChainSpec = service::GenericChainSpec<thxnet::RuntimeGenesisConfi
 /// The `ChainSpec` parameterized for the thxnet runtime.
 // Dummy chain spec, but that is fine when we don't have the native runtime.
 #[cfg(not(feature = "thxnet-native"))]
-pub type ThxnetChainSpec = DummyChainSpec;
+pub type ThxnetChainSpec = GenericChainSpec;
 
 /// Extension for the Rococo genesis config to support a custom changes to the genesis state.
 #[derive(serde::Serialize, serde::Deserialize)]
