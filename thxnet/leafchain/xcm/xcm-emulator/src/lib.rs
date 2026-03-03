@@ -26,13 +26,13 @@ pub use log;
 pub use pallet_balances::AccountData;
 pub use paste;
 pub use sp_arithmetic::traits::Bounded;
-pub use sp_core::{storage::Storage, sr25519, Pair, Public};
-pub use sp_io;
-pub use sp_std::{cell::RefCell, collections::vec_deque::VecDeque, marker::PhantomData};
-pub use sp_trie::StorageProof;
 pub use sp_consensus_aura;
-pub use sp_tracing;
+pub use sp_core::{sr25519, storage::Storage, Pair, Public};
+pub use sp_io;
 pub use sp_runtime::traits::{IdentifyAccount, Verify};
+pub use sp_std::{cell::RefCell, collections::vec_deque::VecDeque, marker::PhantomData};
+pub use sp_tracing;
+pub use sp_trie::StorageProof;
 
 pub use cumulus_pallet_aura_ext;
 pub use cumulus_pallet_dmp_queue;
@@ -726,14 +726,20 @@ macro_rules! __impl_parachain {
 					let block_number = <Self as Parachain>::System::block_number();
 
 					// Initialize AuraExt SlotInfo (see execute_with for explanation)
-					<$crate::cumulus_pallet_aura_ext::SlotInfo::<
-						<Self as Parachain>::Runtime,
-					>>::put(($crate::sp_consensus_aura::Slot::from(0u64), 1u32));
+					<$crate::cumulus_pallet_aura_ext::SlotInfo<<Self as Parachain>::Runtime>>::put(
+						($crate::sp_consensus_aura::Slot::from(0u64), 1u32),
+					);
 
 					// Clear UnincludedSegment (see execute_with for explanation)
 					{
-						let key1 = frame_support::storage::storage_prefix(b"ParachainSystem", b"UnincludedSegment");
-						let key2 = frame_support::storage::storage_prefix(b"ParachainSystem", b"AggregatedUnincludedSegment");
+						let key1 = frame_support::storage::storage_prefix(
+							b"ParachainSystem",
+							b"UnincludedSegment",
+						);
+						let key2 = frame_support::storage::storage_prefix(
+							b"ParachainSystem",
+							b"AggregatedUnincludedSegment",
+						);
 						frame_support::storage::unhashed::kill(&key1);
 						frame_support::storage::unhashed::kill(&key2);
 					}

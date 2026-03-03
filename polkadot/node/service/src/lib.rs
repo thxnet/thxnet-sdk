@@ -84,7 +84,9 @@ use telemetry::TelemetryWorker;
 #[cfg(feature = "full-node")]
 use telemetry::{Telemetry, TelemetryWorkerHandle};
 
-pub use chain_spec::{KusamaChainSpec, PolkadotChainSpec, RococoChainSpec, ThxnetChainSpec, WestendChainSpec};
+pub use chain_spec::{
+	KusamaChainSpec, PolkadotChainSpec, RococoChainSpec, ThxnetChainSpec, WestendChainSpec,
+};
 pub use consensus_common::{Proposal, SelectChain};
 use frame_benchmarking_cli::SUBSTRATE_REFERENCE_HARDWARE;
 use mmr_gadget::MmrGadget;

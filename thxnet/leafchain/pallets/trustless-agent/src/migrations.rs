@@ -5,13 +5,13 @@
 
 #[cfg(feature = "try-runtime")]
 use frame_support::ensure;
-#[cfg(feature = "try-runtime")]
-use sp_std::vec::Vec;
 use frame_support::{
-    traits::{Get, GetStorageVersion, OnRuntimeUpgrade, StorageVersion},
-    weights::Weight,
+	traits::{Get, GetStorageVersion, OnRuntimeUpgrade, StorageVersion},
+	weights::Weight,
 };
 use sp_std::marker::PhantomData;
+#[cfg(feature = "try-runtime")]
+use sp_std::vec::Vec;
 
 use crate::*;
 
@@ -20,69 +20,69 @@ pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 /// Migration from v0 (no pallet deployed) to v1 (initial deployment)
 pub mod v1 {
-    use super::*;
+	use super::*;
 
-    /// Initial deployment migration
-    ///
-    /// This migration:
-    /// 1. Sets the storage version to v1
-    /// 2. Initializes counter storages to 0
-    /// 3. Validates no pre-existing data conflicts
-    pub struct InitialDeployment<T>(PhantomData<T>);
+	/// Initial deployment migration
+	///
+	/// This migration:
+	/// 1. Sets the storage version to v1
+	/// 2. Initializes counter storages to 0
+	/// 3. Validates no pre-existing data conflicts
+	pub struct InitialDeployment<T>(PhantomData<T>);
 
-    impl<T: Config> OnRuntimeUpgrade for InitialDeployment<T> {
-        fn on_runtime_upgrade() -> Weight {
-            let mut weight = T::DbWeight::get().reads(1);
-            let current_version = Pallet::<T>::on_chain_storage_version();
+	impl<T: Config> OnRuntimeUpgrade for InitialDeployment<T> {
+		fn on_runtime_upgrade() -> Weight {
+			let mut weight = T::DbWeight::get().reads(1);
+			let current_version = Pallet::<T>::on_chain_storage_version();
 
-            // Only run migration if we're at version 0
-            if current_version == StorageVersion::new(0) {
-                // Set storage version
-                STORAGE_VERSION.put::<Pallet<T>>();
-                weight = weight.saturating_add(T::DbWeight::get().writes(1));
+			// Only run migration if we're at version 0
+			if current_version == StorageVersion::new(0) {
+				// Set storage version
+				STORAGE_VERSION.put::<Pallet<T>>();
+				weight = weight.saturating_add(T::DbWeight::get().writes(1));
 
-                // Initialize counters (they should already be 0, but explicit is better)
-                NextAgentId::<T>::put(0u64);
-                NextFeedbackId::<T>::put(0u64);
-                NextAuthorizationId::<T>::put(0u64);
-                NextRequestId::<T>::put(0u64);
-                NextEscrowId::<T>::put(0u64);
-                NextDisputeId::<T>::put(0u64);
-                weight = weight.saturating_add(T::DbWeight::get().writes(6));
-            }
+				// Initialize counters (they should already be 0, but explicit is better)
+				NextAgentId::<T>::put(0u64);
+				NextFeedbackId::<T>::put(0u64);
+				NextAuthorizationId::<T>::put(0u64);
+				NextRequestId::<T>::put(0u64);
+				NextEscrowId::<T>::put(0u64);
+				NextDisputeId::<T>::put(0u64);
+				weight = weight.saturating_add(T::DbWeight::get().writes(6));
+			}
 
-            weight
-        }
+			weight
+		}
 
-        #[cfg(feature = "try-runtime")]
-        fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
-            let current_version = Pallet::<T>::on_chain_storage_version();
+		#[cfg(feature = "try-runtime")]
+		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
+			let current_version = Pallet::<T>::on_chain_storage_version();
 
-            // Skip if already at v1 (deployed in v0.9.43)
-            if current_version >= StorageVersion::new(1) {
-                return Ok(Vec::new());
-            }
+			// Skip if already at v1 (deployed in v0.9.43)
+			if current_version >= StorageVersion::new(1) {
+				return Ok(Vec::new())
+			}
 
-            // If at v0, check that no data exists (this is initial deployment)
-            let agent_count = NextAgentId::<T>::get();
-            let feedback_count = NextFeedbackId::<T>::get();
+			// If at v0, check that no data exists (this is initial deployment)
+			let agent_count = NextAgentId::<T>::get();
+			let feedback_count = NextFeedbackId::<T>::get();
 
-            ensure!(agent_count == 0, "Unexpected agents found before migration");
-            ensure!(feedback_count == 0, "Unexpected feedbacks found before migration");
+			ensure!(agent_count == 0, "Unexpected agents found before migration");
+			ensure!(feedback_count == 0, "Unexpected feedbacks found before migration");
 
-            Ok(Vec::new())
-        }
+			Ok(Vec::new())
+		}
 
-        #[cfg(feature = "try-runtime")]
-        fn post_upgrade(_state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
-            let current_version = Pallet::<T>::on_chain_storage_version();
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade(_state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+			let current_version = Pallet::<T>::on_chain_storage_version();
 
-            // Ensure we're at v1
-            ensure!(current_version >= STORAGE_VERSION, "Storage version not updated correctly");
+			// Ensure we're at v1
+			ensure!(current_version >= STORAGE_VERSION, "Storage version not updated correctly");
 
-            Ok(())
-        }
-    }
+			Ok(())
+		}
+	}
 }
 
 // Placeholder for future v2 migration
@@ -113,47 +113,47 @@ pub type Migrations<T> = (v1::InitialDeployment<T>,);
 
 #[cfg(test)]
 mod tests {
-    use frame_support::traits::OnRuntimeUpgrade;
+	use frame_support::traits::OnRuntimeUpgrade;
 
-    use super::*;
-    use crate::mock::*;
+	use super::*;
+	use crate::mock::*;
 
-    #[test]
-    fn initial_deployment_migration_works() {
-        new_test_ext().execute_with(|| {
-            // Ensure we're at version 0
-            assert_eq!(Pallet::<Test>::on_chain_storage_version(), StorageVersion::new(0));
+	#[test]
+	fn initial_deployment_migration_works() {
+		new_test_ext().execute_with(|| {
+			// Ensure we're at version 0
+			assert_eq!(Pallet::<Test>::on_chain_storage_version(), StorageVersion::new(0));
 
-            // Run migration
-            let _weight = v1::InitialDeployment::<Test>::on_runtime_upgrade();
+			// Run migration
+			let _weight = v1::InitialDeployment::<Test>::on_runtime_upgrade();
 
-            // Verify storage version updated
-            assert_eq!(Pallet::<Test>::on_chain_storage_version(), StorageVersion::new(1));
+			// Verify storage version updated
+			assert_eq!(Pallet::<Test>::on_chain_storage_version(), StorageVersion::new(1));
 
-            // Verify counters initialized
-            assert_eq!(NextAgentId::<Test>::get(), 0);
-            assert_eq!(NextFeedbackId::<Test>::get(), 0);
-            assert_eq!(NextAuthorizationId::<Test>::get(), 0);
-        });
-    }
+			// Verify counters initialized
+			assert_eq!(NextAgentId::<Test>::get(), 0);
+			assert_eq!(NextFeedbackId::<Test>::get(), 0);
+			assert_eq!(NextAuthorizationId::<Test>::get(), 0);
+		});
+	}
 
-    #[test]
-    fn migration_is_idempotent() {
-        new_test_ext().execute_with(|| {
-            // Run migration once
-            v1::InitialDeployment::<Test>::on_runtime_upgrade();
+	#[test]
+	fn migration_is_idempotent() {
+		new_test_ext().execute_with(|| {
+			// Run migration once
+			v1::InitialDeployment::<Test>::on_runtime_upgrade();
 
-            // Ensure migration completed
-            assert_eq!(Pallet::<Test>::on_chain_storage_version(), StorageVersion::new(1));
+			// Ensure migration completed
+			assert_eq!(Pallet::<Test>::on_chain_storage_version(), StorageVersion::new(1));
 
-            // Run migration again (should be skipped)
-            let _weight = v1::InitialDeployment::<Test>::on_runtime_upgrade();
+			// Run migration again (should be skipped)
+			let _weight = v1::InitialDeployment::<Test>::on_runtime_upgrade();
 
-            // Version should still be v1 (not changed)
-            assert_eq!(Pallet::<Test>::on_chain_storage_version(), StorageVersion::new(1));
+			// Version should still be v1 (not changed)
+			assert_eq!(Pallet::<Test>::on_chain_storage_version(), StorageVersion::new(1));
 
-            // Counters should still be 0
-            assert_eq!(NextAgentId::<Test>::get(), 0);
-        });
-    }
+			// Counters should still be 0
+			assert_eq!(NextAgentId::<Test>::get(), 0);
+		});
+	}
 }

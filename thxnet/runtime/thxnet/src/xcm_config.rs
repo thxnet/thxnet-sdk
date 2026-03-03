@@ -28,9 +28,6 @@ use frame_support::{
 };
 use frame_system::EnsureRoot;
 use pallet_xcm::XcmPassthrough;
-use thxnet_runtime_constants::{
-	currency::CENTS, xcm::body::FELLOWSHIP_ADMIN_INDEX,
-};
 use polkadot_runtime_constants::system_parachain::*;
 use runtime_common::{
 	crowdloan, paras_registrar,
@@ -38,6 +35,7 @@ use runtime_common::{
 	ToAuthor,
 };
 use sp_core::ConstU32;
+use thxnet_runtime_constants::{currency::CENTS, xcm::body::FELLOWSHIP_ADMIN_INDEX};
 use xcm::latest::prelude::*;
 use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,

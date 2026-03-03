@@ -8,11 +8,11 @@ use crate::{AccountId, Assets, Runtime};
 pub struct CreditToBlockAuthor;
 
 impl HandleCredit<AccountId, Assets> for CreditToBlockAuthor {
-    fn handle_credit(credit: Credit<AccountId, Assets>) {
-        if let Some(author) = pallet_authorship::Pallet::<Runtime>::author() {
-            // Drop the result which will trigger the `OnDrop` of the imbalance in case of
-            // error.
-            let _ = <Assets as Balanced<AccountId>>::resolve(&author, credit);
-        }
-    }
+	fn handle_credit(credit: Credit<AccountId, Assets>) {
+		if let Some(author) = pallet_authorship::Pallet::<Runtime>::author() {
+			// Drop the result which will trigger the `OnDrop` of the imbalance in case of
+			// error.
+			let _ = <Assets as Balanced<AccountId>>::resolve(&author, credit);
+		}
+	}
 }
