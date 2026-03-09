@@ -143,7 +143,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("thxnet"),
 	impl_name: create_runtime_str!("thxnet"),
 	authoring_version: 0,
-	spec_version: 101_000_000,
+	spec_version: 102_000_000,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 25,
@@ -1798,15 +1798,9 @@ pub mod migrations {
 
 	/// Unreleased migrations. Add new ones here:
 	/// THXNet keeps Gov V1 (Democracy, Council, etc.) — do NOT remove those pallets.
-	pub type Unreleased = (
-		pallet_im_online::migration::v1::Migration<Runtime>,
-		parachains_configuration::migration::v7::MigrateToV7<Runtime>,
-		parachains_scheduler::migration::v1::MigrateToV1<Runtime>,
-		parachains_configuration::migration::v8::MigrateToV8<Runtime>,
-		parachains_configuration::migration::v9::MigrateToV9<Runtime>,
-		// Migrate parachain info format
-		paras_registrar::migration::VersionCheckedMigrateToV1<Runtime, ParachainsToUnlock>,
-	);
+	/// v1.1.0 → v1.2.0: No new migrations needed. All v0.9.43 → v1.1.0 migrations
+	/// (ImOnline v1, Configuration v7/v8/v9, Scheduler v1, Registrar v1) already ran.
+	pub type Unreleased = ();
 }
 
 /// Unchecked extrinsic type as expected by this runtime.
