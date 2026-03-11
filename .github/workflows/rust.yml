@@ -6,6 +6,7 @@ on:
       - main
       - base/*
       - experiment/*
+      - upgrade/*
       - feature/*
       - ci/*
   pull_request:
@@ -20,18 +21,13 @@ concurrency:
 jobs:
   check:
     name: Cargo check (thxnet crates)
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
+    container:
+      image: docker.io/paritytech/ci-linux:production
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Nix
-        uses: cachix/install-nix-action@v27
-
-      - name: Pre Cache
-        run: |
-          rm -rf ~/.cargo/registry/index/ ~/.cargo/registry/cache/ ~/.cargo/git/db/
-
-      - name: Cache
+      - name: Cache cargo registry + git
         uses: actions/cache@v4
         with:
           path: |
@@ -42,12 +38,12 @@ jobs:
 
       - name: Cargo check — rootchain runtimes
         run: |
-          nix develop --command bash -c "cargo check \
+          cargo check \
             --package thxnet-runtime \
-            --package thxnet-testnet-runtime"
+            --package thxnet-testnet-runtime
 
       - name: Cargo check — leafchain
         run: |
-          nix develop --command bash -c "cargo check \
+          cargo check \
             --package general-runtime \
-            --package thxnet-leafchain"
+            --package thxnet-leafchain
