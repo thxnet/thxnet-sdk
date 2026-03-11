@@ -3,11 +3,7 @@ name: Rustfmt check
 on:
   push:
     branches:
-      - master
       - main
-      - base/*
-      - experiment/*
-      - upgrade/*
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
 

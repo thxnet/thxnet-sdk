@@ -4,11 +4,6 @@ on:
   push:
     branches:
       - main
-      - base/*
-      - experiment/*
-      - upgrade/*
-      - feature/*
-      - ci/*
   pull_request:
 
 env:
