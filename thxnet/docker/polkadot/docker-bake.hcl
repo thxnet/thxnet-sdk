@@ -26,7 +26,7 @@ target "rootchain" {
     "io.thxnet.image.description" = "THXNET.: The Hybrid Next-Gen Blockchain Network"
   }
   contexts = {
-    ci-linux = "docker-image://docker.io/paritytech/ci-linux:production"
+    ci-linux = "docker-image://docker.io/paritytech/ci-unified:bullseye-1.70.0-2023-05-23-v20230706"
     ubuntu   = "docker-image://docker.io/library/ubuntu:20.04"
   }
 }

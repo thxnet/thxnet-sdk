@@ -20,7 +20,7 @@ jobs:
     name: Cargo check (thxnet crates)
     runs-on: self-hosted
     container:
-      image: docker.io/paritytech/ci-linux:production
+      image: docker.io/paritytech/ci-unified:bullseye-1.70.0-2023-05-23-v20230706
       volumes:
         - /data/ci-cache:/cache
     steps:
