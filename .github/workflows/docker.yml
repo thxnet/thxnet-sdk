@@ -31,6 +31,7 @@ jobs:
     env:
       CARGO_TARGET_DIR: /cache/cargo-target/release
       CARGO_HOME: /cache/cargo-home
+      WASM_BUILD_WORKSPACE_HINT: ${{ github.workspace }}
     steps:
       - uses: actions/checkout@v4
 
