@@ -56,6 +56,10 @@ jobs:
         if: always()
         run: rm -rf /cache/cargo-target/release
 
+      - name: Fix workspace permissions
+        if: always()
+        run: chown -R 1000:1001 $GITHUB_WORKSPACE
+
   rootchain:
     name: Build rootchain image
     needs: build-binaries
