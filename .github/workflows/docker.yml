@@ -52,6 +52,16 @@ jobs:
             /cache/cargo-target/release/release/polkadot-execute-worker
             /cache/cargo-target/release/release/thxnet-leafchain
 
+      - name: Upload WASM runtimes
+        uses: actions/upload-artifact@v4
+        with:
+          name: wasm-runtimes
+          retention-days: 1
+          path: |
+            /cache/cargo-target/release/release/wbuild/thxnet-runtime/thxnet_runtime.compact.compressed.wasm
+            /cache/cargo-target/release/release/wbuild/thxnet-testnet-runtime/thxnet_testnet_runtime.compact.compressed.wasm
+            /cache/cargo-target/release/release/wbuild/general-runtime/general_runtime.compact.compressed.wasm
+
       - name: Clean build cache
         if: always()
         run: rm -rf /cache/cargo-target/release
