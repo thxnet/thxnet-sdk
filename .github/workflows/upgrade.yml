@@ -4,9 +4,6 @@ on:
   workflow_run:
     workflows: ["Docker"]
     types: [completed]
-    branches:
-      - "upgrade/*"
-      - "experiment/*"
   workflow_dispatch:
     inputs:
       version:
@@ -20,7 +17,11 @@ concurrency:
 jobs:
   build-extras:
     name: Build try-runtime & fast-runtime
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       (startsWith(github.event.workflow_run.head_branch, 'upgrade/') ||
+        startsWith(github.event.workflow_run.head_branch, 'experiment/')))
     runs-on: self-hosted
     container:
       image: docker.io/paritytech/ci-unified:bullseye-1.70.0-2023-05-23-v20230706
@@ -77,7 +78,11 @@ jobs:
 
   download-docker-artifacts:
     name: Download Docker workflow artifacts
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       (startsWith(github.event.workflow_run.head_branch, 'upgrade/') ||
+        startsWith(github.event.workflow_run.head_branch, 'experiment/')))
     runs-on: self-hosted
     steps:
       - name: Download artifacts from Docker workflow
