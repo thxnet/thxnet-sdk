@@ -167,3 +167,19 @@ jobs:
           file: thxnet/docker/leafchain/leafchain_injected.Dockerfile
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ env.REGISTRY }}/${{ env.LEAFCHAIN_IMAGE }}:${{ steps.tag.outputs.tag }}
+
+  trigger-upgrade:
+    name: Trigger upgrade workflow
+    needs: [rootchain, leafchain]
+    runs-on: self-hosted
+    if: >-
+      startsWith(github.head_ref || github.ref_name, 'upgrade/') ||
+      startsWith(github.head_ref || github.ref_name, 'experiment/')
+    steps:
+      - name: Trigger upgrade workflow
+        run: |
+          gh workflow run upgrade.yml \
+            --repo ${{ github.repository }} \
+            --ref ${{ github.head_ref || github.ref_name }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
