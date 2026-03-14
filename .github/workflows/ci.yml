@@ -35,7 +35,7 @@ jobs:
       CARGO_HOME: /cache/cargo-home
       WASM_BUILD_WORKSPACE_HINT: ${{ github.workspace }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Build rootchain binaries
         run: cargo build --locked --release -p polkadot
@@ -44,7 +44,7 @@ jobs:
         run: cargo build --locked --release -p thxnet-leafchain
 
       - name: Upload binaries
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: binaries
           retention-days: 3
@@ -55,7 +55,7 @@ jobs:
             /cache/cargo-target/release/release/thxnet-leafchain
 
       - name: Upload WASM runtimes
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: wasm-runtimes
           retention-days: 3
@@ -82,10 +82,10 @@ jobs:
       contents: read
       packages: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Download binaries
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: binaries
           path: target/release
@@ -94,11 +94,11 @@ jobs:
         run: chmod +x target/release/polkadot target/release/polkadot-prepare-worker target/release/polkadot-execute-worker
 
       - name: Install docker buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Login to GitHub Container Registry
         if: github.event_name != 'pull_request'
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -116,7 +116,7 @@ jobs:
           fi
 
       - name: Build rootchain image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
           file: thxnet/docker/polkadot/polkadot_injected.Dockerfile
@@ -131,10 +131,10 @@ jobs:
       contents: read
       packages: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Download binaries
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: binaries
           path: target/release
@@ -143,11 +143,11 @@ jobs:
         run: chmod +x target/release/thxnet-leafchain
 
       - name: Install docker buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Login to GitHub Container Registry
         if: github.event_name != 'pull_request'
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -165,7 +165,7 @@ jobs:
           fi
 
       - name: Build leafchain image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
           file: thxnet/docker/leafchain/leafchain_injected.Dockerfile
@@ -190,7 +190,7 @@ jobs:
       CARGO_HOME: /cache/cargo-home
       WASM_BUILD_WORKSPACE_HINT: ${{ github.workspace }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Build try-runtime WASMs
         run: |
@@ -211,14 +211,14 @@ jobs:
           cp /cache/cargo-target/upgrade/release/polkadot-execute-worker /tmp/fast-runtime-bins/
 
       - name: Upload try-runtime WASMs
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: try-runtime-wasm
           retention-days: 3
           path: /tmp/try-runtime-wasm/
 
       - name: Upload fast-runtime binaries
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: fast-runtime-bins
           retention-days: 3
@@ -238,7 +238,7 @@ jobs:
     runs-on: self-hosted
     steps:
       - name: Download try-runtime WASMs
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: try-runtime-wasm
           path: /tmp/try-runtime-wasm
@@ -277,16 +277,16 @@ jobs:
     needs: [build-upgrade-extras, build-binaries]
     runs-on: self-hosted
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Download fast-runtime binaries
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: fast-runtime-bins
           path: /tmp/upgrade-bins
 
       - name: Download leafchain binary
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: binaries
           path: /tmp/upgrade-bins-all
@@ -316,7 +316,7 @@ jobs:
       CARGO_HOME: /cache/cargo-home
       WASM_BUILD_WORKSPACE_HINT: ${{ github.workspace }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Run XCM integration tests
         run: cargo test -p xcm-integration-tests --release

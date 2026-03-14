@@ -27,7 +27,7 @@ jobs:
       CARGO_HOME: /cache/cargo-home
       WASM_BUILD_WORKSPACE_HINT: ${{ github.workspace }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Build WASM runtimes
         run: |
@@ -45,7 +45,7 @@ jobs:
 
       - name: Publish WASM runtimes
         if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           draft: false
           prerelease: false
@@ -58,7 +58,7 @@ jobs:
 
       - name: Upload WASM artifacts
         if: github.event_name == 'workflow_dispatch'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: wasm-runtimes
           path: |
