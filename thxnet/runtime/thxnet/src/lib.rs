@@ -143,7 +143,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("thxnet"),
 	impl_name: create_runtime_str!("thxnet"),
 	authoring_version: 0,
-	spec_version: 102_000_000,
+	spec_version: 103_000_000,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 25,
@@ -1796,10 +1796,12 @@ pub mod migrations {
 		}
 	}
 
-	/// v1.1.0 → v1.2.0: No new migrations needed. All v0.9.43 → v1.1.0 migrations
-	/// (ImOnline v1, Configuration v7/v8/v9, Scheduler v1, Registrar v1) already ran.
-	/// THXNet keeps Gov V1 (Democracy, Council, etc.) — do NOT remove those pallets.
-	pub type Unreleased = ();
+	/// v1.2.0 → v1.3.0: NominationPools v5→v6→v7.
+	/// THXNet keeps Gov V1 — do NOT include pallet_referenda migrations.
+	pub type Unreleased = (
+		pallet_nomination_pools::migration::versioned_migrations::V5toV6<Runtime>,
+		pallet_nomination_pools::migration::versioned_migrations::V6ToV7<Runtime>,
+	);
 }
 
 /// Unchecked extrinsic type as expected by this runtime.
