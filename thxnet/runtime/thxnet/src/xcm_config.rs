@@ -28,7 +28,9 @@ use frame_support::{
 };
 use frame_system::EnsureRoot;
 use pallet_xcm::XcmPassthrough;
-use polkadot_runtime_constants::system_parachain::*;
+// System parachain IDs (previously from polkadot-runtime-constants, removed upstream in v1.3.0)
+const STATEMINT_ID: u32 = 1000;
+const COLLECTIVES_ID: u32 = 1001;
 use runtime_common::{
 	crowdloan, paras_registrar,
 	xcm_sender::{ChildParachainRouter, ExponentialPrice},
