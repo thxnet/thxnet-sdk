@@ -292,6 +292,7 @@ impl pallet_balances::Config for Runtime {
 	type ExistentialDeposit = ExistentialDeposit;
 	type FreezeIdentifier = ();
 	type RuntimeHoldReason = RuntimeHoldReason;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type MaxFreezes = ConstU32<0>;
 	type MaxHolds = ConstU32<0>;
 	type MaxLocks = ConstU32<50>;
@@ -357,7 +358,7 @@ impl cumulus_pallet_xcmp_queue::Config for Runtime {
 	type ControllerOrigin = EnsureRoot<AccountId>;
 	type ControllerOriginConverter = XcmOriginToTransactDispatchOrigin;
 	type ExecuteOverweightOrigin = EnsureRoot<AccountId>;
-	type PriceForSiblingDelivery = ();
+	type PriceForSiblingDelivery = polkadot_runtime_common::xcm_sender::NoPriceForMessageDelivery<cumulus_primitives_core::ParaId>;
 	type RuntimeEvent = RuntimeEvent;
 	type VersionWrapper = ();
 	type WeightInfo = ();
@@ -683,6 +684,7 @@ impl pallet_identity::Config for Runtime {
 	type FieldDeposit = FieldDeposit;
 	type ForceOrigin = EnsureRoot<AccountId>;
 	type MaxAdditionalFields = MaxAdditionalFields;
+	type IdentityInformation = pallet_identity::simple::IdentityInfo<MaxAdditionalFields>;
 	type MaxRegistrars = MaxRegistrars;
 	type MaxSubAccounts = MaxSubAccounts;
 	type RegistrarOrigin = EnsureRoot<AccountId>;

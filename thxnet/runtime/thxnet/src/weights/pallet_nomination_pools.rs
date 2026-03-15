@@ -598,4 +598,7 @@ impl<T: frame_system::Config> pallet_nomination_pools::WeightInfo for WeightInfo
 			.saturating_add(T::DbWeight::get().reads(4))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}
+	fn adjust_pool_deposit() -> Weight {
+		Weight::from_parts(10_000_000, 0)
+	}
 }
