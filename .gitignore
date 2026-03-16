@@ -18,10 +18,10 @@
 **/.criterion/
 **/*.rs.bk
 **/chains/
-**/hfuzz_target/
+**/hfuzz_target
 **/hfuzz_workspace/
 **/node_modules
-**/target/
+**/target
 **/wip/*.stderr
 /.cargo/config
 /.envrc
@@ -35,6 +35,6 @@ pwasm-libc/Cargo.lock
 release-artifacts
 release.json
 rls*.log
-runtime/wasm/target/
+runtime/wasm/target
 substrate.code-workspace
-target/
+target
