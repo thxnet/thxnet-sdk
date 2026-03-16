@@ -95,6 +95,8 @@ jobs:
 
       - name: Install docker buildx
         uses: docker/setup-buildx-action@v4
+        with:
+          driver: docker
 
       - name: Login to GitHub Container Registry
         if: github.event_name != 'pull_request'
@@ -144,6 +146,8 @@ jobs:
 
       - name: Install docker buildx
         uses: docker/setup-buildx-action@v4
+        with:
+          driver: docker
 
       - name: Login to GitHub Container Registry
         if: github.event_name != 'pull_request'
