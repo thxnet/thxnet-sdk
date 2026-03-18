@@ -12,17 +12,19 @@ pub mod xcm_config;
 // For Proxy Pallet
 use codec::{Decode, Encode, MaxEncodedLen};
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
+use cumulus_primitives_core::{AggregateMessageOrigin, ParaId};
 use frame_support::{
 	construct_runtime,
 	dispatch::DispatchClass,
 	parameter_types,
 	traits::{
 		tokens::nonfungibles_v2::Inspect, AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU32,
-		ConstU64, Everything, InstanceFilter,
+		ConstU64, Everything, InstanceFilter, TransformOrigin,
 	},
 	weights::{constants::WEIGHT_REF_TIME_PER_SECOND, ConstantMultiplier, Weight},
 	PalletId,
 };
+use parachains_common::message_queue::{NarrowOriginToSibling, ParaIdToSibling};
 use frame_system::{
 	limits::{BlockLength, BlockWeights},
 	EnsureRoot, EnsureSigned,
@@ -48,8 +50,7 @@ use sp_version::RuntimeVersion;
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 // XCM Imports
 use xcm::latest::prelude::BodyId;
-use xcm_config::{XcmConfig, XcmOriginToTransactDispatchOrigin};
-use xcm_executor::XcmExecutor;
+use xcm_config::XcmOriginToTransactDispatchOrigin;
 
 /// Runtime API definition for assets.
 pub mod assets_api;
@@ -124,14 +125,7 @@ pub type CheckedExtrinsic = generic::CheckedExtrinsic<AccountId, RuntimeCall, Si
 /// - XcmpQueue: v2 (downgraded from v3 by SetStorageVersions in v0.9.43) → v3 (counter init)
 /// - DmpQueue: v1 (downgraded from v2 by SetStorageVersions in v0.9.43) → v2 (counter init)
 /// - pallet-trustless-agent: v1 (deployed in v0.9.43) → no migration needed
-pub type Migrations = (
-	// CollatorSelection v0 → v1: sort Invulnerables list
-	pallet_collator_selection::migration::v1::MigrateToV1<Runtime>,
-	// XcmpQueue v2 → v3: initialize Overweight counter
-	cumulus_pallet_xcmp_queue::migration::Migration<Runtime>,
-	// DmpQueue v1 → v2: initialize Overweight counter
-	cumulus_pallet_dmp_queue::migration::Migration<Runtime>,
-);
+pub type Migrations = ();
 
 /// Executive: handles dispatch to the various modules.
 pub type Executive = frame_executive::Executive<
@@ -172,7 +166,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("thxnet-general-runtime"),
 	impl_name: create_runtime_str!("thxnet-general-runtime"),
 	authoring_version: 1,
-	spec_version: 7,
+	spec_version: 8,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -339,13 +333,14 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 		BLOCK_PROCESSING_VELOCITY,
 		UNINCLUDED_SEGMENT_CAPACITY,
 	>;
-	type DmpMessageHandler = DmpQueue;
+	type DmpQueue = frame_support::traits::EnqueueWithOrigin<MessageQueue, RelayOrigin>;
 	type OnSystemEvent = ();
 	type OutboundXcmpMessageSource = XcmpQueue;
 	type ReservedDmpWeight = ReservedDmpWeight;
 	type ReservedXcmpWeight = ReservedXcmpWeight;
 	type RuntimeEvent = RuntimeEvent;
 	type SelfParaId = parachain_info::Pallet<Runtime>;
+	type WeightInfo = ();
 	type XcmpMessageHandler = XcmpQueue;
 }
 
@@ -353,24 +348,45 @@ impl parachain_info::Config for Runtime {}
 
 impl cumulus_pallet_aura_ext::Config for Runtime {}
 
+parameter_types! {
+	pub MessageQueueServiceWeight: Weight = Perbill::from_percent(35) * RuntimeBlockWeights::get().max_block;
+	pub const RelayOrigin: AggregateMessageOrigin = AggregateMessageOrigin::Parent;
+}
+
+impl pallet_message_queue::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = ();
+	type MessageProcessor = xcm_builder::ProcessXcmMessage<
+		AggregateMessageOrigin,
+		xcm_executor::XcmExecutor<xcm_config::XcmConfig>,
+		RuntimeCall,
+	>;
+	type Size = u32;
+	type QueueChangeHandler = NarrowOriginToSibling<XcmpQueue>;
+	type QueuePausedQuery = NarrowOriginToSibling<XcmpQueue>;
+	type HeapSize = sp_core::ConstU32<{ 64 * 1024 }>;
+	type MaxStale = sp_core::ConstU32<8>;
+	type ServiceWeight = MessageQueueServiceWeight;
+}
+
 impl cumulus_pallet_xcmp_queue::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
 	type ChannelInfo = ParachainSystem;
+	type VersionWrapper = ();
+	type XcmpQueue = TransformOrigin<MessageQueue, AggregateMessageOrigin, ParaId, ParaIdToSibling>;
+	type MaxInboundSuspended = sp_core::ConstU32<1_000>;
 	type ControllerOrigin = EnsureRoot<AccountId>;
 	type ControllerOriginConverter = XcmOriginToTransactDispatchOrigin;
-	type ExecuteOverweightOrigin = EnsureRoot<AccountId>;
 	type PriceForSiblingDelivery = polkadot_runtime_common::xcm_sender::NoPriceForMessageDelivery<
 		cumulus_primitives_core::ParaId,
 	>;
-	type RuntimeEvent = RuntimeEvent;
-	type VersionWrapper = ();
 	type WeightInfo = ();
-	type XcmExecutor = XcmExecutor<XcmConfig>;
 }
 
 impl cumulus_pallet_dmp_queue::Config for Runtime {
-	type ExecuteOverweightOrigin = EnsureRoot<AccountId>;
 	type RuntimeEvent = RuntimeEvent;
-	type XcmExecutor = XcmExecutor<XcmConfig>;
+	type DmpSink = frame_support::traits::EnqueueWithOrigin<MessageQueue, RelayOrigin>;
+	type WeightInfo = ();
 }
 
 parameter_types! {
@@ -673,7 +689,7 @@ parameter_types! {
 	// Aligned with Rootchain economic standards (100 DOLLARS basic deposit)
 	// Using deposit() function: items * 15 * CENTS + bytes * 6 * CENTS
 	pub const BasicDeposit: Balance = deposit(667, 0);        // ≈ 100.05 DOLLARS
-	pub const FieldDeposit: Balance = deposit(0, 0);          // 0 DOLLARS (free additional fields)
+	pub const ByteDeposit: Balance = deposit(0, 0);            // 0 DOLLARS (free additional fields)
 	pub const SubAccountDeposit: Balance = deposit(0, 0);     // 0 DOLLARS (free sub-accounts)
 	pub const MaxSubAccounts: u32 = 100;
 	pub const MaxAdditionalFields: u32 = 100;
@@ -683,10 +699,9 @@ parameter_types! {
 impl pallet_identity::Config for Runtime {
 	type BasicDeposit = BasicDeposit;
 	type Currency = Balances;
-	type FieldDeposit = FieldDeposit;
+	type ByteDeposit = ByteDeposit;
 	type ForceOrigin = EnsureRoot<AccountId>;
-	type MaxAdditionalFields = MaxAdditionalFields;
-	type IdentityInformation = pallet_identity::simple::IdentityInfo<MaxAdditionalFields>;
+	type IdentityInformation = pallet_identity::legacy::IdentityInfo<MaxAdditionalFields>;
 	type MaxRegistrars = MaxRegistrars;
 	type MaxSubAccounts = MaxSubAccounts;
 	type RegistrarOrigin = EnsureRoot<AccountId>;
@@ -783,6 +798,7 @@ construct_runtime!(
 		PolkadotXcm: pallet_xcm = 31,
 		CumulusXcm: cumulus_pallet_xcm = 32,
 		DmpQueue: cumulus_pallet_dmp_queue = 33,
+		MessageQueue: pallet_message_queue = 34,
 
 		Sudo: pallet_sudo = 255,
 	}
@@ -990,10 +1006,10 @@ impl_runtime_apis! {
 
 		fn system_attribute(
 			collection: u32,
-			item: u32,
+			item: Option<u32>,
 			key: Vec<u8>,
 		) -> Option<Vec<u8>> {
-			<Nfts as Inspect<AccountId>>::system_attribute(&collection, &item, &key)
+			<Nfts as Inspect<AccountId>>::system_attribute(&collection, item.as_ref(), &key)
 		}
 
 		fn collection_attribute(collection: u32, key: Vec<u8>) -> Option<Vec<u8>> {

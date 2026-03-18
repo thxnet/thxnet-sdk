@@ -1,10 +1,10 @@
-use general_runtime::{AccountId, AuraId, Balance, UNITS};
+use general_runtime::{AccountId, AuraId, Balance, UNITS, WASM_BINARY};
 use hex_literal::hex;
 use sc_chain_spec::Properties;
 use sc_service::ChainType;
 use sp_core::crypto::UncheckedInto;
 
-use crate::chain_spec::{mainnet::mainnet_genesis, ChainSpec, Extensions, ROOTCHAIN_MAINNET_NAME};
+use crate::chain_spec::{mainnet::mainnet_genesis_patch, ChainSpec, Extensions, ROOTCHAIN_MAINNET_NAME};
 
 const ROOT_STASH: Balance = 1_000_000_000 * UNITS;
 const LEAFCHAIN_ID: u32 = 1004;
@@ -15,9 +15,6 @@ pub fn mainnet_config() -> ChainSpec {
 	properties.insert("tokenSymbol".into(), "AVATC".into());
 	properties.insert("tokenDecimals".into(), 10.into());
 	properties.insert("ss58Format".into(), 42.into());
-
-	let extension =
-		Extensions { rootchain: ROOTCHAIN_MAINNET_NAME.to_string(), leafchain_id: LEAFCHAIN_ID };
 
 	// 5F1ZF35R5dzb3vwU9r4FQ25pfvLn47a17k89N6fxmET3xCDh
 	let root_key =
@@ -46,32 +43,27 @@ pub fn mainnet_config() -> ChainSpec {
 		),
 	];
 
-	ChainSpec::from_genesis(
-		// Name
-		"AVATECT",
-		// ID
-		"avatect_mainnet",
-		ChainType::Live,
-		move || {
-			mainnet_genesis(
-				Some(root_key.clone()),
-				vec![(
-					root_key.clone(),
-					ROOT_STASH - (invulnerables.len() as u128) * COLLATOR_STASH,
-				)],
-				// initial collators.
-				invulnerables
-					.iter()
-					.map(|x| (x.0.clone(), COLLATOR_STASH, x.1.clone()))
-					.collect(),
-				LEAFCHAIN_ID.into(),
-			)
-		},
-		Vec::new(),
-		None,
-		None,
-		None,
-		Some(properties),
-		extension,
+	let wasm_binary = WASM_BINARY.expect("WASM binary was not built, please build it!");
+
+	ChainSpec::builder(
+		wasm_binary,
+		Extensions { rootchain: ROOTCHAIN_MAINNET_NAME.to_string(), leafchain_id: LEAFCHAIN_ID },
 	)
+	.with_name("AVATECT")
+	.with_id("avatect_mainnet")
+	.with_chain_type(ChainType::Live)
+	.with_genesis_config_patch(mainnet_genesis_patch(
+		Some(root_key.clone()),
+		vec![(
+			root_key,
+			ROOT_STASH - (invulnerables.len() as u128) * COLLATOR_STASH,
+		)],
+		invulnerables
+			.iter()
+			.map(|x| (x.0.clone(), COLLATOR_STASH, x.1.clone()))
+			.collect(),
+		LEAFCHAIN_ID.into(),
+	))
+	.with_properties(properties)
+	.build()
 }

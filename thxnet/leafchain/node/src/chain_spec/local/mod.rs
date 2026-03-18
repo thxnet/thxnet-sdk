@@ -7,11 +7,7 @@ use crate::chain_spec::{
 	get_account_id_from_seed, get_collator_keys_from_seed, Extensions, SAFE_XCM_VERSION,
 };
 use cumulus_primitives_core::ParaId;
-use general_runtime::{
-	AccountId, AuraId, Balance, BalancesConfig, CollatorSelectionConfig, ParachainInfoConfig,
-	PolkadotXcmConfig, RuntimeGenesisConfig, SessionConfig, SessionKeys, SudoConfig, SystemConfig,
-	EXISTENTIAL_DEPOSIT, WASM_BINARY,
-};
+use general_runtime::{AccountId, AuraId, Balance, EXISTENTIAL_DEPOSIT, WASM_BINARY};
 use sc_chain_spec::Properties;
 use sc_service::ChainType;
 use sp_core::sr25519;
@@ -31,48 +27,43 @@ fn make_properties(symbol: &str, decimals: u32, ss58_format: u32) -> Properties 
 	properties
 }
 
-/// Generate a genesis config for local development
-fn local_genesis(
+/// Generate a genesis config patch for local development
+fn local_genesis_patch(
 	root_key: AccountId,
 	endowed_accounts: Vec<(AccountId, Balance)>,
 	invulnerables: Vec<(AccountId, AuraId)>,
 	id: ParaId,
-) -> RuntimeGenesisConfig {
-	RuntimeGenesisConfig {
-		system: SystemConfig {
-			code: WASM_BINARY.expect("WASM binary was not built, please build it!").to_vec(),
-			_config: Default::default(),
+) -> serde_json::Value {
+	serde_json::json!({
+		"balances": {
+			"balances": endowed_accounts.iter().map(|(a, b)| (a, b)).collect::<Vec<_>>(),
 		},
-		balances: BalancesConfig { balances: endowed_accounts },
-		parachain_info: ParachainInfoConfig { parachain_id: id, _config: Default::default() },
-		collator_selection: CollatorSelectionConfig {
-			invulnerables: invulnerables.iter().cloned().map(|(acc, _)| acc).collect(),
-			candidacy_bond: EXISTENTIAL_DEPOSIT * 16,
-			..Default::default()
+		"parachainInfo": {
+			"parachainId": id,
 		},
-		session: SessionConfig {
-			keys: invulnerables
-				.into_iter()
+		"collatorSelection": {
+			"invulnerables": invulnerables.iter().map(|(acc, _)| acc).collect::<Vec<_>>(),
+			"candidacyBond": EXISTENTIAL_DEPOSIT * 16,
+		},
+		"session": {
+			"keys": invulnerables
+				.iter()
 				.map(|(acc, aura)| {
 					(
-						acc.clone(),          // account id
-						acc,                  // validator id
-						SessionKeys { aura }, // session keys
+						acc,                                                    // account id
+						acc,                                                    // validator id
+						general_runtime::SessionKeys { aura: aura.clone() },    // session keys
 					)
 				})
-				.collect(),
+				.collect::<Vec<_>>(),
 		},
-		aura: Default::default(),
-		aura_ext: Default::default(),
-		parachain_system: Default::default(),
-		polkadot_xcm: PolkadotXcmConfig {
-			safe_xcm_version: Some(SAFE_XCM_VERSION),
-			_config: Default::default(),
+		"polkadotXcm": {
+			"safeXcmVersion": Some(SAFE_XCM_VERSION),
 		},
-		transaction_payment: Default::default(),
-		assets: Default::default(),
-		sudo: SudoConfig { key: Some(root_key) },
-	}
+		"sudo": {
+			"key": Some(root_key),
+		},
+	})
 }
 
 /// LeafchainA local development config (Para ID: 2000)
@@ -96,33 +87,24 @@ pub fn leafchain_a_local_config() -> crate::chain_spec::ChainSpec {
 	let invulnerables: Vec<(AccountId, AuraId)> =
 		vec![get_collator_keys_from_seed("Alice"), get_collator_keys_from_seed("Bob")];
 
-	crate::chain_spec::ChainSpec::from_genesis(
-		// Name
-		"Leafchain A Local",
-		// ID
-		"leafchain_a_local",
-		ChainType::Local,
-		move || {
-			local_genesis(
-				root_key.clone(),
-				endowed_accounts.clone(),
-				invulnerables.clone(),
-				para_id.into(),
-			)
-		},
-		// Bootnodes
-		Vec::new(),
-		// Telemetry
-		None,
-		// Protocol ID
-		Some("leafchain-a-local"),
-		// Fork ID
-		None,
-		// Properties
-		Some(make_properties("LOCA", 12, 42)),
-		// Extensions
+	let wasm_binary = WASM_BINARY.expect("WASM binary was not built, please build it!");
+
+	crate::chain_spec::ChainSpec::builder(
+		wasm_binary,
 		Extensions { rootchain: ROOTCHAIN_LOCAL_NAME.into(), leafchain_id: para_id },
 	)
+	.with_name("Leafchain A Local")
+	.with_id("leafchain_a_local")
+	.with_chain_type(ChainType::Local)
+	.with_genesis_config_patch(local_genesis_patch(
+		root_key,
+		endowed_accounts,
+		invulnerables,
+		para_id.into(),
+	))
+	.with_protocol_id("leafchain-a-local")
+	.with_properties(make_properties("LOCA", 12, 42))
+	.build()
 }
 
 /// LeafchainB local development config (Para ID: 2001)
@@ -146,33 +128,24 @@ pub fn leafchain_b_local_config() -> crate::chain_spec::ChainSpec {
 	let invulnerables: Vec<(AccountId, AuraId)> =
 		vec![get_collator_keys_from_seed("Charlie"), get_collator_keys_from_seed("Dave")];
 
-	crate::chain_spec::ChainSpec::from_genesis(
-		// Name
-		"Leafchain B Local",
-		// ID
-		"leafchain_b_local",
-		ChainType::Local,
-		move || {
-			local_genesis(
-				root_key.clone(),
-				endowed_accounts.clone(),
-				invulnerables.clone(),
-				para_id.into(),
-			)
-		},
-		// Bootnodes
-		Vec::new(),
-		// Telemetry
-		None,
-		// Protocol ID
-		Some("leafchain-b-local"),
-		// Fork ID
-		None,
-		// Properties
-		Some(make_properties("LOCB", 12, 42)),
-		// Extensions
+	let wasm_binary = WASM_BINARY.expect("WASM binary was not built, please build it!");
+
+	crate::chain_spec::ChainSpec::builder(
+		wasm_binary,
 		Extensions { rootchain: ROOTCHAIN_LOCAL_NAME.into(), leafchain_id: para_id },
 	)
+	.with_name("Leafchain B Local")
+	.with_id("leafchain_b_local")
+	.with_chain_type(ChainType::Local)
+	.with_genesis_config_patch(local_genesis_patch(
+		root_key,
+		endowed_accounts,
+		invulnerables,
+		para_id.into(),
+	))
+	.with_protocol_id("leafchain-b-local")
+	.with_properties(make_properties("LOCB", 12, 42))
+	.build()
 }
 
 /// Development config for single collator testing (Para ID: 2000)
@@ -189,25 +162,22 @@ pub fn development_config() -> crate::chain_spec::ChainSpec {
 	// Single collator for development
 	let invulnerables: Vec<(AccountId, AuraId)> = vec![get_collator_keys_from_seed("Alice")];
 
-	crate::chain_spec::ChainSpec::from_genesis(
-		// Name
-		"Leafchain Development",
-		// ID
-		"leafchain_dev",
-		ChainType::Development,
-		move || {
-			local_genesis(
-				root_key.clone(),
-				endowed_accounts.clone(),
-				invulnerables.clone(),
-				para_id.into(),
-			)
-		},
-		Vec::new(),
-		None,
-		Some("leafchain-dev"),
-		None,
-		Some(make_properties("DEV", 12, 42)),
+	let wasm_binary = WASM_BINARY.expect("WASM binary was not built, please build it!");
+
+	crate::chain_spec::ChainSpec::builder(
+		wasm_binary,
 		Extensions { rootchain: ROOTCHAIN_LOCAL_NAME.into(), leafchain_id: para_id },
 	)
+	.with_name("Leafchain Development")
+	.with_id("leafchain_dev")
+	.with_chain_type(ChainType::Development)
+	.with_genesis_config_patch(local_genesis_patch(
+		root_key,
+		endowed_accounts,
+		invulnerables,
+		para_id.into(),
+	))
+	.with_protocol_id("leafchain-dev")
+	.with_properties(make_properties("DEV", 12, 42))
+	.build()
 }

@@ -18,7 +18,7 @@ pub use casey::pascal;
 pub use codec::Encode;
 pub use frame_support::{
 	sp_runtime::BuildStorage,
-	traits::{EnqueueMessage, Get, Hooks, ProcessMessage, ProcessMessageError, ServiceQueues},
+	traits::{EnqueueMessage, ExecuteOverweightError, Get, Hooks, ProcessMessage, ProcessMessageError, ServiceQueues},
 	weights::{Weight, WeightMeter},
 };
 pub use frame_system::AccountInfo;
@@ -27,7 +27,7 @@ pub use pallet_balances::AccountData;
 pub use paste;
 pub use sp_arithmetic::traits::Bounded;
 pub use sp_consensus_aura;
-pub use sp_core::{sr25519, storage::Storage, Pair, Public};
+pub use sp_core::{blake2_256, sr25519, storage::Storage, Pair, Public};
 pub use sp_io;
 pub use sp_runtime::traits::{IdentifyAccount, Verify};
 pub use sp_std::{cell::RefCell, collections::vec_deque::VecDeque, marker::PhantomData};
@@ -39,12 +39,13 @@ pub use cumulus_pallet_dmp_queue;
 pub use cumulus_pallet_parachain_system;
 pub use cumulus_pallet_xcmp_queue;
 pub use cumulus_primitives_core::{
-	self, relay_chain::BlockNumber as RelayBlockNumber, DmpMessageHandler, ParaId,
+	self, relay_chain::BlockNumber as RelayBlockNumber, DmpMessageHandler,
+	AggregateMessageOrigin as CumulusAggregateMessageOrigin, ParaId,
 	PersistedValidationData, XcmpMessageHandler,
 };
 pub use cumulus_primitives_parachain_inherent::ParachainInherentData;
 pub use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
-pub use pallet_message_queue;
+pub use pallet_message_queue::{self, Config as MessageQueueConfig, Pallet as MessageQueuePallet};
 pub use parachain_info;
 pub use parachains_common::{AccountId, BlockNumber};
 
@@ -197,13 +198,14 @@ pub trait RelayChain: ProcessMessage {
 	type Balances;
 }
 
-pub trait Parachain: XcmpMessageHandler + DmpMessageHandler {
+pub trait Parachain: XcmpMessageHandler {
 	type Runtime;
 	type RuntimeOrigin;
 	type RuntimeCall;
 	type RuntimeEvent;
 	type XcmpMessageHandler;
 	type DmpMessageHandler;
+	type MessageProcessor: ProcessMessage<Origin = CumulusAggregateMessageOrigin> + ServiceQueues;
 	type LocationToAccountId;
 	type System;
 	type Balances;
@@ -472,6 +474,7 @@ macro_rules! decl_test_parachains {
 				type RuntimeEvent = $runtime_event;
 				type XcmpMessageHandler = $xcmp_message_handler;
 				type DmpMessageHandler = $dmp_message_handler;
+				type MessageProcessor = $crate::DefaultParaMessageProcessor<$name>;
 				type LocationToAccountId = $location_to_account;
 				type System = $system;
 				type Balances = $balances_pallet;
@@ -518,18 +521,6 @@ macro_rules! __impl_xcm_handlers_for_parachain {
 			}
 		}
 
-		impl $crate::DmpMessageHandler for $name {
-			fn handle_dmp_messages(
-				iter: impl Iterator<Item = ($crate::RelayBlockNumber, Vec<u8>)>,
-				max_weight: $crate::Weight,
-			) -> $crate::Weight {
-				use $crate::{DmpMessageHandler, TestExt};
-
-				$name::execute_with(|| {
-					<Self as Parachain>::DmpMessageHandler::handle_dmp_messages(iter, max_weight)
-				})
-			}
-		}
 	};
 }
 
@@ -836,7 +827,7 @@ macro_rules! decl_test_networks {
 				}
 
 				fn _process_downward_messages() {
-					use $crate::{DmpMessageHandler, Bounded};
+					use $crate::{Bounded, ProcessMessage, CumulusAggregateMessageOrigin, WeightMeter, Encode};
 					use polkadot_parachain::primitives::RelayChainBlockNumber;
 
 					while let Some((to_para_id, messages))
@@ -853,7 +844,17 @@ macro_rules! decl_test_networks {
 									!$crate::DMP_DONE.with(|b| b.borrow_mut().get_mut(stringify!($name)).unwrap_or(&mut $crate::VecDeque::new()).contains(&(to_para_id, m.0, m.1.clone())))
 								}).collect::<Vec<(RelayChainBlockNumber, Vec<u8>)>>();
 								if msgs.len() != 0 {
-									<$parachain>::handle_dmp_messages(msgs.clone().into_iter(), $crate::Weight::max_value());
+									for (block, msg) in msgs.clone().into_iter() {
+										let mut weight_meter = WeightMeter::new();
+										<$parachain>::execute_with(|| {
+											let _ = <<$parachain as $crate::Parachain>::MessageProcessor as ProcessMessage>::process_message(
+												&msg[..],
+												CumulusAggregateMessageOrigin::Parent,
+												&mut weight_meter,
+												&mut msg.using_encoded($crate::blake2_256),
+											);
+										});
+									}
 									for m in msgs {
 										$crate::DMP_DONE.with(|b| b.borrow_mut().get_mut(stringify!($name)).unwrap().push_back((to_para_id, m.0, m.1)));
 									}
@@ -1023,5 +1024,57 @@ pub mod helpers {
 			within_threshold(threshold_size, expected_weight.proof_size(), weight.proof_size());
 
 		ref_time_within && proof_size_within
+	}
+}
+
+// Default message processor for parachains — enqueues DMP messages into MessageQueue and services them.
+// Matches the upstream v1.4.0 xcm-emulator pattern.
+pub struct DefaultParaMessageProcessor<T>(PhantomData<T>);
+
+impl<T> ProcessMessage for DefaultParaMessageProcessor<T>
+where
+	T: Parachain,
+	T::Runtime: MessageQueueConfig,
+	<<T::Runtime as MessageQueueConfig>::MessageProcessor as ProcessMessage>::Origin:
+		PartialEq<CumulusAggregateMessageOrigin>,
+	MessageQueuePallet<T::Runtime>: EnqueueMessage<CumulusAggregateMessageOrigin> + ServiceQueues,
+{
+	type Origin = CumulusAggregateMessageOrigin;
+
+	fn process_message(
+		msg: &[u8],
+		orig: Self::Origin,
+		_meter: &mut WeightMeter,
+		_id: &mut [u8; 32],
+	) -> Result<bool, ProcessMessageError> {
+		MessageQueuePallet::<T::Runtime>::enqueue_message(
+			msg.try_into().expect("Message too long"),
+			orig.clone(),
+		);
+		MessageQueuePallet::<T::Runtime>::service_queues(Weight::MAX);
+
+		Ok(true)
+	}
+}
+
+impl<T> ServiceQueues for DefaultParaMessageProcessor<T>
+where
+	T: Parachain,
+	T::Runtime: MessageQueueConfig,
+	<<T::Runtime as MessageQueueConfig>::MessageProcessor as ProcessMessage>::Origin:
+		PartialEq<CumulusAggregateMessageOrigin>,
+	MessageQueuePallet<T::Runtime>: EnqueueMessage<CumulusAggregateMessageOrigin> + ServiceQueues,
+{
+	type OverweightMessageAddress = ();
+
+	fn service_queues(weight_limit: Weight) -> Weight {
+		MessageQueuePallet::<T::Runtime>::service_queues(weight_limit)
+	}
+
+	fn execute_overweight(
+		_weight_limit: Weight,
+		_address: Self::OverweightMessageAddress,
+	) -> Result<Weight, ExecuteOverweightError> {
+		unimplemented!()
 	}
 }

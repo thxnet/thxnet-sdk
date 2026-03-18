@@ -238,4 +238,9 @@ impl<T: frame_system::Config> pallet_vesting::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(4))
 			.saturating_add(T::DbWeight::get().writes(3))
 	}
+	fn force_remove_vesting_schedule(_l: u32, _s: u32) -> Weight {
+		Weight::from_parts(10_000_000, 0)
+			.saturating_add(T::DbWeight::get().reads(3))
+			.saturating_add(T::DbWeight::get().writes(2))
+	}
 }

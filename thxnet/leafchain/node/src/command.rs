@@ -16,8 +16,10 @@ use sp_runtime::traits::{AccountIdConversion, Block as BlockT};
 use crate::{
 	chain_spec,
 	cli::{Cli, RootchainCli, Subcommand},
-	service::{new_partial, LeafchainNativeExecutor},
+	service::new_partial,
 };
+#[cfg(feature = "try-runtime")]
+use crate::service::LeafchainNativeExecutor;
 
 impl SubstrateCli for Cli {
 	fn impl_name() -> String {

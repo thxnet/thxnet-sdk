@@ -94,12 +94,7 @@ pub mod thxnet {
 		let stash = INITIAL_BALANCE / 10;
 
 		let genesis_config = thxnet_runtime::RuntimeGenesisConfig {
-			system: thxnet_runtime::SystemConfig {
-				code: thxnet_runtime::WASM_BINARY
-					.expect("WASM binary not available for thxnet runtime")
-					.to_vec(),
-				_config: Default::default(),
-			},
+			system: thxnet_runtime::SystemConfig { _config: Default::default() },
 			balances: thxnet_runtime::BalancesConfig {
 				balances: vec![
 					(get_account_id_from_seed::<sr25519::Public>(ALICE), INITIAL_BALANCE),
@@ -171,12 +166,7 @@ pub mod leafchain_a {
 		)];
 
 		let genesis_config = general_runtime::RuntimeGenesisConfig {
-			system: general_runtime::SystemConfig {
-				code: general_runtime::WASM_BINARY
-					.expect("WASM binary not available for general runtime")
-					.to_vec(),
-				_config: Default::default(),
-			},
+			system: general_runtime::SystemConfig { _config: Default::default() },
 			balances: general_runtime::BalancesConfig {
 				balances: vec![
 					(get_account_id_from_seed::<sr25519::Public>(ALICE), INITIAL_BALANCE),
@@ -220,12 +210,7 @@ pub mod leafchain_b {
 		)];
 
 		let genesis_config = general_runtime::RuntimeGenesisConfig {
-			system: general_runtime::SystemConfig {
-				code: general_runtime::WASM_BINARY
-					.expect("WASM binary not available for general runtime")
-					.to_vec(),
-				_config: Default::default(),
-			},
+			system: general_runtime::SystemConfig { _config: Default::default() },
 			balances: general_runtime::BalancesConfig {
 				balances: vec![
 					(get_account_id_from_seed::<sr25519::Public>(ALICE), INITIAL_BALANCE),

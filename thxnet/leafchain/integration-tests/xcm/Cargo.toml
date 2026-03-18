@@ -28,7 +28,7 @@ parachains-common = { path = "../../../../cumulus/parachains/common" }
 cumulus-pallet-xcmp-queue = { path = "../../../../cumulus/pallets/xcmp-queue" }
 cumulus-pallet-dmp-queue = { path = "../../../../cumulus/pallets/dmp-queue" }
 cumulus-pallet-parachain-system = { path = "../../../../cumulus/pallets/parachain-system" }
-parachain-info = { path = "../../../../cumulus/parachains/pallets/parachain-info" }
+parachain-info = { package = "staging-parachain-info", path = "../../../../cumulus/parachains/pallets/parachain-info" }
 
 # Substrate
 frame-support = { path = "../../../../substrate/frame/support" }
