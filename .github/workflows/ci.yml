@@ -27,7 +27,7 @@ jobs:
     name: Build binaries
     runs-on: self-hosted
     container:
-      image: docker.io/paritytech/ci-unified:bullseye-1.70.0-2023-05-23-v20230706
+      image: docker.io/paritytech/ci-unified:bullseye-1.73.0-2023-11-01-v20231025
       volumes:
         - /data/ci-cache:/cache
     env:
@@ -185,7 +185,7 @@ jobs:
       startsWith(github.head_ref || github.ref_name, 'experiment/')
     runs-on: self-hosted
     container:
-      image: docker.io/paritytech/ci-unified:bullseye-1.70.0-2023-05-23-v20230706
+      image: docker.io/paritytech/ci-unified:bullseye-1.73.0-2023-11-01-v20231025
       volumes:
         - /data/ci-cache:/cache
     env:
@@ -311,7 +311,7 @@ jobs:
     needs: build-upgrade-extras
     runs-on: self-hosted
     container:
-      image: docker.io/paritytech/ci-unified:bullseye-1.70.0-2023-05-23-v20230706
+      image: docker.io/paritytech/ci-unified:bullseye-1.73.0-2023-11-01-v20231025
       volumes:
         - /data/ci-cache:/cache
     env:

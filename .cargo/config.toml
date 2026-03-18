@@ -1,6 +1,7 @@
 [build]
 rustdocflags = [
   "-Dwarnings",
+  "-Arustdoc::redundant_explicit_links", # stylistic
 ]
 
 # An auto defined `clippy` feature was introduced,

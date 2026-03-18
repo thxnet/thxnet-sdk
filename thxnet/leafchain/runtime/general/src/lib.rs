@@ -24,12 +24,12 @@ use frame_support::{
 	weights::{constants::WEIGHT_REF_TIME_PER_SECOND, ConstantMultiplier, Weight},
 	PalletId,
 };
-use parachains_common::message_queue::{NarrowOriginToSibling, ParaIdToSibling};
 use frame_system::{
 	limits::{BlockLength, BlockWeights},
 	EnsureRoot, EnsureSigned,
 };
 use pallet_nfts::PalletFeatures;
+use parachains_common::message_queue::{NarrowOriginToSibling, ParaIdToSibling};
 use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
 use sp_api::impl_runtime_apis;
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -623,39 +623,36 @@ impl Default for ProxyType {
 impl InstanceFilter<RuntimeCall> for ProxyType {
 	fn filter(&self, c: &RuntimeCall) -> bool {
 		match self {
-            ProxyType::Any => true,
-            ProxyType::NonTransfer => matches!(
-                c,
-                RuntimeCall::System(..)
-                    | RuntimeCall::Timestamp(..)
-                    | RuntimeCall::Session(..)
-                    | RuntimeCall::Utility(..)
-                    | RuntimeCall::Proxy(..)
-                    | RuntimeCall::Multisig(..)
-                    | RuntimeCall::Assets(..)
-                    | RuntimeCall::Nfts(..)
-                    | RuntimeCall::TrustlessAgent(..)
-            ),
-            ProxyType::Governance => matches!(c, RuntimeCall::Utility(..)),
-            ProxyType::Staking => {
-                matches!(c, RuntimeCall::Session(..) | RuntimeCall::Utility(..))
-            }
-            ProxyType::IdentityJudgement => matches!(
-                c,
-                RuntimeCall::Identity(pallet_identity::Call::provide_judgement { .. })
-                    | RuntimeCall::Utility(..)
-            ),
-            ProxyType::CancelProxy => {
-                matches!(c, RuntimeCall::Proxy(pallet_proxy::Call::reject_announcement { .. }))
-            }
-            // ProxyType::Auction => matches!(
-            // 	c,
-            // 	RuntimeCall::Auctions(..) |
-            // 		RuntimeCall::Crowdloan(..) |
-            // 		RuntimeCall::Registrar(..) |
-            // 		RuntimeCall::Slots(..)
-            // ),
-        }
+			ProxyType::Any => true,
+			ProxyType::NonTransfer =>
+				matches!(
+					c,
+					RuntimeCall::System(..) |
+						RuntimeCall::Timestamp(..) |
+						RuntimeCall::Session(..) | RuntimeCall::Utility(..) |
+						RuntimeCall::Proxy(..) | RuntimeCall::Multisig(..) |
+						RuntimeCall::Assets(..) | RuntimeCall::Nfts(..) |
+						RuntimeCall::TrustlessAgent(..)
+				),
+			ProxyType::Governance => matches!(c, RuntimeCall::Utility(..)),
+			ProxyType::Staking => {
+				matches!(c, RuntimeCall::Session(..) | RuntimeCall::Utility(..))
+			},
+			ProxyType::IdentityJudgement => matches!(
+				c,
+				RuntimeCall::Identity(pallet_identity::Call::provide_judgement { .. }) |
+					RuntimeCall::Utility(..)
+			),
+			ProxyType::CancelProxy => {
+				matches!(c, RuntimeCall::Proxy(pallet_proxy::Call::reject_announcement { .. }))
+			}, /* ProxyType::Auction => matches!(
+			    * 	c,
+			    * 	RuntimeCall::Auctions(..) |
+			    * 		RuntimeCall::Crowdloan(..) |
+			    * 		RuntimeCall::Registrar(..) |
+			    * 		RuntimeCall::Slots(..)
+			    * ), */
+		}
 	}
 
 	fn is_superset(&self, o: &Self) -> bool {

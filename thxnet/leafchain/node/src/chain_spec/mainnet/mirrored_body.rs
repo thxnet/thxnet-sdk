@@ -4,7 +4,9 @@ use sc_chain_spec::Properties;
 use sc_service::ChainType;
 use sp_core::crypto::UncheckedInto;
 
-use crate::chain_spec::{mainnet::mainnet_genesis_patch, ChainSpec, Extensions, ROOTCHAIN_MAINNET_NAME};
+use crate::chain_spec::{
+	mainnet::mainnet_genesis_patch, ChainSpec, Extensions, ROOTCHAIN_MAINNET_NAME,
+};
 
 const ROOT_STASH: Balance = 1_000_000_000 * UNITS;
 const LEAFCHAIN_ID: u32 = 1003;
@@ -54,10 +56,7 @@ pub fn mainnet_config() -> ChainSpec {
 	.with_chain_type(ChainType::Live)
 	.with_genesis_config_patch(mainnet_genesis_patch(
 		Some(root_key.clone()),
-		vec![(
-			root_key,
-			ROOT_STASH - (invulnerables.len() as u128) * COLLATOR_STASH,
-		)],
+		vec![(root_key, ROOT_STASH - (invulnerables.len() as u128) * COLLATOR_STASH)],
 		invulnerables
 			.iter()
 			.map(|x| (x.0.clone(), COLLATOR_STASH, x.1.clone()))

@@ -13,13 +13,13 @@ use sc_service::config::{BasePath, PrometheusConfig};
 use sp_core::hexdisplay::HexDisplay;
 use sp_runtime::traits::{AccountIdConversion, Block as BlockT};
 
+#[cfg(feature = "try-runtime")]
+use crate::service::LeafchainNativeExecutor;
 use crate::{
 	chain_spec,
 	cli::{Cli, RootchainCli, Subcommand},
 	service::new_partial,
 };
-#[cfg(feature = "try-runtime")]
-use crate::service::LeafchainNativeExecutor;
 
 impl SubstrateCli for Cli {
 	fn impl_name() -> String {

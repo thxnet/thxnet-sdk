@@ -18,7 +18,10 @@ pub use casey::pascal;
 pub use codec::Encode;
 pub use frame_support::{
 	sp_runtime::BuildStorage,
-	traits::{EnqueueMessage, ExecuteOverweightError, Get, Hooks, ProcessMessage, ProcessMessageError, ServiceQueues},
+	traits::{
+		EnqueueMessage, ExecuteOverweightError, Get, Hooks, ProcessMessage, ProcessMessageError,
+		ServiceQueues,
+	},
 	weights::{Weight, WeightMeter},
 };
 pub use frame_system::AccountInfo;
@@ -39,8 +42,8 @@ pub use cumulus_pallet_dmp_queue;
 pub use cumulus_pallet_parachain_system;
 pub use cumulus_pallet_xcmp_queue;
 pub use cumulus_primitives_core::{
-	self, relay_chain::BlockNumber as RelayBlockNumber, DmpMessageHandler,
-	AggregateMessageOrigin as CumulusAggregateMessageOrigin, ParaId,
+	self, relay_chain::BlockNumber as RelayBlockNumber,
+	AggregateMessageOrigin as CumulusAggregateMessageOrigin, DmpMessageHandler, ParaId,
 	PersistedValidationData, XcmpMessageHandler,
 };
 pub use cumulus_primitives_parachain_inherent::ParachainInherentData;
@@ -520,7 +523,6 @@ macro_rules! __impl_xcm_handlers_for_parachain {
 				})
 			}
 		}
-
 	};
 }
 
@@ -1027,8 +1029,8 @@ pub mod helpers {
 	}
 }
 
-// Default message processor for parachains — enqueues DMP messages into MessageQueue and services them.
-// Matches the upstream v1.4.0 xcm-emulator pattern.
+// Default message processor for parachains — enqueues DMP messages into MessageQueue and services
+// them. Matches the upstream v1.4.0 xcm-emulator pattern.
 pub struct DefaultParaMessageProcessor<T>(PhantomData<T>);
 
 impl<T> ProcessMessage for DefaultParaMessageProcessor<T>

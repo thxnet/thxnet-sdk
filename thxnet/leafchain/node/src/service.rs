@@ -24,7 +24,9 @@ use frame_benchmarking_cli::SUBSTRATE_REFERENCE_HARDWARE;
 use general_runtime::{opaque::Block, RuntimeApi};
 use polkadot_primitives::CollatorPair;
 use sc_consensus::ImportQueue;
-use sc_executor::{HeapAllocStrategy, NativeElseWasmExecutor, WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY};
+use sc_executor::{
+	HeapAllocStrategy, NativeElseWasmExecutor, WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY,
+};
 use sc_network::NetworkBlock;
 use sc_network_sync::SyncingService;
 use sc_service::{Configuration, PartialComponents, TFullBackend, TFullClient, TaskManager};
@@ -85,9 +87,7 @@ pub fn new_partial(
 
 	let heap_pages = config
 		.default_heap_pages
-		.map_or(DEFAULT_HEAP_ALLOC_STRATEGY, |h| HeapAllocStrategy::Static {
-			extra_pages: h as _,
-		});
+		.map_or(DEFAULT_HEAP_ALLOC_STRATEGY, |h| HeapAllocStrategy::Static { extra_pages: h as _ });
 
 	let wasm = WasmExecutor::builder()
 		.with_execution_method(config.wasm_method)
@@ -354,7 +354,9 @@ fn start_consensus(
 	para_id: ParaId,
 	collator_key: CollatorPair,
 	overseer_handle: polkadot_overseer::Handle,
-	announce_block: Arc<dyn Fn(<Block as sp_runtime::traits::Block>::Hash, Option<Vec<u8>>) + Send + Sync>,
+	announce_block: Arc<
+		dyn Fn(<Block as sp_runtime::traits::Block>::Hash, Option<Vec<u8>>) + Send + Sync,
+	>,
 ) -> Result<(), sc_service::Error> {
 	let slot_duration = cumulus_client_consensus_aura::slot_duration(&*client)?;
 
@@ -397,9 +399,7 @@ fn start_consensus(
 		basic_aura::run::<Block, sp_consensus_aura::sr25519::AuthorityPair, _, _, _, _, _, _, _>(
 			params,
 		);
-	task_manager
-		.spawn_essential_handle()
-		.spawn("aura", None, fut);
+	task_manager.spawn_essential_handle().spawn("aura", None, fut);
 
 	Ok(())
 }
