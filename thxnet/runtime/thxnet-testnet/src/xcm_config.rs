@@ -350,9 +350,9 @@ impl xcm_executor::Config for XcmConfig {
 	type XcmSender = XcmRouter;
 	type AssetTransactor = LocalAssetTransactor;
 	type OriginConverter = LocalOriginConverter;
-	// Accept reserve deposits of native token from child parachains.
-	type IsReserve = ChildParachainNativeTokenReserve;
-	type IsTeleporter = (TrustedTeleporters, ChildParachainNativeTokenTeleporter);
+	// Relay chain is the reserve for its own native token — no external reserves needed.
+	type IsReserve = ();
+	type IsTeleporter = TrustedTeleporters;
 	type UniversalLocation = UniversalLocation;
 	type Barrier = Barrier;
 	type Weigher = WeightInfoBounds<

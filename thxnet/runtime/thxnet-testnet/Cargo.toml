@@ -22,6 +22,7 @@ babe-primitives = { package = "sp-consensus-babe", path = "../../../substrate/pr
 beefy-primitives = { package = "sp-consensus-beefy", path = "../../../substrate/primitives/consensus/beefy", default-features = false }
 block-builder-api = { package = "sp-block-builder", path = "../../../substrate/primitives/block-builder", default-features = false }
 inherents = { package = "sp-inherents", path = "../../../substrate/primitives/inherents", default-features = false }
+sp-genesis-builder = { path = "../../../substrate/primitives/genesis-builder", default-features = false }
 offchain-primitives = { package = "sp-offchain", path = "../../../substrate/primitives/offchain", default-features = false }
 tx-pool-api = { package = "sp-transaction-pool", path = "../../../substrate/primitives/transaction-pool", default-features = false }
 sp-arithmetic = { path = "../../../substrate/primitives/arithmetic", default-features = false }
@@ -143,6 +144,7 @@ std = [
 	"frame-system/std",
 	"frame-try-runtime/std",
 	"inherents/std",
+	"sp-genesis-builder/std",
 	"log/std",
 	"offchain-primitives/std",
 	"pallet-authority-discovery/std",
