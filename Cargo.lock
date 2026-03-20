@@ -21979,6 +21979,7 @@ dependencies = [
  "parity-scale-codec",
  "polkadot-parachain-primitives",
  "polkadot-primitives",
+ "polkadot-runtime-parachains",
  "sp-authority-discovery",
  "sp-consensus-babe",
  "sp-consensus-grandpa",

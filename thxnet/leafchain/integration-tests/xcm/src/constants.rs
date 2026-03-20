@@ -4,10 +4,10 @@
 //! session keys, and staking. For integration testing, consider using a simpler
 //! test runtime or mocking the relay chain behavior.
 
+use polkadot_primitives::{MAX_CODE_SIZE, MAX_POV_SIZE};
 use sp_core::{sr25519, storage::Storage, Pair, Public};
 use sp_runtime::{BuildStorage, Perbill};
 use xcm_emulator::{get_account_id_from_seed, AccountId};
-use polkadot_primitives::{MAX_CODE_SIZE, MAX_POV_SIZE};
 
 // Authority key types
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
