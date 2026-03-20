@@ -1867,7 +1867,7 @@ pub mod migrations {
 			.ok_or::<sp_runtime::TryRuntimeError>("Queued keys are not available".into())?
 			.into_iter()
 			.for_each(|(id, keys)| {
-				state.extend_from_slice(id.as_slice());
+				state.extend_from_slice(id.as_ref());
 				for key_id in key_ids {
 					state.extend_from_slice(keys.get_raw(*key_id));
 				}
@@ -1898,7 +1898,7 @@ pub mod migrations {
 			let key_ids = SessionKeys::key_ids();
 			let mut new_state: Vec<u8> = Vec::new();
 			pallet_session::QueuedKeys::<Runtime>::get().into_iter().for_each(|(id, keys)| {
-				new_state.extend_from_slice(id.as_slice());
+				new_state.extend_from_slice(id.as_ref());
 				for key_id in key_ids {
 					new_state.extend_from_slice(keys.get_raw(*key_id));
 				}
