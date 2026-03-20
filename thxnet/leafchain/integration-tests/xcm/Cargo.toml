@@ -46,6 +46,7 @@ pallet-staking = { path = "../../../../substrate/frame/staking" }
 
 # Polkadot primitives
 polkadot-primitives = { path = "../../../../polkadot/primitives" }
+polkadot-runtime-parachains = { path = "../../../../polkadot/runtime/parachains" }
 
 # Required for test macros
 sp-tracing = { path = "../../../../substrate/primitives/tracing" }
