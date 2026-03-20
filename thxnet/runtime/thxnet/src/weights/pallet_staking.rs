@@ -312,6 +312,13 @@ impl<T: frame_system::Config> pallet_staking::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
+	/// Storage: `Staking::Bonded` (r:1 w:0)
+	/// Proof: `Staking::Bonded` (`max_values`: None, `max_size`: Some(72), added: 2547, mode: `MaxEncodedLen`)
+	fn update_payee() -> Weight {
+		Weight::from_parts(21_615_000, 4556)
+			.saturating_add(T::DbWeight::get().reads(3_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
 	/// Storage: Staking Bonded (r:1 w:1)
 	/// Proof: Staking Bonded (max_values: None, max_size: Some(72), added: 2547, mode: MaxEncodedLen)
 	/// Storage: Staking Ledger (r:2 w:2)
@@ -456,26 +463,6 @@ impl<T: frame_system::Config> pallet_staking::WeightInfo for WeightInfo<T> {
 	/// Proof Skipped: Staking ErasRewardPoints (max_values: None, max_size: None, mode: Measured)
 	/// Storage: Staking ErasValidatorPrefs (r:1 w:0)
 	/// Proof: Staking ErasValidatorPrefs (max_values: None, max_size: Some(57), added: 2532, mode: MaxEncodedLen)
-	/// Storage: Staking Payee (r:513 w:0)
-	/// Proof: Staking Payee (max_values: None, max_size: Some(73), added: 2548, mode: MaxEncodedLen)
-	/// Storage: System Account (r:513 w:513)
-	/// Proof: System Account (max_values: None, max_size: Some(128), added: 2603, mode: MaxEncodedLen)
-	/// The range of component `n` is `[0, 512]`.
-	fn payout_stakers_dead_controller(n: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `34179 + n * (150 ±0)`
-		//  Estimated: `32391 + n * (2603 ±0)`
-		// Minimum execution time: 118_319_000 picoseconds.
-		Weight::from_parts(150_596_293, 0)
-			.saturating_add(Weight::from_parts(0, 32391))
-			// Standard Error: 18_978
-			.saturating_add(Weight::from_parts(34_357_240, 0).saturating_mul(n.into()))
-			.saturating_add(T::DbWeight::get().reads(9))
-			.saturating_add(T::DbWeight::get().reads((3_u64).saturating_mul(n.into())))
-			.saturating_add(T::DbWeight::get().writes(2))
-			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(n.into())))
-			.saturating_add(Weight::from_parts(0, 2603).saturating_mul(n.into()))
-	}
 	/// Storage: Staking CurrentEra (r:1 w:0)
 	/// Proof: Staking CurrentEra (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
 	/// Storage: Staking ErasValidatorReward (r:1 w:0)

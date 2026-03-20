@@ -10,7 +10,6 @@ use sp_runtime::{BuildStorage, Perbill};
 use xcm_emulator::{get_account_id_from_seed, AccountId};
 
 // Authority key types
-use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use polkadot_primitives::{AssignmentId, ValidatorId};
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
@@ -39,7 +38,6 @@ pub mod thxnet {
 	fn session_keys(
 		grandpa: GrandpaId,
 		babe: BabeId,
-		im_online: ImOnlineId,
 		para_validator: ValidatorId,
 		para_assignment: AssignmentId,
 		authority_discovery: AuthorityDiscoveryId,
@@ -47,7 +45,6 @@ pub mod thxnet {
 		thxnet_runtime::SessionKeys {
 			grandpa,
 			babe,
-			im_online,
 			para_validator,
 			para_assignment,
 			authority_discovery,
@@ -61,7 +58,6 @@ pub mod thxnet {
 		AccountId, // controller (same as stash for simplicity)
 		GrandpaId,
 		BabeId,
-		ImOnlineId,
 		ValidatorId,
 		AssignmentId,
 		AuthorityDiscoveryId,
@@ -72,7 +68,6 @@ pub mod thxnet {
 				get_account_id_from_seed::<sr25519::Public>("Alice"),
 				get_from_seed::<GrandpaId>("Alice"),
 				get_from_seed::<BabeId>("Alice"),
-				get_from_seed::<ImOnlineId>("Alice"),
 				get_from_seed::<ValidatorId>("Alice"),
 				get_from_seed::<AssignmentId>("Alice"),
 				get_from_seed::<AuthorityDiscoveryId>("Alice"),
@@ -82,7 +77,6 @@ pub mod thxnet {
 				get_account_id_from_seed::<sr25519::Public>("Bob"),
 				get_from_seed::<GrandpaId>("Bob"),
 				get_from_seed::<BabeId>("Bob"),
-				get_from_seed::<ImOnlineId>("Bob"),
 				get_from_seed::<ValidatorId>("Bob"),
 				get_from_seed::<AssignmentId>("Bob"),
 				get_from_seed::<AuthorityDiscoveryId>("Bob"),
@@ -113,10 +107,9 @@ pub mod thxnet {
 							session_keys(
 								x.2.clone(), // grandpa
 								x.3.clone(), // babe
-								x.4.clone(), // im_online
-								x.5.clone(), // para_validator
-								x.6.clone(), // para_assignment
-								x.7.clone(), // authority_discovery
+								x.4.clone(), // para_validator
+								x.5.clone(), // para_assignment
+								x.6.clone(), // authority_discovery
 							),
 						)
 					})
@@ -144,7 +137,6 @@ pub mod thxnet {
 			},
 			grandpa: Default::default(),
 			authority_discovery: Default::default(),
-			im_online: Default::default(),
 			configuration: polkadot_runtime_parachains::configuration::GenesisConfig {
 				config: polkadot_runtime_parachains::configuration::HostConfiguration {
 					max_code_size: MAX_CODE_SIZE,
