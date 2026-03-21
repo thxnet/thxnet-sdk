@@ -1913,9 +1913,10 @@ pub mod migrations {
 		}
 	}
 
-	/// v1.4.0 → v1.5.0: Remove ImOnline pallet + session key migration.
+	/// v1.4.0 → v1.5.0: Remove ImOnline pallet, upgrade session keys, NominationPools v7→v8.
 	/// Old v1.3.0→v1.4.0 migrations emptied (already ran on forked testnet).
 	pub type Unreleased = (
+		pallet_nomination_pools::migration::versioned::V7ToV8<Runtime>,
 		UpgradeSessionKeys,
 		frame_support::migrations::RemovePallet<
 			ImOnlinePalletName,
