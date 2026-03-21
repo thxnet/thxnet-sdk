@@ -76,7 +76,7 @@ pub use polkadot_runtime_parachains::{
 	inclusion::{AggregateMessageOrigin, UmpQueueId},
 };
 pub use std::{collections::HashMap, thread::LocalKey};
-pub use xcm::{v3::prelude::*, VersionedXcm};
+pub use xcm::{v4::prelude::*, VersionedXcm};
 pub use xcm_executor::XcmExecutor;
 
 thread_local! {
@@ -401,7 +401,7 @@ macro_rules! __impl_relay {
 		}
 
 		impl $relay_chain {
-			pub fn child_location_of(id: $crate::ParaId) -> MultiLocation {
+			pub fn child_location_of(id: $crate::ParaId) -> Location {
 				(Ancestor(0), Parachain(id.into())).into()
 			}
 
@@ -413,7 +413,7 @@ macro_rules! __impl_relay {
 				Self::ext_wrapper(|| <Self as RelayChain>::System::account(account).data)
 			}
 
-			pub fn sovereign_account_id_of(location: $crate::MultiLocation) -> $crate::AccountId {
+			pub fn sovereign_account_id_of(location: $crate::Location) -> $crate::AccountId {
 				<Self as RelayChain>::SovereignAccountOf::convert_location(&location).unwrap()
 			}
 
@@ -674,7 +674,7 @@ macro_rules! __impl_parachain {
 				Self::ext_wrapper(|| <Self as Parachain>::ParachainInfo::get())
 			}
 
-			pub fn parent_location() -> $crate::MultiLocation {
+			pub fn parent_location() -> $crate::Location {
 				(Parent).into()
 			}
 
@@ -686,7 +686,7 @@ macro_rules! __impl_parachain {
 				Self::ext_wrapper(|| <Self as Parachain>::System::account(account).data)
 			}
 
-			pub fn sovereign_account_id_of(location: $crate::MultiLocation) -> $crate::AccountId {
+			pub fn sovereign_account_id_of(location: $crate::Location) -> $crate::AccountId {
 				<Self as Parachain>::LocationToAccountId::convert_location(&location).unwrap()
 			}
 

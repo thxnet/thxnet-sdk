@@ -19,12 +19,12 @@ fn reserve_transfer_from_relay_to_parachain() {
 
 	// Execute on relay chain: send reserve transfer to LeafchainA
 	THXnet::execute_with(|| {
-		let dest = MultiLocation::new(0, X1(Parachain(leafchain_a::PARA_ID)));
-		let beneficiary = MultiLocation::new(
+		let dest = Location::new(0, [Parachain(leafchain_a::PARA_ID)]);
+		let beneficiary = Location::new(
 			0,
-			X1(AccountId32 { network: None, id: LeafchainA::account_id_of(BOB).into() }),
+			[AccountId32 { network: None, id: LeafchainA::account_id_of(BOB).into() }],
 		);
-		let assets: MultiAssets = (Here, transfer_amount).into();
+		let assets: Assets = (Here, transfer_amount).into();
 
 		assert_ok!(thxnet_runtime::XcmPallet::reserve_transfer_assets(
 			thxnet_runtime::RuntimeOrigin::signed(THXnet::account_id_of(ALICE)),
@@ -57,12 +57,12 @@ fn limited_reserve_transfer_from_relay_to_parachain() {
 	let transfer_amount: Balance = 50_000_000_000_000; // 50_000 tokens
 
 	THXnet::execute_with(|| {
-		let dest = MultiLocation::new(0, X1(Parachain(leafchain_a::PARA_ID)));
-		let beneficiary = MultiLocation::new(
+		let dest = Location::new(0, [Parachain(leafchain_a::PARA_ID)]);
+		let beneficiary = Location::new(
 			0,
-			X1(AccountId32 { network: None, id: LeafchainA::account_id_of(CHARLIE).into() }),
+			[AccountId32 { network: None, id: LeafchainA::account_id_of(CHARLIE).into() }],
 		);
-		let assets: MultiAssets = (Here, transfer_amount).into();
+		let assets: Assets = (Here, transfer_amount).into();
 
 		assert_ok!(thxnet_runtime::XcmPallet::limited_reserve_transfer_assets(
 			thxnet_runtime::RuntimeOrigin::signed(THXnet::account_id_of(ALICE)),
@@ -90,12 +90,12 @@ fn teleport_from_relay_to_parachain() {
 	let transfer_amount: Balance = 25_000_000_000_000; // 25_000 tokens
 
 	THXnet::execute_with(|| {
-		let dest = MultiLocation::new(0, X1(Parachain(leafchain_a::PARA_ID)));
-		let beneficiary = MultiLocation::new(
+		let dest = Location::new(0, [Parachain(leafchain_a::PARA_ID)]);
+		let beneficiary = Location::new(
 			0,
-			X1(AccountId32 { network: None, id: LeafchainA::account_id_of(BOB).into() }),
+			[AccountId32 { network: None, id: LeafchainA::account_id_of(BOB).into() }],
 		);
-		let assets: MultiAssets = (Here, transfer_amount).into();
+		let assets: Assets = (Here, transfer_amount).into();
 
 		// Note: This may fail if teleportation is not enabled in XCM config
 		let result = thxnet_runtime::XcmPallet::limited_teleport_assets(

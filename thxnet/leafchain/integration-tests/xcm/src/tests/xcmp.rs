@@ -19,13 +19,13 @@ fn reserve_transfer_between_parachains() {
 	// Execute on LeafchainA: send to LeafchainB
 	LeafchainA::execute_with(|| {
 		// Destination is sibling parachain via relay
-		let dest = MultiLocation::new(1, X1(Parachain(leafchain_b::PARA_ID)));
-		let beneficiary = MultiLocation::new(
+		let dest = Location::new(1, [Parachain(leafchain_b::PARA_ID)]);
+		let beneficiary = Location::new(
 			0,
-			X1(AccountId32 { network: None, id: LeafchainB::account_id_of(BOB).into() }),
+			[AccountId32 { network: None, id: LeafchainB::account_id_of(BOB).into() }],
 		);
 		// Assets are relay chain tokens (via parent)
-		let assets: MultiAssets = (Parent, transfer_amount).into();
+		let assets: Assets = (Parent, transfer_amount).into();
 
 		let result = general_runtime::PolkadotXcm::limited_reserve_transfer_assets(
 			general_runtime::RuntimeOrigin::signed(LeafchainA::account_id_of(ALICE)),
@@ -58,12 +58,12 @@ fn bidirectional_xcmp_transfers() {
 
 	// LeafchainA sends to LeafchainB
 	LeafchainA::execute_with(|| {
-		let dest = MultiLocation::new(1, X1(Parachain(leafchain_b::PARA_ID)));
-		let beneficiary = MultiLocation::new(
+		let dest = Location::new(1, [Parachain(leafchain_b::PARA_ID)]);
+		let beneficiary = Location::new(
 			0,
-			X1(AccountId32 { network: None, id: LeafchainB::account_id_of(BOB).into() }),
+			[AccountId32 { network: None, id: LeafchainB::account_id_of(BOB).into() }],
 		);
-		let assets: MultiAssets = (Parent, amount_a_to_b).into();
+		let assets: Assets = (Parent, amount_a_to_b).into();
 
 		let _ = general_runtime::PolkadotXcm::limited_reserve_transfer_assets(
 			general_runtime::RuntimeOrigin::signed(LeafchainA::account_id_of(ALICE)),
@@ -77,12 +77,12 @@ fn bidirectional_xcmp_transfers() {
 
 	// LeafchainB sends to LeafchainA
 	LeafchainB::execute_with(|| {
-		let dest = MultiLocation::new(1, X1(Parachain(leafchain_a::PARA_ID)));
-		let beneficiary = MultiLocation::new(
+		let dest = Location::new(1, [Parachain(leafchain_a::PARA_ID)]);
+		let beneficiary = Location::new(
 			0,
-			X1(AccountId32 { network: None, id: LeafchainA::account_id_of(CHARLIE).into() }),
+			[AccountId32 { network: None, id: LeafchainA::account_id_of(CHARLIE).into() }],
 		);
-		let assets: MultiAssets = (Parent, amount_b_to_a).into();
+		let assets: Assets = (Parent, amount_b_to_a).into();
 
 		let _ = general_runtime::PolkadotXcm::limited_reserve_transfer_assets(
 			general_runtime::RuntimeOrigin::signed(LeafchainB::account_id_of(BOB)),
@@ -115,7 +115,7 @@ fn send_custom_xcm_between_parachains() {
 	THXnetNetwork::reset();
 
 	LeafchainA::execute_with(|| {
-		let dest = MultiLocation::new(1, X1(Parachain(leafchain_b::PARA_ID)));
+		let dest = Location::new(1, [Parachain(leafchain_b::PARA_ID)]);
 
 		// Create a custom XCM message
 		let message: Xcm<()> = Xcm(vec![
@@ -127,7 +127,7 @@ fn send_custom_xcm_between_parachains() {
 		let result = general_runtime::PolkadotXcm::send(
 			general_runtime::RuntimeOrigin::root(),
 			bx!(dest.into()),
-			bx!(xcm::VersionedXcm::V3(message)),
+			bx!(xcm::VersionedXcm::V4(message)),
 		);
 
 		log::info!("Custom XCMP message send result: {:?}", result);
@@ -156,12 +156,12 @@ fn xcmp_channel_establishment() {
 	let transfer_amount: Balance = 1_000_000_000_000;
 
 	LeafchainA::execute_with(|| {
-		let dest = MultiLocation::new(1, X1(Parachain(leafchain_b::PARA_ID)));
-		let beneficiary = MultiLocation::new(
+		let dest = Location::new(1, [Parachain(leafchain_b::PARA_ID)]);
+		let beneficiary = Location::new(
 			0,
-			X1(AccountId32 { network: None, id: LeafchainB::account_id_of(ALICE).into() }),
+			[AccountId32 { network: None, id: LeafchainB::account_id_of(ALICE).into() }],
 		);
-		let assets: MultiAssets = (Parent, transfer_amount).into();
+		let assets: Assets = (Parent, transfer_amount).into();
 
 		// This should succeed if HRMP channels are properly mocked
 		let result = general_runtime::PolkadotXcm::limited_reserve_transfer_assets(
@@ -186,21 +186,21 @@ fn sovereign_account_on_sibling_chain() {
 
 	// Get LeafchainA's sovereign account on LeafchainB
 	LeafchainB::execute_with(|| {
-		let leafchain_a_location = MultiLocation::new(1, X1(Parachain(leafchain_a::PARA_ID)));
+		let leafchain_a_location = Location::new(1, [Parachain(leafchain_a::PARA_ID)]);
 		let sovereign = LeafchainB::sovereign_account_id_of(leafchain_a_location);
 		log::info!("LeafchainA sovereign account on LeafchainB: {:?}", sovereign);
 	});
 
 	// Get LeafchainB's sovereign account on LeafchainA
 	LeafchainA::execute_with(|| {
-		let leafchain_b_location = MultiLocation::new(1, X1(Parachain(leafchain_b::PARA_ID)));
+		let leafchain_b_location = Location::new(1, [Parachain(leafchain_b::PARA_ID)]);
 		let sovereign = LeafchainA::sovereign_account_id_of(leafchain_b_location);
 		log::info!("LeafchainB sovereign account on LeafchainA: {:?}", sovereign);
 	});
 
 	// Get relay chain's sovereign account on LeafchainA
 	LeafchainA::execute_with(|| {
-		let relay_location = MultiLocation::parent();
+		let relay_location = Location::parent();
 		let sovereign = LeafchainA::sovereign_account_id_of(relay_location);
 		log::info!("Relay sovereign account on LeafchainA: {:?}", sovereign);
 	});

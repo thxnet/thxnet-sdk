@@ -13,7 +13,7 @@ mod tests;
 pub use codec::Encode;
 pub use frame_support::assert_ok;
 pub use sp_core::{sr25519, Get};
-pub use xcm::v3::prelude::*;
+pub use xcm::v4::prelude::*;
 pub use xcm_emulator::{
 	decl_test_networks, decl_test_parachains, decl_test_relay_chains, get_account_id_from_seed,
 	AccountId, Network, ParaId, Parachain, RelayChain, TestExt,

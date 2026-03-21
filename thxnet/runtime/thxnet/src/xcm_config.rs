@@ -22,7 +22,7 @@ use super::{
 	TransactionByteFee, WeightToFee, XcmPallet,
 };
 use frame_support::{
-	match_types, parameter_types,
+	parameter_types,
 	traits::{Contains, Everything, Nothing},
 	weights::Weight,
 };
@@ -39,10 +39,12 @@ use runtime_common::{
 use sp_core::ConstU32;
 use thxnet_runtime_constants::{currency::CENTS, xcm::body::FELLOWSHIP_ADMIN_INDEX};
 use xcm::latest::prelude::*;
+#[allow(deprecated)]
+use xcm_builder::CurrencyAdapter as XcmCurrencyAdapter;
 use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
 	AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, ChildParachainAsNative,
-	ChildParachainConvertsVia, CurrencyAdapter as XcmCurrencyAdapter, IsConcrete, MintLocation,
+	ChildParachainConvertsVia, FrameTransactionalProcessor, IsConcrete, MintLocation,
 	OriginToPluralityVoice, SignedAccountId32AsNative, SignedToAccountId32,
 	SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId, UsingComponents,
 	WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
@@ -53,11 +55,11 @@ parameter_types! {
 	/// The location of the DOT token, from the context of this chain. Since this token is native to this
 	/// chain, we make it synonymous with it and thus it is the `Here` location, which means "equivalent to
 	/// the context".
-	pub const TokenLocation: MultiLocation = Here.into_location();
+	pub const TokenLocation: Location = Here.into_location();
 	/// The Polkadot network ID. This is named.
 	pub const ThisNetwork: NetworkId = NetworkId::Polkadot;
 	/// Our location in the universe of consensus systems.
-	pub const UniversalLocation: InteriorMultiLocation = X1(GlobalConsensus(ThisNetwork::get()));
+	pub UniversalLocation: InteriorLocation = [GlobalConsensus(ThisNetwork::get())].into();
 	/// The Checking Account, which holds any native assets that have been teleported out and not back in (yet).
 	pub CheckAccount: AccountId = XcmPallet::check_account();
 	/// The Checking Account along with the indication that the local chain is able to mint tokens.
@@ -115,7 +117,7 @@ parameter_types! {
 	/// calculations getting too crazy.
 	pub const MaxInstructions: u32 = 100;
 	/// The asset ID for the asset that we use to pay for message delivery fees.
-	pub FeeAssetId: AssetId = Concrete(TokenLocation::get());
+	pub FeeAssetId: AssetId = AssetId(TokenLocation::get());
 	/// The base fee for the message delivery fees.
 	pub const BaseDeliveryFee: u128 = CENTS.saturating_mul(3);
 }
@@ -132,11 +134,11 @@ pub type XcmRouter = WithUniqueTopic<(
 )>;
 
 parameter_types! {
-	pub const Dot: MultiAssetFilter = Wild(AllOf { fun: WildFungible, id: Concrete(TokenLocation::get()) });
-	pub const StatemintLocation: MultiLocation = Parachain(STATEMINT_ID).into_location();
-	pub const DotForStatemint: (MultiAssetFilter, MultiLocation) = (Dot::get(), StatemintLocation::get());
-	pub const CollectivesLocation: MultiLocation = Parachain(COLLECTIVES_ID).into_location();
-	pub const DotForCollectives: (MultiAssetFilter, MultiLocation) = (Dot::get(), CollectivesLocation::get());
+	pub Dot: AssetFilter = Wild(AllOf { fun: WildFungible, id: AssetId(TokenLocation::get()) });
+	pub StatemintLocation: Location = Parachain(STATEMINT_ID).into_location();
+	pub DotForStatemint: (AssetFilter, Location) = (Dot::get(), StatemintLocation::get());
+	pub CollectivesLocation: Location = Parachain(COLLECTIVES_ID).into_location();
+	pub DotForCollectives: (AssetFilter, Location) = (Dot::get(), CollectivesLocation::get());
 	pub const MaxAssetsIntoHolding: u32 = 64;
 }
 
@@ -148,44 +150,36 @@ pub type TrustedTeleporters =
 /// Parachains hold derivative relay chain tokens and send `ReserveAssetDeposited`
 /// when transferring them back to the relay chain.
 pub struct ChildParachainNativeTokenReserve;
-impl frame_support::traits::ContainsPair<MultiAsset, MultiLocation>
-	for ChildParachainNativeTokenReserve
-{
-	fn contains(asset: &MultiAsset, origin: &MultiLocation) -> bool {
-		matches!(
-			(asset, origin),
-			(
-				MultiAsset { id: Concrete(MultiLocation { parents: 0, interior: Here }), .. },
-				MultiLocation { parents: 0, interior: X1(Parachain(_)) }
-			)
-		)
+impl frame_support::traits::ContainsPair<Asset, Location> for ChildParachainNativeTokenReserve {
+	fn contains(asset: &Asset, origin: &Location) -> bool {
+		matches!(origin.unpack(), (0, [Parachain(_)])) && asset.id == AssetId(TokenLocation::get())
 	}
 }
 
 /// Accept teleports of the native token from any child parachain.
 pub struct ChildParachainNativeTokenTeleporter;
-impl frame_support::traits::ContainsPair<MultiAsset, MultiLocation>
-	for ChildParachainNativeTokenTeleporter
-{
-	fn contains(asset: &MultiAsset, origin: &MultiLocation) -> bool {
-		matches!(
-			(asset, origin),
-			(
-				MultiAsset { id: Concrete(MultiLocation { parents: 0, interior: Here }), .. },
-				MultiLocation { parents: 0, interior: X1(Parachain(_)) }
-			)
-		)
+impl frame_support::traits::ContainsPair<Asset, Location> for ChildParachainNativeTokenTeleporter {
+	fn contains(asset: &Asset, origin: &Location) -> bool {
+		matches!(origin.unpack(), (0, [Parachain(_)])) && asset.id == AssetId(TokenLocation::get())
 	}
 }
 
-match_types! {
-	pub type OnlyParachains: impl Contains<MultiLocation> = {
-		MultiLocation { parents: 0, interior: X1(Parachain(_)) }
-	};
-	pub type CollectivesOrFellows: impl Contains<MultiLocation> = {
-		MultiLocation { parents: 0, interior: X1(Parachain(COLLECTIVES_ID)) } |
-		MultiLocation { parents: 0, interior: X2(Parachain(COLLECTIVES_ID), Plurality { id: BodyId::Technical, .. }) }
-	};
+pub struct OnlyParachains;
+impl Contains<Location> for OnlyParachains {
+	fn contains(location: &Location) -> bool {
+		matches!(location.unpack(), (0, [Parachain(_)]))
+	}
+}
+
+pub struct CollectivesOrFellows;
+impl Contains<Location> for CollectivesOrFellows {
+	fn contains(location: &Location) -> bool {
+		matches!(
+			location.unpack(),
+			(0, [Parachain(COLLECTIVES_ID)]) |
+				(0, [Parachain(COLLECTIVES_ID), Plurality { id: BodyId::Technical, .. }])
+		)
+	}
 }
 
 /// The barriers one of which must be passed for an XCM message to be executed.
@@ -380,6 +374,7 @@ impl xcm_executor::Config for XcmConfig {
 	type CallDispatcher = WithOriginFilter<SafeCallFilter>;
 	type SafeCallFilter = SafeCallFilter;
 	type Aliasers = Nothing;
+	type TransactionalProcessor = FrameTransactionalProcessor;
 }
 
 parameter_types! {
@@ -393,7 +388,7 @@ parameter_types! {
 
 #[cfg(feature = "runtime-benchmarks")]
 parameter_types! {
-	pub ReachableDest: Option<MultiLocation> = Some(Parachain(1000).into());
+	pub ReachableDest: Option<Location> = Some(Parachain(1000).into());
 }
 
 /// Type to convert the `GeneralAdmin` origin to a Plurality `MultiLocation` value.

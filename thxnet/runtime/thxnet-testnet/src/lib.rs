@@ -144,7 +144,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("thxnet"),
 	impl_name: create_runtime_str!("thxnet"),
 	authoring_version: 0,
-	spec_version: 106_000_000,
+	spec_version: 107_000_000,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 25,
@@ -321,7 +321,6 @@ impl pallet_balances::Config for Runtime {
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type FreezeIdentifier = RuntimeFreezeReason;
-	type MaxHolds = ConstU32<1>;
 	type MaxFreezes = ConstU32<1>;
 }
 
@@ -1140,7 +1139,9 @@ impl parachains_configuration::Config for Runtime {
 	type WeightInfo = weights::runtime_parachains_configuration::WeightInfo<Runtime>;
 }
 
-impl parachains_shared::Config for Runtime {}
+impl parachains_shared::Config for Runtime {
+	type DisabledValidators = Session;
+}
 
 impl parachains_session_info::Config for Runtime {
 	type ValidatorSet = Historical;
@@ -1925,15 +1926,8 @@ pub mod migrations {
 	// We don't have a limit in the Relay Chain.
 	const IDENTITY_MIGRATION_KEY_LIMIT: u64 = u64::MAX;
 
-	/// v1.5.0 → v1.6.0: Scheduler v1→v2, Identity v0→v1 (usernames), Configuration v11, Grandpa
-	/// v4→v5, Staking v14.
-	pub type Unreleased = (
-		pallet_staking::migrations::v14::MigrateToV14<Runtime>,
-		parachains_scheduler::migration::MigrateV1ToV2<Runtime>,
-		pallet_grandpa::migrations::MigrateV4ToV5<Runtime>,
-		pallet_identity::migration::versioned::V0ToV1<Runtime, IDENTITY_MIGRATION_KEY_LIMIT>,
-		parachains_configuration::migration::v11::MigrateToV11<Runtime>,
-	);
+	/// v1.6.0 → v1.7.0: XCM pallet storage version migration (forgotten in v1.6.0).
+	pub type Unreleased = (pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,);
 }
 
 /// Unchecked extrinsic type as expected by this runtime.
