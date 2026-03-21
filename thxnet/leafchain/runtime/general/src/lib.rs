@@ -127,7 +127,8 @@ pub type Migrations = (
 	// XcmpQueue v3 → v4
 	cumulus_pallet_xcmp_queue::migration::v4::MigrationToV4<Runtime>,
 	// DmpQueue on-chain version is v0 (never explicitly set), code expects v2.
-	// Force-set to current version since DmpQueue is migration-only pallet (no actual schema change).
+	// Force-set to current version since DmpQueue is migration-only pallet (no actual schema
+	// change).
 	InitDmpQueueStorageVersion,
 );
 
