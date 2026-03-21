@@ -120,9 +120,10 @@ pub type CheckedExtrinsic = generic::CheckedExtrinsic<AccountId, RuntimeCall, Si
 
 /// Migrations for v1.5.0 → v1.6.0 leafchain runtime upgrade.
 ///
-/// v1.5.0 migrations (XcmpQueue v4, DmpQueue version init) already ran on-chain.
-/// No new leafchain-specific migrations needed for v1.6.0.
-pub type Migrations = ();
+/// v1.5.0 already deployed — XcmpQueue v4 + DmpQueue version init ran on-chain.
+/// Only v1.6.0-specific migrations needed:
+/// - Identity v0→v1 (username feature added in v1.6.0)
+pub type Migrations = (pallet_identity::migration::versioned::V0ToV1<Runtime, { u64::MAX }>,);
 
 /// Executive: handles dispatch to the various modules.
 pub type Executive = frame_executive::Executive<
