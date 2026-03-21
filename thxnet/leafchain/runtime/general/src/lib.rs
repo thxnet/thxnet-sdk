@@ -118,55 +118,11 @@ pub type UncheckedExtrinsic =
 /// Extrinsic type that has already been checked.
 pub type CheckedExtrinsic = generic::CheckedExtrinsic<AccountId, RuntimeCall, SignedExtra>;
 
-/// Migrations for v1.4.0 → v1.5.0 leafchain runtime upgrade.
+/// Migrations for v1.5.0 → v1.6.0 leafchain runtime upgrade.
 ///
-/// On-chain state after v1.4.0 (spec v8):
-/// - XcmpQueue: v3 → v4 (QueueConfigData restructured, deprecated fields removed)
-/// - DmpQueue: v0 (on-chain version never explicitly set) → v2 (force-set to match code)
-pub type Migrations = (
-	// XcmpQueue v3 → v4
-	cumulus_pallet_xcmp_queue::migration::v4::MigrationToV4<Runtime>,
-	// DmpQueue on-chain version is v0 (never explicitly set), code expects v2.
-	// Force-set to current version since DmpQueue is migration-only pallet (no actual schema
-	// change).
-	InitDmpQueueStorageVersion,
-);
-
-/// Force-set DmpQueue storage version to v2 (current code version).
-/// The on-chain version was never explicitly set by a migration, so it reads as v0.
-/// DmpQueue is a migration-only pallet since v1.4.0 — no actual schema to migrate.
-pub struct InitDmpQueueStorageVersion;
-
-impl frame_support::traits::OnRuntimeUpgrade for InitDmpQueueStorageVersion {
-	fn on_runtime_upgrade() -> Weight {
-		use frame_support::traits::{GetStorageVersion, StorageVersion};
-
-		let on_chain = DmpQueue::on_chain_storage_version();
-		if on_chain == StorageVersion::new(0) {
-			StorageVersion::new(2).put::<DmpQueue>();
-			log::info!("DmpQueue: forced storage version from {:?} to 2", on_chain);
-			<Runtime as frame_system::Config>::DbWeight::get().reads_writes(1, 1)
-		} else {
-			log::info!("DmpQueue: on-chain version {:?}, no action needed", on_chain);
-			<Runtime as frame_system::Config>::DbWeight::get().reads(1)
-		}
-	}
-
-	#[cfg(feature = "try-runtime")]
-	fn pre_upgrade() -> Result<sp_std::vec::Vec<u8>, sp_runtime::TryRuntimeError> {
-		Ok(sp_std::vec::Vec::new())
-	}
-
-	#[cfg(feature = "try-runtime")]
-	fn post_upgrade(_state: sp_std::vec::Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
-		use frame_support::traits::{GetStorageVersion, StorageVersion};
-		frame_support::ensure!(
-			DmpQueue::on_chain_storage_version() == StorageVersion::new(2),
-			"DmpQueue storage version should be 2 after migration"
-		);
-		Ok(())
-	}
-}
+/// v1.5.0 migrations (XcmpQueue v4, DmpQueue version init) already ran on-chain.
+/// No new leafchain-specific migrations needed for v1.6.0.
+pub type Migrations = ();
 
 /// Executive: handles dispatch to the various modules.
 pub type Executive = frame_executive::Executive<
@@ -207,7 +163,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("thxnet-general-runtime"),
 	impl_name: create_runtime_str!("thxnet-general-runtime"),
 	authoring_version: 1,
-	spec_version: 9,
+	spec_version: 10,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -279,6 +235,7 @@ parameter_types! {
 impl frame_system::Config for Runtime {
 	type AccountId = AccountId;
 	type RuntimeCall = RuntimeCall;
+	type RuntimeTask = RuntimeTask;
 	type Lookup = AccountIdLookup<AccountId, ()>;
 	type Nonce = Nonce;
 	type Hash = Hash;
@@ -747,6 +704,13 @@ impl pallet_identity::Config for Runtime {
 	type Slashed = ();
 	type SubAccountDeposit = SubAccountDeposit;
 	type WeightInfo = pallet_identity::weights::SubstrateWeight<Runtime>;
+	// Username types (v1.6.0)
+	type OffchainSignature = Signature;
+	type SigningPublicKey = <Signature as Verify>::Signer;
+	type UsernameAuthorityOrigin = EnsureRoot<AccountId>;
+	type PendingUsernameExpiration = ConstU32<{ 7 * DAYS }>;
+	type MaxSuffixLength = ConstU32<7>;
+	type MaxUsernameLength = ConstU32<32>;
 }
 
 parameter_types! {

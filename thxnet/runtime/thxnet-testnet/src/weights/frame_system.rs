@@ -144,4 +144,10 @@ impl<T: frame_system::Config> frame_system::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(p.into())))
 			.saturating_add(Weight::from_parts(0, 70).saturating_mul(p.into()))
 	}
+	fn authorize_upgrade() -> Weight {
+		Weight::from_parts(10_000_000, 0)
+	}
+	fn apply_authorized_upgrade() -> Weight {
+		Weight::from_parts(10_000_000, 0)
+	}
 }
