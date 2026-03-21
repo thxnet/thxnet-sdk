@@ -118,14 +118,54 @@ pub type UncheckedExtrinsic =
 /// Extrinsic type that has already been checked.
 pub type CheckedExtrinsic = generic::CheckedExtrinsic<AccountId, RuntimeCall, SignedExtra>;
 
-/// All migrations for the v0.9.43 → v1.1.0 runtime upgrade.
+/// Migrations for v1.4.0 → v1.5.0 leafchain runtime upgrade.
 ///
-/// On-chain state after v0.9.43 upgrade (spec v4):
-/// - CollatorSelection: v0 (never had a migration) → v1 (sort invulnerables)
-/// - XcmpQueue: v2 (downgraded from v3 by SetStorageVersions in v0.9.43) → v3 (counter init)
-/// - DmpQueue: v1 (downgraded from v2 by SetStorageVersions in v0.9.43) → v2 (counter init)
-/// - pallet-trustless-agent: v1 (deployed in v0.9.43) → no migration needed
-pub type Migrations = ();
+/// On-chain state after v1.4.0 (spec v8):
+/// - XcmpQueue: v3 → v4 (QueueConfigData restructured, deprecated fields removed)
+/// - DmpQueue: v0 (on-chain version never explicitly set) → v2 (force-set to match code)
+pub type Migrations = (
+	// XcmpQueue v3 → v4
+	cumulus_pallet_xcmp_queue::migration::v4::MigrationToV4<Runtime>,
+	// DmpQueue on-chain version is v0 (never explicitly set), code expects v2.
+	// Force-set to current version since DmpQueue is migration-only pallet (no actual schema change).
+	InitDmpQueueStorageVersion,
+);
+
+/// Force-set DmpQueue storage version to v2 (current code version).
+/// The on-chain version was never explicitly set by a migration, so it reads as v0.
+/// DmpQueue is a migration-only pallet since v1.4.0 — no actual schema to migrate.
+pub struct InitDmpQueueStorageVersion;
+
+impl frame_support::traits::OnRuntimeUpgrade for InitDmpQueueStorageVersion {
+	fn on_runtime_upgrade() -> Weight {
+		use frame_support::traits::{GetStorageVersion, StorageVersion};
+
+		let on_chain = DmpQueue::on_chain_storage_version();
+		if on_chain == StorageVersion::new(0) {
+			StorageVersion::new(2).put::<DmpQueue>();
+			log::info!("DmpQueue: forced storage version from {:?} to 2", on_chain);
+			<Runtime as frame_system::Config>::DbWeight::get().reads_writes(1, 1)
+		} else {
+			log::info!("DmpQueue: on-chain version {:?}, no action needed", on_chain);
+			<Runtime as frame_system::Config>::DbWeight::get().reads(1)
+		}
+	}
+
+	#[cfg(feature = "try-runtime")]
+	fn pre_upgrade() -> Result<sp_std::vec::Vec<u8>, sp_runtime::TryRuntimeError> {
+		Ok(sp_std::vec::Vec::new())
+	}
+
+	#[cfg(feature = "try-runtime")]
+	fn post_upgrade(_state: sp_std::vec::Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+		use frame_support::traits::{GetStorageVersion, StorageVersion};
+		frame_support::ensure!(
+			DmpQueue::on_chain_storage_version() == StorageVersion::new(2),
+			"DmpQueue storage version should be 2 after migration"
+		);
+		Ok(())
+	}
+}
 
 /// Executive: handles dispatch to the various modules.
 pub type Executive = frame_executive::Executive<
