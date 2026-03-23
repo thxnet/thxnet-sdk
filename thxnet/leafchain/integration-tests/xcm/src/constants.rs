@@ -132,7 +132,7 @@ pub mod thxnet {
 			},
 			babe: thxnet_runtime::BabeConfig {
 				authorities: Default::default(),
-				epoch_config: Some(thxnet_runtime::BABE_GENESIS_EPOCH_CONFIG),
+				epoch_config: thxnet_runtime::BABE_GENESIS_EPOCH_CONFIG,
 				_config: Default::default(),
 			},
 			grandpa: Default::default(),
@@ -153,8 +153,11 @@ pub mod thxnet {
 					hrmp_channel_max_message_size: 1024 * 1024,
 					hrmp_max_parachain_outbound_channels: 4,
 					hrmp_max_message_num_per_candidate: 5,
-					group_rotation_frequency: 20,
-					paras_availability_period: 4,
+					scheduler_params: polkadot_primitives::vstaging::SchedulerParams {
+						group_rotation_frequency: 20,
+						paras_availability_period: 4,
+						..Default::default()
+					},
 					no_show_slots: 2,
 					n_delay_tranches: 25,
 					needed_approvals: 2,

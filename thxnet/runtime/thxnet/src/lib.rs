@@ -143,7 +143,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("thxnet"),
 	impl_name: create_runtime_str!("thxnet"),
 	authoring_version: 0,
-	spec_version: 108_000_000,
+	spec_version: 109_000_000,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 25,
@@ -194,6 +194,11 @@ impl frame_system::Config for Runtime {
 	type OnSetCode = ();
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
 	type RuntimeTask = RuntimeTask;
+	type SingleBlockMigrations = ();
+	type MultiBlockMigrator = ();
+	type PreInherents = ();
+	type PostInherents = ();
+	type PostTransactions = ();
 }
 
 parameter_types! {
@@ -1926,9 +1931,9 @@ pub mod migrations {
 	const IDENTITY_MIGRATION_KEY_LIMIT: u64 = u64::MAX;
 
 	/// v1.6.0 → v1.7.0: XCM pallet storage version migration (forgotten in v1.6.0).
-	/// v1.7.0 → v1.8.0: TotalValueLocked sync + permanent XCM version migration.
+	/// v1.8.0 → v1.9.0: Configuration v12 + permanent XCM version migration.
 	pub type Unreleased = (
-		pallet_nomination_pools::migration::unversioned::TotalValueLockedSync<Runtime>,
+		parachains_configuration::migration::v12::MigrateToV12<Runtime>,
 		pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 	);
 }
@@ -2014,7 +2019,7 @@ sp_api::impl_runtime_apis! {
 			Executive::execute_block(block);
 		}
 
-		fn initialize_block(header: &<Block as BlockT>::Header) {
+		fn initialize_block(header: &<Block as BlockT>::Header) -> sp_runtime::ExtrinsicInclusionMode {
 			Executive::initialize_block(header)
 		}
 	}
