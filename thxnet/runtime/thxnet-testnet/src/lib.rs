@@ -1932,9 +1932,10 @@ pub mod migrations {
 	// We don't have a limit in the Relay Chain.
 	const IDENTITY_MIGRATION_KEY_LIMIT: u64 = u64::MAX;
 
-	/// v1.6.0 → v1.7.0: XCM pallet storage version migration (forgotten in v1.6.0).
-	/// v1.8.0 → v1.9.0: Configuration v12 + permanent XCM version migration.
-	pub type Unreleased = ();
+	/// v1.9.0 → v1.10.0: ParaInclusion v0→v1.
+	pub type Unreleased = (
+		parachains_inclusion::migration::MigrateToV1<Runtime>,
+	);
 }
 
 /// Unchecked extrinsic type as expected by this runtime.
