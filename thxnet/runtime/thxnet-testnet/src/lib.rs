@@ -1933,9 +1933,7 @@ pub mod migrations {
 	const IDENTITY_MIGRATION_KEY_LIMIT: u64 = u64::MAX;
 
 	/// v1.9.0 → v1.10.0: ParaInclusion v0→v1.
-	pub type Unreleased = (
-		parachains_inclusion::migration::MigrateToV1<Runtime>,
-	);
+	pub type Unreleased = (parachains_inclusion::migration::MigrateToV1<Runtime>,);
 }
 
 /// Unchecked extrinsic type as expected by this runtime.
