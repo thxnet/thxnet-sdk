@@ -120,9 +120,8 @@ pub type CheckedExtrinsic = generic::CheckedExtrinsic<AccountId, RuntimeCall, Si
 
 /// Migrations for v1.11.0 → v1.12.0 leafchain runtime upgrade.
 ///
-/// CollatorSelection v1→v2: Migrates old `Candidates` storage to `CandidateList`.
-/// (Introduced in v1.11.0, carried forward here.)
-pub type Migrations = (pallet_collator_selection::migration::v2::MigrationToV2<Runtime>,);
+/// No new migrations needed.
+pub type Migrations = ();
 
 /// Executive: handles dispatch to the various modules.
 pub type Executive = frame_executive::Executive<
