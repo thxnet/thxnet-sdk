@@ -118,11 +118,10 @@ pub type UncheckedExtrinsic =
 /// Extrinsic type that has already been checked.
 pub type CheckedExtrinsic = generic::CheckedExtrinsic<AccountId, RuntimeCall, SignedExtra>;
 
-/// Migrations for v1.5.0 → v1.6.0 leafchain runtime upgrade.
+/// Migrations for v1.10.0 → v1.11.0 leafchain runtime upgrade.
 ///
-/// v1.5.0 already deployed — XcmpQueue v4 + DmpQueue version init ran on-chain.
-/// v1.10.0 → v1.11.0: No new migrations needed.
-pub type Migrations = ();
+/// CollatorSelection v1→v2: Migrates old `Candidates` storage to `CandidateList`.
+pub type Migrations = (pallet_collator_selection::migration::v2::MigrationToV2<Runtime>,);
 
 /// Executive: handles dispatch to the various modules.
 pub type Executive = frame_executive::Executive<
