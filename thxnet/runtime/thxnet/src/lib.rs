@@ -28,7 +28,6 @@ use runtime_common::{
 };
 
 pub mod impls;
-#[cfg(not(feature = "runtime-benchmarks"))]
 use impls::CreditToBlockAuthor;
 
 use runtime_parachains::{
@@ -143,7 +142,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("thxnet"),
 	impl_name: create_runtime_str!("thxnet"),
 	authoring_version: 0,
-	spec_version: 110_000_000,
+	spec_version: 110_000_001,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 25,
@@ -756,6 +755,8 @@ impl pallet_treasury::Config for Runtime {
 	type Paymaster = frame_support::traits::tokens::PayFromAccount<Balances, TreasuryAccount>;
 	type BalanceConverter = frame_support::traits::tokens::UnityAssetBalanceConversion;
 	type PayoutPeriod = SpendPeriod;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = ();
 }
 
 parameter_types! {
@@ -1931,8 +1932,53 @@ pub mod migrations {
 	// We don't have a limit in the Relay Chain.
 	const IDENTITY_MIGRATION_KEY_LIMIT: u64 = u64::MAX;
 
-	/// v1.9.0 → v1.10.0: ParaInclusion v0→v1.
-	pub type Unreleased = (parachains_inclusion::migration::MigrateToV1<Runtime>,);
+	/// Cumulative migrations for live chains upgrading from v0.9.40 to v1.10.0.
+	///
+	/// Each migration is internally version-guarded (checks `on_chain_storage_version`),
+	/// so already-applied migrations are no-ops. This allows a single runtime upgrade
+	/// to jump from spec_version 94000001 to 110_000_001 in one shot.
+	///
+	/// Migration order follows the upstream version progression:
+	/// v1.1.0 → v1.3.0 → v1.4.0 → v1.5.0 → v1.6.0 → v1.7.0 → v1.8.0 → v1.9.0 → v1.10.0
+	/// First half of cumulative migrations (v0.9.40 → v1.5.0).
+	type MigrationsEarly = (
+		// v0.9.40 → v1.1.0
+		// Note: pallet_im_online::migration::v1 skipped — pallet fully removed in Phase 4
+		parachains_configuration::migration::v7::MigrateToV7<Runtime>,
+		parachains_configuration::migration::v8::MigrateToV8<Runtime>,
+		parachains_configuration::migration::v9::MigrateToV9<Runtime>,
+		paras_registrar::migration::MigrateToV1<Runtime, ParachainsToUnlock>,
+		// v1.2.0 → v1.3.0
+		pallet_nomination_pools::migration::versioned::V5toV6<Runtime>,
+		pallet_nomination_pools::migration::versioned::V6ToV7<Runtime>,
+		// v1.3.0 → v1.4.0
+		pallet_staking::migrations::v14::MigrateToV14<Runtime>,
+		pallet_grandpa::migrations::MigrateV4ToV5<Runtime>,
+		parachains_configuration::migration::v10::MigrateToV10<Runtime>,
+		// v1.4.0 → v1.5.0
+		pallet_nomination_pools::migration::versioned::V7ToV8<Runtime>,
+		UpgradeSessionKeys,
+		frame_support::migrations::RemovePallet<ImOnlinePalletName, <Runtime as frame_system::Config>::DbWeight>,
+	);
+
+	/// Second half of cumulative migrations (v1.5.0 → v1.10.0).
+	type MigrationsLate = (
+		// v1.5.0 → v1.6.0
+		runtime_parachains::scheduler::migration::MigrateV1ToV2<Runtime>,
+		pallet_identity::migration::versioned::V0ToV1<Runtime, IDENTITY_MIGRATION_KEY_LIMIT>,
+		parachains_configuration::migration::v11::MigrateToV11<Runtime>,
+		// v1.6.0 → v1.7.0
+		pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
+		// v1.7.0 → v1.8.0
+		pallet_nomination_pools::migration::unversioned::TotalValueLockedSync<Runtime>,
+		// v1.8.0 → v1.9.0
+		parachains_configuration::migration::v12::MigrateToV12<Runtime>,
+		// v1.9.0 → v1.10.0
+		parachains_inclusion::migration::MigrateToV1<Runtime>,
+	);
+
+	/// Full cumulative migrations for live chains upgrading from v0.9.40 to v1.10.0.
+	pub type Unreleased = (MigrationsEarly, MigrationsLate);
 }
 
 /// Unchecked extrinsic type as expected by this runtime.
@@ -2000,7 +2046,7 @@ mod benches {
 		[pallet_elections_phragmen, PhragmenElection]
 		[pallet_membership, TechnicalMembership]
 		// XCM
-		[pallet_xcm, XcmPallet]
+		[pallet_xcm, PalletXcmExtrinsicsBenchmark::<Runtime>]
 		[pallet_xcm_benchmarks::fungible, pallet_xcm_benchmarks::fungible::Pallet::<Runtime>]
 		[pallet_xcm_benchmarks::generic, pallet_xcm_benchmarks::generic::Pallet::<Runtime>]
 	);
@@ -2506,6 +2552,7 @@ sp_api::impl_runtime_apis! {
 			use pallet_nomination_pools_benchmarking::Pallet as NominationPoolsBench;
 			use frame_system_benchmarking::Pallet as SystemBench;
 			use frame_benchmarking::baseline::Pallet as Baseline;
+			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsicsBenchmark;
 
 			let mut list = Vec::<BenchmarkList>::new();
 			list_benchmarks!(list, extra);
@@ -2531,6 +2578,7 @@ sp_api::impl_runtime_apis! {
 			use pallet_nomination_pools_benchmarking::Pallet as NominationPoolsBench;
 			use frame_system_benchmarking::Pallet as SystemBench;
 			use frame_benchmarking::baseline::Pallet as Baseline;
+			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsicsBenchmark;
 			use xcm::latest::prelude::*;
 			use xcm_config::{XcmConfig, StatemintLocation, TokenLocation, LocalCheckAccount, SovereignAccountOf};
 
@@ -2542,6 +2590,32 @@ sp_api::impl_runtime_apis! {
 			impl pallet_nomination_pools_benchmarking::Config for Runtime {}
 			impl runtime_parachains::disputes::slashing::benchmarking::Config for Runtime {}
 
+			impl pallet_xcm::benchmarking::Config for Runtime {
+				type DeliveryHelper = ();
+
+				fn reachable_dest() -> Option<Location> {
+					Some(StatemintLocation::get())
+				}
+
+				fn teleportable_asset_and_dest() -> Option<(Asset, Location)> {
+					Some((
+						Asset { fun: Fungible(1 * UNITS), id: AssetId(TokenLocation::get()) },
+						StatemintLocation::get(),
+					))
+				}
+
+				fn reserve_transferable_asset_and_dest() -> Option<(Asset, Location)> {
+					None
+				}
+
+				fn get_asset() -> Asset {
+					Asset {
+						id: AssetId(TokenLocation::get()),
+						fun: Fungible(1 * UNITS),
+					}
+				}
+			}
+
 			let mut whitelist: Vec<TrackedStorageKey> = AllPalletsWithSystem::whitelisted_storage_keys();
 			let treasury_key = frame_system::Account::<Runtime>::hashed_key_for(Treasury::account_id());
 			whitelist.push(treasury_key.to_vec().into());
@@ -2549,21 +2623,22 @@ sp_api::impl_runtime_apis! {
 			impl pallet_xcm_benchmarks::Config for Runtime {
 				type XcmConfig = XcmConfig;
 				type AccountIdConverter = SovereignAccountOf;
-				fn valid_destination() -> Result<MultiLocation, BenchmarkError> {
+				type DeliveryHelper = ();
+				fn valid_destination() -> Result<Location, BenchmarkError> {
 					Ok(StatemintLocation::get())
 				}
-				fn worst_case_holding(_depositable_count: u32) -> MultiAssets {
+				fn worst_case_holding(_depositable_count: u32) -> Assets {
 					// Polkadot only knows about DOT
-					vec![MultiAsset { id: Concrete(TokenLocation::get()), fun: Fungible(1_000_000 * UNITS) }].into()
+					vec![Asset { id: AssetId(TokenLocation::get()), fun: Fungible(1_000_000 * UNITS) }].into()
 				}
 			}
 
 			parameter_types! {
-				pub const TrustedTeleporter: Option<(MultiLocation, MultiAsset)> = Some((
+				pub TrustedTeleporter: Option<(Location, Asset)> = Some((
 					StatemintLocation::get(),
-					MultiAsset { id: Concrete(TokenLocation::get()), fun: Fungible(1 * UNITS) }
+					Asset { id: AssetId(TokenLocation::get()), fun: Fungible(1 * UNITS) }
 				));
-				pub const TrustedReserve: Option<(MultiLocation, MultiAsset)> = None;
+				pub TrustedReserve: Option<(Location, Asset)> = None;
 			}
 
 			impl pallet_xcm_benchmarks::fungible::Config for Runtime {
@@ -2573,58 +2648,66 @@ sp_api::impl_runtime_apis! {
 				type TrustedTeleporter = TrustedTeleporter;
 				type TrustedReserve = TrustedReserve;
 
-				fn get_multi_asset() -> MultiAsset {
-					MultiAsset {
-						id: Concrete(TokenLocation::get()),
-						fun: Fungible(1 * UNITS)
+				fn get_asset() -> Asset {
+					Asset {
+						id: AssetId(TokenLocation::get()),
+						fun: Fungible(1 * UNITS),
 					}
 				}
 			}
 
 			impl pallet_xcm_benchmarks::generic::Config for Runtime {
+				type TransactAsset = Balances;
 				type RuntimeCall = RuntimeCall;
 
 				fn worst_case_response() -> (u64, Response) {
 					(0u64, Response::Version(Default::default()))
 				}
 
-				fn worst_case_asset_exchange() -> Result<(MultiAssets, MultiAssets), BenchmarkError> {
+				fn worst_case_asset_exchange() -> Result<(Assets, Assets), BenchmarkError> {
 					// Polkadot doesn't support asset exchanges
 					Err(BenchmarkError::Skip)
 				}
 
-				fn universal_alias() -> Result<(MultiLocation, Junction), BenchmarkError> {
+				fn universal_alias() -> Result<(Location, Junction), BenchmarkError> {
 					// The XCM executor of Polkadot doesn't have a configured `UniversalAliases`
 					Err(BenchmarkError::Skip)
 				}
 
-				fn transact_origin_and_runtime_call() -> Result<(MultiLocation, RuntimeCall), BenchmarkError> {
+				fn transact_origin_and_runtime_call() -> Result<(Location, RuntimeCall), BenchmarkError> {
 					Ok((StatemintLocation::get(), frame_system::Call::remark_with_event { remark: vec![] }.into()))
 				}
 
-				fn subscribe_origin() -> Result<MultiLocation, BenchmarkError> {
+				fn subscribe_origin() -> Result<Location, BenchmarkError> {
 					Ok(StatemintLocation::get())
 				}
 
-				fn claimable_asset() -> Result<(MultiLocation, MultiLocation, MultiAssets), BenchmarkError> {
+				fn claimable_asset() -> Result<(Location, Location, Assets), BenchmarkError> {
 					let origin = StatemintLocation::get();
-					let assets: MultiAssets = (Concrete(TokenLocation::get()), 1_000 * UNITS).into();
-					let ticket = MultiLocation { parents: 0, interior: Here };
+					let assets: Assets = (AssetId(TokenLocation::get()), 1_000 * UNITS).into();
+					let ticket = Location { parents: 0, interior: Here };
 					Ok((origin, ticket, assets))
 				}
 
-				fn unlockable_asset() -> Result<(MultiLocation, MultiLocation, MultiAsset), BenchmarkError> {
+				fn fee_asset() -> Result<Asset, BenchmarkError> {
+					Ok(Asset {
+						id: AssetId(TokenLocation::get()),
+						fun: Fungible(1_000_000 * UNITS),
+					})
+				}
+
+				fn unlockable_asset() -> Result<(Location, Location, Asset), BenchmarkError> {
 					// Polkadot doesn't support asset locking
 					Err(BenchmarkError::Skip)
 				}
 
 				fn export_message_origin_and_destination(
-				) -> Result<(MultiLocation, NetworkId, InteriorMultiLocation), BenchmarkError> {
+				) -> Result<(Location, NetworkId, InteriorLocation), BenchmarkError> {
 					// Polkadot doesn't support exporting messages
 					Err(BenchmarkError::Skip)
 				}
 
-				fn alias_origin() -> Result<(MultiLocation, MultiLocation), BenchmarkError> {
+				fn alias_origin() -> Result<(Location, Location), BenchmarkError> {
 					// The XCM executor of Polkadot doesn't have a configured `Aliasers`
 					Err(BenchmarkError::Skip)
 				}

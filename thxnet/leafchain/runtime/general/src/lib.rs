@@ -18,8 +18,8 @@ use frame_support::{
 	dispatch::DispatchClass,
 	parameter_types,
 	traits::{
-		tokens::nonfungibles_v2::Inspect, AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU32,
-		ConstU64, Everything, InstanceFilter, TransformOrigin,
+		tokens::nonfungibles_v2::Inspect, AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU16,
+		ConstU32, ConstU64, Everything, InstanceFilter, TransformOrigin,
 	},
 	weights::{constants::WEIGHT_REF_TIME_PER_SECOND, ConstantMultiplier, Weight},
 	PalletId,
@@ -62,7 +62,7 @@ pub use constants::{currency::*, fee::*, time::*};
 /// Implementations of some helper traits passed into runtime modules as
 /// associated types.
 pub mod impls;
-use impls::CreditToBlockAuthor;
+use impls::{CreditToBlockAuthor, CrowdfundingLifecycleGuard, RwaLicenseVerifier};
 
 /// Alias to 512-bit hash when used in the context of a transaction signature on
 /// the chain.
@@ -124,7 +124,14 @@ pub type CheckedExtrinsic = generic::CheckedExtrinsic<AccountId, RuntimeCall, Si
 /// Only v1.6.0-specific migrations needed:
 /// - Identity v0→v1 (username feature added in v1.6.0)
 /// v1.6.0 → v1.7.0: XCM pallet storage version migration (forgotten in v1.6.0).
-pub type Migrations = (pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,);
+/// Cumulative migrations for live leafchains upgrading from v0.9.40 to v1.10.0.
+/// Each migration is version-guarded internally.
+pub type Migrations = (
+	// v0.9.40 → v1.1.0
+	pallet_collator_selection::migration::v1::MigrateToV1<Runtime>,
+	// v1.6.0 → v1.7.0+ (XCM v4)
+	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
+);
 
 /// Executive: handles dispatch to the various modules.
 pub type Executive = frame_executive::Executive<
@@ -165,7 +172,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("thxnet-general-runtime"),
 	impl_name: create_runtime_str!("thxnet-general-runtime"),
 	authoring_version: 1,
-	spec_version: 14,
+	spec_version: 15,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -765,6 +772,99 @@ impl pallet_trustless_agent::Config for Runtime {
 	type WeightInfo = weights::pallet_trustless_agent::WeightInfo<Runtime>;
 }
 
+// ── RWA Pallet ──────────────────────────────────────────────────────────
+
+parameter_types! {
+	// MUST match old leafchains runtime PalletId exactly -- sub-account derivation.
+	pub const RwaPalletId: PalletId = PalletId(*b"py/rwaaa");
+	pub const RwaAssetRegistrationDeposit: Balance = 100 * DOLLARS;
+	pub const RwaMaxAssetsPerOwner: u32 = 100;
+	pub const RwaMaxMetadataLen: u32 = 256;
+	pub const RwaMaxSlashRecipients: u32 = 5;
+	pub const RwaMaxGroupSize: u32 = 10;
+	pub const RwaMaxPendingApprovals: u32 = 100;
+	// MUST be >= old leafchains value (50) for BoundedVec decode safety.
+	pub const RwaMaxSunsettingPerBlock: u32 = 50;
+	// Match old leafchains (50). Can increase later but never decrease.
+	pub const RwaMaxParticipationsPerHolder: u32 = 50;
+	pub const RwaMinParticipationDeposit: Balance = 1 * DOLLARS;
+}
+
+impl pallet_rwa::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type AssetId = u32;
+	type NativeCurrency = Balances;
+	type Fungibles = Assets;
+	type AdminOrigin = EnsureRoot<AccountId>;
+	type ForceOrigin = EnsureRoot<AccountId>;
+	type PalletId = RwaPalletId;
+	type AssetRegistrationDeposit = RwaAssetRegistrationDeposit;
+	type MaxAssetsPerOwner = RwaMaxAssetsPerOwner;
+	type MaxMetadataLen = RwaMaxMetadataLen;
+	type MaxSlashRecipients = RwaMaxSlashRecipients;
+	type MaxGroupSize = RwaMaxGroupSize;
+	type MaxPendingApprovals = RwaMaxPendingApprovals;
+	type MaxSunsettingPerBlock = RwaMaxSunsettingPerBlock;
+	type MaxParticipationsPerHolder = RwaMaxParticipationsPerHolder;
+	type MinParticipationDeposit = RwaMinParticipationDeposit;
+	type WeightInfo = pallet_rwa::weights::SubstrateWeight<Runtime>;
+	type ParticipationFilter = ();
+	type AssetLifecycleGuard = CrowdfundingLifecycleGuard;
+}
+
+// ── Crowdfunding Pallet ─────────────────────────────────────────────────
+
+parameter_types! {
+	// MUST match old leafchains runtime PalletId exactly -- sub-account derivation.
+	pub const CrowdfundingPalletId: PalletId = PalletId(*b"py/crwdf");
+	pub const CfCampaignCreationDeposit: Balance = 50 * DOLLARS;
+	// MUST be >= old leafchains value (20) for BoundedVec decode safety.
+	pub const CfMaxCampaignsPerCreator: u32 = 20;
+	pub const CfMinCampaignDuration: BlockNumber = 1 * DAYS;
+	pub const CfMaxCampaignDuration: BlockNumber = 90 * DAYS;
+	pub const CfEarlyWithdrawalPenaltyBps: u16 = 100;
+	pub const CfMaxMilestones: u32 = 10;
+	pub const CfMaxEligibilityRules: u32 = 5;
+	pub const CfMaxNftSets: u32 = 5;
+	pub const CfMaxNftsPerSet: u32 = 5;
+	// MUST be >= old leafchains value (50) for BoundedVec decode safety.
+	pub const CfMaxInvestmentsPerInvestor: u32 = 50;
+	pub const CfProtocolFeeBps: u16 = 200;
+	pub const CfMaxWhitelistSize: u32 = 500;
+	// WARNING: This is the burn address [0u8;32]. MUST be reconfigured via
+	// set_protocol_config before any campaigns are created on mainnet.
+	pub CfProtocolFeeRecipient: AccountId = AccountId::from([0u8; 32]);
+}
+
+impl pallet_crowdfunding::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type AssetId = u32;
+	type CollectionId = u32;
+	type ItemId = u32;
+	type NativeCurrency = Balances;
+	type Fungibles = Assets;
+	type NftInspect = Nfts;
+	type AdminOrigin = EnsureRoot<AccountId>;
+	type ForceOrigin = EnsureRoot<AccountId>;
+	type MilestoneApprover = EnsureRoot<AccountId>;
+	type PalletId = CrowdfundingPalletId;
+	type CampaignCreationDeposit = CfCampaignCreationDeposit;
+	type MaxCampaignsPerCreator = CfMaxCampaignsPerCreator;
+	type MinCampaignDuration = CfMinCampaignDuration;
+	type MaxCampaignDuration = CfMaxCampaignDuration;
+	type EarlyWithdrawalPenaltyBps = CfEarlyWithdrawalPenaltyBps;
+	type MaxMilestones = CfMaxMilestones;
+	type MaxEligibilityRules = CfMaxEligibilityRules;
+	type MaxNftSets = CfMaxNftSets;
+	type MaxNftsPerSet = CfMaxNftsPerSet;
+	type MaxInvestmentsPerInvestor = CfMaxInvestmentsPerInvestor;
+	type ProtocolFeeBps = ConstU16<200>;
+	type ProtocolFeeRecipient = CfProtocolFeeRecipient;
+	type MaxWhitelistSize = CfMaxWhitelistSize;
+	type LicenseVerifier = RwaLicenseVerifier;
+	type WeightInfo = pallet_crowdfunding::weights::SubstrateWeight<Runtime>;
+}
+
 // Create the runtime by composing the FRAME pallets that were previously
 // configured.
 construct_runtime!(
@@ -810,6 +910,10 @@ construct_runtime!(
 		DmpQueue: cumulus_pallet_dmp_queue = 33,
 		MessageQueue: pallet_message_queue = 34,
 
+		// RWA + Crowdfunding (indices match Avatect mainnet deployment)
+		Rwa: pallet_rwa = 40,
+		Crowdfunding: pallet_crowdfunding = 41,
+
 		Sudo: pallet_sudo = 255,
 	}
 );
@@ -824,6 +928,8 @@ mod benches {
 		[pallet_multisig, Multisig]
 		[pallet_identity, Identity]
 		[pallet_trustless_agent, TrustlessAgent]
+		[pallet_rwa, Rwa]
+		[pallet_crowdfunding, Crowdfunding]
 		[pallet_nfts, Nfts]
 		[pallet_proxy, Proxy]
 		[pallet_session, SessionBench::<Runtime>]
@@ -1024,6 +1130,71 @@ impl_runtime_apis! {
 
 		fn collection_attribute(collection: u32, key: Vec<u8>) -> Option<Vec<u8>> {
 			<Nfts as Inspect<AccountId>>::collection_attribute(&collection, &key)
+		}
+	}
+
+	impl pallet_rwa_runtime_api::RwaApi<Block, AccountId, Balance, BlockNumber, u32> for Runtime {
+		fn effective_participation_status(
+			asset_id: u32,
+			participation_id: u32,
+		) -> Option<pallet_rwa::ParticipationStatus<BlockNumber>> {
+			Rwa::effective_participation_status(asset_id, participation_id)
+		}
+
+		fn can_participate(
+			asset_id: u32,
+			who: AccountId,
+		) -> Result<(), pallet_rwa::CanParticipateError> {
+			Rwa::can_participate(asset_id, who)
+		}
+
+		fn assets_by_owner(owner: AccountId) -> Vec<u32> {
+			Rwa::assets_by_owner(owner)
+		}
+
+		fn participations_by_holder(holder: AccountId) -> Vec<(u32, u32)> {
+			Rwa::participations_by_holder(holder)
+		}
+
+		fn active_participant_count(asset_id: u32) -> u32 {
+			Rwa::active_participant_count(asset_id)
+		}
+	}
+
+	impl pallet_crowdfunding_runtime_api::CrowdfundingApi<Block, AccountId, Balance, BlockNumber, u32> for Runtime {
+		fn check_eligibility(
+			campaign_id: u32,
+			who: AccountId,
+		) -> Result<(), pallet_crowdfunding::EligibilityError> {
+			Crowdfunding::check_eligibility(campaign_id, who)
+		}
+
+		fn preview_withdrawal(
+			campaign_id: u32,
+			investor: AccountId,
+			amount: Balance,
+		) -> Option<pallet_crowdfunding::WithdrawalPreview<Balance>> {
+			Crowdfunding::preview_withdrawal(campaign_id, investor, amount)
+		}
+
+		fn campaign_summary(campaign_id: u32) -> Option<pallet_crowdfunding::CampaignSummary<Balance, BlockNumber>> {
+			Crowdfunding::campaign_summary(campaign_id)
+		}
+
+		fn campaigns_by_creator(creator: AccountId) -> Vec<u32> {
+			Crowdfunding::campaigns_by_creator(creator)
+		}
+
+		fn campaigns_by_investor(investor: AccountId) -> Vec<u32> {
+			Crowdfunding::campaigns_by_investor(investor)
+		}
+
+		fn get_investment(campaign_id: u32, investor: AccountId) -> Option<pallet_crowdfunding::Investment<Balance>> {
+			Crowdfunding::get_investment(campaign_id, investor)
+		}
+
+		fn get_protocol_config() -> (u16, AccountId) {
+			Crowdfunding::get_protocol_config()
 		}
 	}
 

@@ -6089,12 +6089,16 @@ dependencies = [
  "pallet-authorship",
  "pallet-balances",
  "pallet-collator-selection",
+ "pallet-crowdfunding",
+ "pallet-crowdfunding-runtime-api",
  "pallet-identity",
  "pallet-message-queue",
  "pallet-multisig",
  "pallet-nfts",
  "pallet-nfts-runtime-api",
  "pallet-proxy",
+ "pallet-rwa",
+ "pallet-rwa-runtime-api",
  "pallet-session",
  "pallet-sudo",
  "pallet-timestamp",
@@ -9770,6 +9774,50 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-crowdfunding"
+version = "0.3.3"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-assets",
+ "pallet-balances",
+ "pallet-rwa",
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+]
+
+[[package]]
+name = "pallet-crowdfunding-rpc"
+version = "0.3.3"
+dependencies = [
+ "jsonrpsee",
+ "pallet-crowdfunding",
+ "pallet-crowdfunding-runtime-api",
+ "parity-scale-codec",
+ "serde",
+ "sp-api",
+ "sp-blockchain",
+ "sp-runtime",
+]
+
+[[package]]
+name = "pallet-crowdfunding-runtime-api"
+version = "0.3.3"
+dependencies = [
+ "pallet-crowdfunding",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-api",
+ "sp-runtime",
+]
+
+[[package]]
 name = "pallet-dao"
 version = "4.0.0"
 dependencies = [
@@ -10076,6 +10124,21 @@ dependencies = [
  "sp-std 14.0.0",
  "sp-tracing 16.0.0",
  "substrate-test-utils",
+]
+
+[[package]]
+name = "pallet-finality-rescue"
+version = "4.0.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-grandpa",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
 ]
 
 [[package]]
@@ -10759,6 +10822,49 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std 14.0.0",
+]
+
+[[package]]
+name = "pallet-rwa"
+version = "0.3.3"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-assets",
+ "pallet-balances",
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+]
+
+[[package]]
+name = "pallet-rwa-rpc"
+version = "0.3.3"
+dependencies = [
+ "jsonrpsee",
+ "pallet-rwa",
+ "pallet-rwa-runtime-api",
+ "parity-scale-codec",
+ "serde",
+ "sp-api",
+ "sp-blockchain",
+ "sp-runtime",
+]
+
+[[package]]
+name = "pallet-rwa-runtime-api"
+version = "0.3.3"
+dependencies = [
+ "pallet-rwa",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-api",
+ "sp-runtime",
 ]
 
 [[package]]
@@ -20651,6 +20757,10 @@ dependencies = [
  "jsonrpsee",
  "pallet-asset-tx-payment",
  "pallet-assets",
+ "pallet-crowdfunding-rpc",
+ "pallet-crowdfunding-runtime-api",
+ "pallet-rwa-rpc",
+ "pallet-rwa-runtime-api",
  "pallet-transaction-payment-rpc",
  "parity-scale-codec",
  "polkadot-cli",

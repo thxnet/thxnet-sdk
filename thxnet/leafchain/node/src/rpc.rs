@@ -7,7 +7,7 @@
 
 use std::sync::Arc;
 
-use general_runtime::{opaque::Block, AccountId, Balance, Nonce};
+use general_runtime::{opaque::Block, AccountId, Balance, BlockNumber, Nonce};
 pub use sc_rpc::DenyUnsafe;
 use sc_transaction_pool_api::TransactionPool;
 use sp_api::ProvideRuntimeApi;
@@ -40,9 +40,13 @@ where
 		+ 'static,
 	C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
 	C::Api: substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
+	C::Api: pallet_rwa_runtime_api::RwaApi<Block, AccountId, Balance, BlockNumber, u32>,
+	C::Api: pallet_crowdfunding_runtime_api::CrowdfundingApi<Block, AccountId, Balance, BlockNumber, u32>,
 	C::Api: BlockBuilder<Block>,
 	P: TransactionPool + Sync + Send + 'static,
 {
+	use pallet_crowdfunding_rpc::{CrowdfundingRpcHandler, CrowdfundingRpcServer};
+	use pallet_rwa_rpc::{RwaRpcHandler, RwaRpcServer};
 	use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApiServer};
 	use substrate_frame_rpc_system::{System, SystemApiServer};
 
@@ -50,6 +54,8 @@ where
 	let FullDeps { client, pool, deny_unsafe } = deps;
 
 	module.merge(System::new(client.clone(), pool, deny_unsafe).into_rpc())?;
-	module.merge(TransactionPayment::new(client).into_rpc())?;
+	module.merge(TransactionPayment::new(client.clone()).into_rpc())?;
+	module.merge(RwaRpcHandler::<_, Block>::new(client.clone()).into_rpc())?;
+	module.merge(CrowdfundingRpcHandler::<_, Block>::new(client).into_rpc())?;
 	Ok(module)
 }
