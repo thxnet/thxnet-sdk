@@ -19,7 +19,7 @@ jobs:
     name: Build WASM runtimes
     runs-on: self-hosted
     container:
-      image: docker.io/paritytech/ci-unified:bullseye-1.75.0-2024-01-22-v20240109
+      image: docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
       volumes:
         - /data/ci-cache:/cache
     env:

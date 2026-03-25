@@ -50,7 +50,6 @@ sp-runtime = { path = "../../../substrate/primitives/runtime" }
 sp-timestamp = { path = "../../../substrate/primitives/timestamp" }
 substrate-frame-rpc-system = { path = "../../../substrate/utils/frame/rpc/system" }
 substrate-prometheus-endpoint = { path = "../../../substrate/utils/prometheus" }
-try-runtime-cli = { path = "../../../substrate/utils/frame/try-runtime/cli", optional = true }
 
 # Polkadot
 polkadot-cli = { path = "../../../polkadot/cli" }
@@ -77,11 +76,9 @@ substrate-build-script-utils = { path = "../../../substrate/utils/build-script-u
 [features]
 default = []
 runtime-benchmarks = [
-    "try-runtime-cli/try-runtime",
     "general-runtime/runtime-benchmarks",
     "polkadot-cli/runtime-benchmarks",
 ]
 try-runtime = [
-    "try-runtime-cli/try-runtime",
     "general-runtime/try-runtime"
 ]
