@@ -338,6 +338,7 @@ members = [
 	"substrate/frame/contracts/uapi",
 	"substrate/frame/conviction-voting",
 	"substrate/frame/core-fellowship",
+	"substrate/frame/delegated-staking",
 	"substrate/frame/democracy",
 	"substrate/frame/election-provider-multi-phase",
 	"substrate/frame/election-provider-multi-phase/test-staking-e2e",
@@ -510,7 +511,6 @@ members = [
 	"substrate/utils/build-script-utils",
 	"substrate/utils/fork-tree",
 	"substrate/utils/frame/benchmarking-cli",
-	"substrate/utils/frame/frame-utilities-cli",
 	"substrate/utils/frame/generate-bags",
 	"substrate/utils/frame/generate-bags/node-runtime",
 	"substrate/utils/frame/omni-bencher",
@@ -523,6 +523,7 @@ members = [
 	"substrate/utils/substrate-bip39",
 	"substrate/utils/wasm-builder",
 
+	"templates/minimal",
 	"templates/minimal/node",
 	"templates/minimal/pallets/template",
 	"templates/minimal/runtime",

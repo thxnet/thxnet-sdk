@@ -154,4 +154,10 @@ impl<T: frame_system::Config> pallet_balances::WeightInfo for WeightInfo<T> {
 		Weight::from_parts(10_000_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
 	}
+	fn burn_allow_death() -> Weight {
+		Weight::from_parts(10_000_000, 0)
+	}
+	fn burn_keep_alive() -> Weight {
+		Weight::from_parts(10_000_000, 0)
+	}
 }

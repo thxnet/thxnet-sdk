@@ -144,7 +144,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("thxnet"),
 	impl_name: create_runtime_str!("thxnet"),
 	authoring_version: 0,
-	spec_version: 111_000_000,
+	spec_version: 112_000_000,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 25,
@@ -656,7 +656,7 @@ impl pallet_staking::Config for Runtime {
 	type SessionInterface = Self;
 	type EraPayout = EraPayout;
 	type MaxExposurePageSize = MaxExposurePageSize;
-	type OffendingValidatorsThreshold = OffendingValidatorsThreshold;
+	type DisablingStrategy = pallet_staking::UpToLimitDisablingStrategy;
 	type NextNewSession = Session;
 	type ElectionProvider = ElectionProviderMultiPhase;
 	type GenesisElectionProvider = onchain::OnChainExecution<OnChainSeqPhragmen>;
@@ -1236,6 +1236,7 @@ impl parachains_hrmp::Config for Runtime {
 	type ChannelManager = EitherOf<EnsureRoot<Self::AccountId>, GeneralAdmin>;
 	type Currency = Balances;
 	type DefaultChannelSizeAndCapacityWithSystem = DefaultChannelSizeAndCapacityWithSystem;
+	type VersionWrapper = crate::XcmPallet;
 	type WeightInfo = weights::runtime_parachains_hrmp::WeightInfo<Self>;
 }
 
@@ -1938,8 +1939,8 @@ pub mod migrations {
 	// We don't have a limit in the Relay Chain.
 	const IDENTITY_MIGRATION_KEY_LIMIT: u64 = u64::MAX;
 
-	/// v1.10.0 → v1.11.0: No new migrations needed.
-	pub type Unreleased = ();
+	/// v1.11.0 → v1.12.0: Staking v14 → v15.
+	pub type Unreleased = (pallet_staking::migrations::v15::MigrateV14ToV15<Runtime>,);
 }
 
 /// Unchecked extrinsic type as expected by this runtime.
@@ -2087,6 +2088,9 @@ sp_api::impl_runtime_apis! {
 		}
 		fn eras_stakers_page_count(era: sp_staking::EraIndex, account: AccountId) -> sp_staking::Page {
 			Staking::api_eras_stakers_page_count(era, account)
+		}
+		fn pending_rewards(era: sp_staking::EraIndex, account: AccountId) -> bool {
+			Staking::api_pending_rewards(era, account)
 		}
 	}
 
@@ -2275,7 +2279,7 @@ sp_api::impl_runtime_apis! {
 		}
 
 		fn submit_report_equivocation_unsigned_extrinsic(
-			_equivocation_proof: beefy_primitives::EquivocationProof<
+			_equivocation_proof: beefy_primitives::DoubleVotingProof<
 				BlockNumber,
 				BeefyId,
 				BeefySignature,
@@ -2305,11 +2309,11 @@ sp_api::impl_runtime_apis! {
 		fn generate_proof(
 			_block_numbers: Vec<BlockNumber>,
 			_best_known_block_number: Option<BlockNumber>,
-		) -> Result<(Vec<mmr::EncodableOpaqueLeaf>, mmr::Proof<Hash>), mmr::Error> {
+		) -> Result<(Vec<mmr::EncodableOpaqueLeaf>, mmr::LeafProof<Hash>), mmr::Error> {
 			Err(mmr::Error::PalletNotIncluded)
 		}
 
-		fn verify_proof(_leaves: Vec<mmr::EncodableOpaqueLeaf>, _proof: mmr::Proof<Hash>)
+		fn verify_proof(_leaves: Vec<mmr::EncodableOpaqueLeaf>, _proof: mmr::LeafProof<Hash>)
 			-> Result<(), mmr::Error>
 		{
 			Err(mmr::Error::PalletNotIncluded)
@@ -2318,7 +2322,7 @@ sp_api::impl_runtime_apis! {
 		fn verify_proof_stateless(
 			_root: Hash,
 			_leaves: Vec<mmr::EncodableOpaqueLeaf>,
-			_proof: mmr::Proof<Hash>
+			_proof: mmr::LeafProof<Hash>
 		) -> Result<(), mmr::Error> {
 			Err(mmr::Error::PalletNotIncluded)
 		}

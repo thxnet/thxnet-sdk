@@ -70,12 +70,10 @@ macro_rules! identify_chain {
 				#[cfg(feature = "thxnet-native")]
 				{
 					use thxnet_runtime as runtime;
-
-					let call = $generic_code;
-
+					let call =
+						runtime::RuntimeCall::System(frame_system::Call::remark { remark: vec![] });
 					Ok(thxnet_sign_call(call, $nonce, $current_block, $period, $genesis, $signer))
 				}
-
 				#[cfg(not(feature = "thxnet-native"))]
 				{
 					let _ = $nonce;
@@ -83,7 +81,6 @@ macro_rules! identify_chain {
 					let _ = $period;
 					let _ = $genesis;
 					let _ = $signer;
-
 					Err("`thxnet-native` feature not enabled")
 				}
 			},
