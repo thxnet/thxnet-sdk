@@ -254,7 +254,7 @@ jobs:
 
           ~/.cargo/bin/try-runtime \
             --runtime /tmp/try-runtime-wasm/thxnet-testnet-runtime-try-runtime.wasm \
-            on-runtime-upgrade --blocktime 6000 --disable-mbm-checks \
+            on-runtime-upgrade --blocktime 6000 --disable-mbm-checks --disable-spec-version-check \
             live --uri ws://localhost:9944
 
       - name: try-runtime — leafchain
@@ -266,7 +266,7 @@ jobs:
 
           ~/.cargo/bin/try-runtime \
             --runtime /tmp/try-runtime-wasm/general-runtime-try-runtime.wasm \
-            on-runtime-upgrade --blocktime 12000 --disable-mbm-checks \
+            on-runtime-upgrade --blocktime 12000 --disable-mbm-checks --disable-spec-version-check \
             live --uri ws://localhost:9945
 
       - name: Cleanup port-forwards
