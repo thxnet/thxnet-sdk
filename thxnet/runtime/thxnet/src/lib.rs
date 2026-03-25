@@ -55,7 +55,7 @@ use frame_support::{
 		EitherOfDiverse, InstanceFilter, KeyOwnerProofSystem, LinearStoragePrice, PrivilegeCmp,
 		ProcessMessage, ProcessMessageError, WithdrawReasons,
 	},
-	weights::{ConstantMultiplier, WeightMeter},
+	weights::WeightMeter,
 	PalletId,
 };
 use frame_system::{EnsureRoot, EnsureWithSuccess};
@@ -328,10 +328,10 @@ impl pallet_balances::Config for Runtime {
 }
 
 parameter_types! {
-	pub const TransactionByteFee: Balance = 10 * MILLICENTS;
+	pub const TransactionByteFee: Balance = TRANSACTION_BYTE_FEE;
 	/// This value increases the priority of `Operational` transactions by adding
 	/// a "virtual tip" that's equal to the `OperationalFeeMultiplier * final_fee`.
-	pub const OperationalFeeMultiplier: u8 = 5;
+	pub const OperationalFeeMultiplier: u8 = OPERATIONAL_FEE_MULTIPLIER;
 }
 
 impl pallet_transaction_payment::Config for Runtime {
@@ -339,7 +339,7 @@ impl pallet_transaction_payment::Config for Runtime {
 	type OnChargeTransaction = FungibleAdapter<Balances, DealWithFees<Runtime>>;
 	type OperationalFeeMultiplier = OperationalFeeMultiplier;
 	type WeightToFee = WeightToFee;
-	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
+	type LengthToFee = WeightToFee;
 	type FeeMultiplierUpdate = SlowAdjustingFeeUpdate<Self>;
 }
 

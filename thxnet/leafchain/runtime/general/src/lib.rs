@@ -120,15 +120,38 @@ pub type CheckedExtrinsic = generic::CheckedExtrinsic<AccountId, RuntimeCall, Si
 
 /// Cumulative migrations for live leafchains upgrading from v0.9.40 to v1.12.0.
 ///
+/// On-chain state at v0.9.40 (Avatect genesis):
+///   - XcmpQueue: on-chain v2 (declared) or v3 (if migrate_to_latest ran on upgrade)
+///   - DmpQueue:  on-chain v1 (declared) or v2 (if migrate_to_latest ran)
+///               → v1.10.0 DmpQueue is lazy-migration stub, handles transition via on_idle
+///   - CollatorSelection: on-chain v0
+///   - Rwa:            on-chain v5 (stamped at genesis by #[pallet::storage_version])
+///   - Crowdfunding:   on-chain v3 (stamped at genesis by #[pallet::storage_version])
+///   - TrustlessAgent: N/A (new pallet, on-chain v0)
+///
 /// Each migration is version-guarded internally (VersionedMigration or manual check).
 /// Including all steps is safe — guards auto-skip when on-chain version doesn't match.
 pub type Migrations = (
-	// v0.9.40 → v1.1.0: CollatorSelection storage format change (v0→v1)
+	// ── Frame / Cumulus pallet migrations ──
+	// CollatorSelection: invulnerable storage format change (v0→v1)
 	pallet_collator_selection::migration::v1::MigrateToV1<Runtime>,
-	// v1.6.0 → v1.7.0+: XCM pallet storage version migration (XCM v4)
+	// XcmpQueue: QueueConfigData 1D Weight → 2D Weight (v1→v2)
+	cumulus_pallet_xcmp_queue::migration::v2::MigrationToV2<Runtime>,
+	// XcmpQueue: Overweight counter initialization (v2→v3)
+	cumulus_pallet_xcmp_queue::migration::v3::MigrationToV3<Runtime>,
+	// XcmpQueue: QueueConfigData simplification, drop deprecated fields (v3→v4)
+	cumulus_pallet_xcmp_queue::migration::v4::MigrationToV4<Runtime>,
+	// XCM pallet: migrate stored XCM versions to latest (covers v3→v4 transition)
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
-	// v1.10.0 → v1.11.0: CollatorSelection v1→v2 (Candidates → CandidateList)
+	// CollatorSelection v1→v2 (Candidates → CandidateList)
 	pallet_collator_selection::migration::v2::MigrationToV2<Runtime>,
+	// ── Custom pallet migrations ──
+	// RWA: stamp on-chain version to v5 (noop if already ≥5, no data change)
+	pallet_rwa::migrations::v5::MigrateToV5<Runtime>,
+	// Crowdfunding: add protocol_fee_bps to Campaign records (v2→v3, skips if on-chain ≠2)
+	pallet_crowdfunding::migrations::v3::MigrateToV3<Runtime>,
+	// TrustlessAgent: initial deployment, initialize counters (v0→v1)
+	pallet_trustless_agent::migrations::Migrations<Runtime>,
 );
 
 /// Executive: handles dispatch to the various modules.
