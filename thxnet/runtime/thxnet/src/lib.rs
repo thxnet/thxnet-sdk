@@ -1951,6 +1951,7 @@ pub mod migrations {
 	type MigrationsEarly = (
 		// v0.9.40 → v1.1.0
 		// Note: pallet_im_online::migration::v1 skipped — pallet fully removed in Phase 4
+		pallet_offences::migration::v1::MigrateToV1<Runtime>,
 		parachains_configuration::migration::v7::MigrateToV7<Runtime>,
 		parachains_configuration::migration::v8::MigrateToV8<Runtime>,
 		parachains_configuration::migration::v9::MigrateToV9<Runtime>,
@@ -1966,11 +1967,13 @@ pub mod migrations {
 		pallet_nomination_pools::migration::versioned::V7ToV8<Runtime>,
 		UpgradeSessionKeys,
 		frame_support::migrations::RemovePallet<ImOnlinePalletName, <Runtime as frame_system::Config>::DbWeight>,
+		frame_support::migrations::RemovePallet<TipsPalletName, <Runtime as frame_system::Config>::DbWeight>,
 	);
 
 	/// Second half of cumulative migrations (v1.5.0 → v1.12.0).
 	type MigrationsLate = (
 		// v1.5.0 → v1.6.0
+		runtime_parachains::scheduler::migration::MigrateV0ToV1<Runtime>,
 		runtime_parachains::scheduler::migration::MigrateV1ToV2<Runtime>,
 		pallet_identity::migration::versioned::V0ToV1<Runtime, IDENTITY_MIGRATION_KEY_LIMIT>,
 		parachains_configuration::migration::v11::MigrateToV11<Runtime>,
@@ -1982,6 +1985,7 @@ pub mod migrations {
 		parachains_configuration::migration::v12::MigrateToV12<Runtime>,
 		// v1.9.0 → v1.10.0
 		parachains_inclusion::migration::MigrateToV1<Runtime>,
+		crowdloan::migration::MigrateToTrackInactiveV2<Runtime>,
 		// v1.11.0 → v1.12.0
 		pallet_staking::migrations::v15::MigrateV14ToV15<Runtime>,
 	);
