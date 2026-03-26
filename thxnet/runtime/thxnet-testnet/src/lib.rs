@@ -1964,6 +1964,109 @@ pub mod migrations {
 	// We don't have a limit in the Relay Chain.
 	const IDENTITY_MIGRATION_KEY_LIMIT: u64 = u64::MAX;
 
+	/// One-time migration to fix GRANDPA finality deadlock (mainnet blocks ~14.2M).
+	///
+	/// History: This migration was originally deployed at spec_version 94000004 on the old
+	/// rootchain (v0.9.40). It has ALREADY EXECUTED on mainnet. On any chain where
+	/// `block_number > 14_250_000`, this is a no-op (1 read).
+	///
+	/// Root cause: Fork blocks at #14206448 created stale `pending_standard_changes` in the
+	/// GRANDPA client's AuthoritySet. `current_limit()` returns a limit from these stale
+	/// entries, `best_containing` can't find any leaf at or before that limit, and finality
+	/// is permanently stalled at #14206447.
+	///
+	/// Fix: Clear all stale GRANDPA state, then schedule a forced authority change via the
+	/// public `schedule_change` API. The `on_finalize` in the same block emits the
+	/// `ForcedChange` consensus log, which causes the GRANDPA client to create a brand new
+	/// `AuthoritySet` with empty pending changes, unblocking finality.
+	///
+	/// Ordering: This must run BEFORE `MigrateV4ToV5` in the migration tuple, matching
+	/// the real execution order on mainnet (spec 94000004 ran before the v4→v5 migration).
+	pub struct FixGrandpaFinalityDeadlock;
+	impl frame_support::traits::OnRuntimeUpgrade for FixGrandpaFinalityDeadlock {
+		fn on_runtime_upgrade() -> Weight {
+			use frame_support::storage;
+
+			let current_set_id_key = storage::storage_prefix(b"Grandpa", b"CurrentSetId");
+			let pending_change_key = storage::storage_prefix(b"Grandpa", b"PendingChange");
+			let next_forced_key = storage::storage_prefix(b"Grandpa", b"NextForced");
+			let stalled_key = storage::storage_prefix(b"Grandpa", b"Stalled");
+
+			let block_number = <frame_system::Pallet<Runtime>>::block_number();
+
+			// Guard: only run while finality is still stuck (within reasonable range).
+			// Mainnet is now well past 14.25M, so this is always a no-op.
+			if block_number > 14_250_000 {
+				log::info!(
+					target: "runtime",
+					"GRANDPA fix: block #{} past expected range, skipping.",
+					block_number,
+				);
+				return <Runtime as frame_system::Config>::DbWeight::get().reads(1)
+			}
+
+			// Step 1: Clear ALL stale GRANDPA state from previous fix attempts.
+			if storage::unhashed::exists(&pending_change_key) {
+				log::info!(target: "runtime", "GRANDPA fix: clearing stale PendingChange");
+			}
+			storage::unhashed::kill(&pending_change_key);
+			storage::unhashed::kill(&next_forced_key);
+			storage::unhashed::kill(&stalled_key);
+
+			// Step 2: Get current authorities.
+			let authorities = pallet_grandpa::Pallet::<Runtime>::grandpa_authorities();
+			if authorities.is_empty() {
+				log::error!(target: "runtime", "GRANDPA fix: no authorities found!");
+				return <Runtime as frame_system::Config>::DbWeight::get().reads_writes(2, 3)
+			}
+
+			// Step 3: Schedule a forced authority change.
+			// With delay=0, on_finalize in the same block will emit ForcedChange log.
+			// The GRANDPA client then creates a brand new AuthoritySet, clearing all
+			// stale pending changes and unblocking finality.
+			let median_finalized: BlockNumber = 14_206_447;
+			let result = pallet_grandpa::Pallet::<Runtime>::schedule_change(
+				authorities.clone(),
+				0u32.into(),
+				Some(median_finalized),
+			);
+
+			match result {
+				Ok(()) => {
+					// Step 4: Align runtime CurrentSetId with what the client will have.
+					// on_finalize does NOT increment CurrentSetId for forced changes.
+					// The GRANDPA client does: new_set_id = self.set_id + 1
+					let current_set_id: u64 =
+						storage::unhashed::get_or_default(&current_set_id_key);
+					let new_set_id: u64 = current_set_id + 1;
+					storage::unhashed::put(&current_set_id_key, &new_set_id);
+
+					log::info!(
+						target: "runtime",
+						"GRANDPA finality fix applied at block #{}: ForcedChange(median={}) \
+						 scheduled with {} authorities, CurrentSetId {} -> {}",
+						block_number,
+						median_finalized,
+						authorities.len(),
+						current_set_id,
+						new_set_id,
+					);
+
+					<Runtime as frame_system::Config>::DbWeight::get().reads_writes(5, 6)
+				},
+				Err(e) => {
+					log::error!(
+						target: "runtime",
+						"GRANDPA finality fix FAILED at block #{}: {:?}",
+						block_number,
+						e,
+					);
+					<Runtime as frame_system::Config>::DbWeight::get().reads_writes(2, 3)
+				},
+			}
+		}
+	}
+
 	/// Cumulative migrations for live chains upgrading from v0.9.40 to v1.12.0.
 	///
 	/// Each migration is internally version-guarded (checks `on_chain_storage_version`),
@@ -1996,6 +2099,10 @@ pub mod migrations {
 		// NOTE: Replaced upstream MigrateToV14 (guarded by `in_code==14`, dead in v1.12.0)
 		// with custom VersionedMigration bridge that correctly checks `on_chain==13`.
 		StakingBridgeV13ToV14,
+		// THXNet-specific: GRANDPA finality deadlock fix (originally spec 94000004).
+		// Already executed on mainnet — no-op when block > 14_250_000.
+		// Must run BEFORE MigrateV4ToV5 (matches real mainnet execution order).
+		FixGrandpaFinalityDeadlock,
 		pallet_grandpa::migrations::MigrateV4ToV5<Runtime>,
 		parachains_configuration::migration::v10::MigrateToV10<Runtime>,
 		// v1.4.0 → v1.5.0
