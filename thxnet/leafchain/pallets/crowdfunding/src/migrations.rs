@@ -1,5 +1,6 @@
 /// Storage migrations for pallet-crowdfunding.
 pub mod v3 {
+    use alloc::vec::Vec;
     use frame_support::{pallet_prelude::*, traits::OnRuntimeUpgrade, weights::Weight, BoundedVec};
 
     use crate::{
@@ -117,7 +118,8 @@ pub mod v3 {
 
         #[cfg(feature = "try-runtime")]
         fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
-            let old_count = u32::decode(&mut &state[..]).map_err(|_| "decode failed")?;
+            let old_count = u32::decode(&mut &state[..])
+                .map_err(|_| sp_runtime::TryRuntimeError::Other("decode failed"))?;
             let new_count = pallet::Campaigns::<T>::iter().count() as u32;
             frame_support::ensure!(old_count == new_count, "campaign count mismatch");
             // verify all campaigns now have protocol_fee_bps set

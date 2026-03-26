@@ -1506,7 +1506,7 @@ pub mod pallet {
             let next_id = NextCampaignId::<T>::get();
             let campaign_count = Campaigns::<T>::iter().count() as u32;
             if next_id < campaign_count {
-                return Err("NextCampaignId is less than the number of campaigns");
+                return Err("NextCampaignId is less than the number of campaigns".into());
             }
 
             // 2. total_disbursed <= total_raised for all campaigns
@@ -1517,7 +1517,7 @@ pub mod pallet {
                         "Campaign {}: total_disbursed ({:?}) > total_raised ({:?})",
                         id, campaign.total_disbursed, campaign.total_raised,
                     );
-                    return Err("Campaign total_disbursed exceeds total_raised");
+                    return Err("Campaign total_disbursed exceeds total_raised".into());
                 }
             }
 
@@ -1529,7 +1529,7 @@ pub mod pallet {
                         "Investment ({}, {:?}): total_withdrawn ({:?}) > total_invested ({:?})",
                         campaign_id, investor, investment.total_withdrawn, investment.total_invested,
                     );
-                    return Err("Investment total_withdrawn exceeds total_invested");
+                    return Err("Investment total_withdrawn exceeds total_invested".into());
                 }
             }
 
@@ -1542,7 +1542,7 @@ pub mod pallet {
                             "CreatorCampaigns for {:?} references non-existent campaign {}",
                             creator, id,
                         );
-                        return Err("CreatorCampaigns references non-existent campaign");
+                        return Err("CreatorCampaigns references non-existent campaign".into());
                     }
                 }
             }
@@ -1556,7 +1556,7 @@ pub mod pallet {
                             "InvestorCampaigns for {:?} references non-existent campaign {}",
                             investor, id,
                         );
-                        return Err("InvestorCampaigns references non-existent campaign");
+                        return Err("InvestorCampaigns references non-existent campaign".into());
                     }
                 }
             }
@@ -1582,7 +1582,7 @@ pub mod pallet {
                         "Campaign {}: investor_count ({}) does not match active investment count ({})",
                         id, campaign.investor_count, counted,
                     );
-                    return Err("Campaign investor_count inconsistent with Investments");
+                    return Err("Campaign investor_count inconsistent with Investments".into());
                 }
             }
 
@@ -1594,7 +1594,7 @@ pub mod pallet {
                         "CampaignWhitelist references non-existent campaign {}",
                         id,
                     );
-                    return Err("CampaignWhitelist references non-existent campaign");
+                    return Err("CampaignWhitelist references non-existent campaign".into());
                 }
             }
 
@@ -1608,7 +1608,7 @@ pub mod pallet {
                             "MilestoneStatuses references non-existent campaign {}",
                             id,
                         );
-                        return Err("MilestoneStatuses references non-existent campaign");
+                        return Err("MilestoneStatuses references non-existent campaign".into());
                     }
                     Some(c)
                         if matches!(
@@ -1623,6 +1623,7 @@ pub mod pallet {
                         );
                         return Err(
                             "MilestoneStatuses exists for campaign not in MilestonePhase/Completed"
+                                .into(),
                         );
                     }
                 }

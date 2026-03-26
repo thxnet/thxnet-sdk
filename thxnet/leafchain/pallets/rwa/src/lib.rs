@@ -2074,7 +2074,7 @@ pub mod pallet {
             // 1. All asset_ids < NextRwaAssetId
             for (asset_id, _) in RwaAssets::<T>::iter() {
                 if asset_id >= next_id {
-                    return Err("asset_id >= NextRwaAssetId");
+                    return Err("asset_id >= NextRwaAssetId".into());
                 }
             }
 
@@ -2082,12 +2082,12 @@ pub mod pallet {
             for (owner, asset_ids) in OwnerAssets::<T>::iter() {
                 for &aid in asset_ids.iter() {
                     let asset = RwaAssets::<T>::get(aid)
-                        .ok_or("OwnerAssets references non-existent asset")?;
+                        .ok_or(sp_runtime::TryRuntimeError::Other("OwnerAssets references non-existent asset"))?;
                     if asset.owner != owner {
-                        return Err("OwnerAssets owner mismatch");
+                        return Err("OwnerAssets owner mismatch".into());
                     }
                     if matches!(asset.status, AssetStatus::Retired) {
-                        return Err("Retired asset still in OwnerAssets");
+                        return Err("Retired asset still in OwnerAssets".into());
                     }
                 }
             }
@@ -2104,22 +2104,22 @@ pub mod pallet {
                     })
                     .count() as u32;
                 if actual_count != asset.participant_count {
-                    return Err("participant_count mismatch");
+                    return Err("participant_count mismatch".into());
                 }
             }
 
             // 4. HolderIndex validity
             for (asset_id, account, pid) in HolderIndex::<T>::iter() {
                 let p = Participations::<T>::get(asset_id, pid)
-                    .ok_or("HolderIndex references non-existent participation")?;
+                    .ok_or(sp_runtime::TryRuntimeError::Other("HolderIndex references non-existent participation"))?;
                 if !matches!(
                     p.status,
                     ParticipationStatus::Active { .. } | ParticipationStatus::PendingApproval
                 ) {
-                    return Err("HolderIndex references non-active participation");
+                    return Err("HolderIndex references non-active participation".into());
                 }
                 if !p.holders.contains(&account) {
-                    return Err("HolderIndex account not in participation holders");
+                    return Err("HolderIndex account not in participation holders".into());
                 }
             }
 
@@ -2127,7 +2127,7 @@ pub mod pallet {
             for (account, asset_ids) in HolderAssets::<T>::iter() {
                 for &aid in asset_ids.iter() {
                     if !HolderIndex::<T>::contains_key(aid, &account) {
-                        return Err("HolderAssets references missing HolderIndex");
+                        return Err("HolderAssets references missing HolderIndex".into());
                     }
                 }
             }
@@ -2136,9 +2136,9 @@ pub mod pallet {
             for (asset_id, pending_ids) in PendingApprovals::<T>::iter() {
                 for &pid in pending_ids.iter() {
                     let p = Participations::<T>::get(asset_id, pid)
-                        .ok_or("PendingApprovals references non-existent participation")?;
+                        .ok_or(sp_runtime::TryRuntimeError::Other("PendingApprovals references non-existent participation"))?;
                     if !matches!(p.status, ParticipationStatus::PendingApproval) {
-                        return Err("PendingApprovals entry is not PendingApproval status");
+                        return Err("PendingApprovals entry is not PendingApproval status".into());
                     }
                 }
             }
@@ -2148,7 +2148,7 @@ pub mod pallet {
                 let total: Permill =
                     dist.iter().fold(Permill::zero(), |acc, r| acc.saturating_add(r.share));
                 if total != Permill::one() {
-                    return Err("SlashDistribution shares do not sum to 100%");
+                    return Err("SlashDistribution shares do not sum to 100%".into());
                 }
             }
 
@@ -2156,14 +2156,14 @@ pub mod pallet {
             for (block, asset_ids) in SunsettingAssets::<T>::iter() {
                 for &aid in asset_ids.iter() {
                     let asset = RwaAssets::<T>::get(aid)
-                        .ok_or("SunsettingAssets references non-existent asset")?;
+                        .ok_or(sp_runtime::TryRuntimeError::Other("SunsettingAssets references non-existent asset"))?;
                     match asset.status {
                         AssetStatus::Sunsetting { expiry_block } => {
                             if expiry_block != block {
-                                return Err("SunsettingAssets block mismatch");
+                                return Err("SunsettingAssets block mismatch".into());
                             }
                         }
-                        _ => return Err("SunsettingAssets references non-sunsetting asset"),
+                        _ => return Err("SunsettingAssets references non-sunsetting asset".into()),
                     }
                 }
             }
@@ -2171,12 +2171,12 @@ pub mod pallet {
             // 9. PendingOwnershipTransfer consistency
             for (asset_id, pending_owner) in PendingOwnershipTransfer::<T>::iter() {
                 let asset = RwaAssets::<T>::get(asset_id)
-                    .ok_or("PendingOwnershipTransfer references non-existent asset")?;
+                    .ok_or(sp_runtime::TryRuntimeError::Other("PendingOwnershipTransfer references non-existent asset"))?;
                 if asset.owner == pending_owner {
-                    return Err("PendingOwnershipTransfer owner matches current owner");
+                    return Err("PendingOwnershipTransfer owner matches current owner".into());
                 }
                 if matches!(asset.status, AssetStatus::Retired) {
-                    return Err("PendingOwnershipTransfer on Retired asset");
+                    return Err("PendingOwnershipTransfer on Retired asset".into());
                 }
             }
 
