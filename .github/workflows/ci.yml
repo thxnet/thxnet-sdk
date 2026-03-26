@@ -175,14 +175,15 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ env.REGISTRY }}/${{ env.LEAFCHAIN_IMAGE }}:${{ steps.tag.outputs.tag }}
 
-  # ─── Upgrade tests (upgrade/* and experiment/* branches only) ────────
+  # ─── Upgrade tests (upgrade/*, experiment/*, feat/endgame* branches) ─
 
   build-upgrade-extras:
     name: Build try-runtime & fast-runtime
     needs: build-binaries
     if: >-
       startsWith(github.head_ref || github.ref_name, 'upgrade/') ||
-      startsWith(github.head_ref || github.ref_name, 'experiment/')
+      startsWith(github.head_ref || github.ref_name, 'experiment/') ||
+      startsWith(github.head_ref || github.ref_name, 'feat/endgame')
     runs-on: self-hosted
     container:
       image: docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
@@ -198,10 +199,13 @@ jobs:
       - name: Build try-runtime WASMs
         run: |
           cargo build --release -p thxnet-testnet-runtime --features try-runtime
+          cargo build --release -p thxnet-runtime --features try-runtime
           cargo build --release -p general-runtime --features try-runtime
           mkdir -p /tmp/try-runtime-wasm
           cp /cache/cargo-target/upgrade/release/wbuild/thxnet-testnet-runtime/thxnet_testnet_runtime.compact.compressed.wasm \
             /tmp/try-runtime-wasm/thxnet-testnet-runtime-try-runtime.wasm
+          cp /cache/cargo-target/upgrade/release/wbuild/thxnet-runtime/thxnet_runtime.compact.compressed.wasm \
+            /tmp/try-runtime-wasm/thxnet-runtime-try-runtime.wasm
           cp /cache/cargo-target/upgrade/release/wbuild/general-runtime/general_runtime.compact.compressed.wasm \
             /tmp/try-runtime-wasm/general-runtime-try-runtime.wasm
 
