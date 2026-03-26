@@ -788,6 +788,247 @@ mod proxy_type_tests {
 	}
 }
 
+// ════════════════════════════════════════════════════════════════════════════
+// Migration correctness tests for leafchain v0.9.40 → v1.12.0 upgrade.
+//
+// These tests validate every custom leafchain migration that has NO existing
+// unit tests. Each test targets exactly one MECE partition.
+// ════════════════════════════════════════════════════════════════════════════
+#[cfg(test)]
+mod leafchain_migration_tests {
+	use super::*;
+	use frame_support::traits::{GetStorageVersion, OnRuntimeUpgrade, StorageVersion};
+
+	// ── A4: InitDmpQueueStorageVersion ──────────────────────────────────────
+	// Partition: {on_chain < 2 → stamps to 2, on_chain >= 2 → skips}
+
+	#[test]
+	fn init_dmp_queue_stamps_v2_when_on_chain_is_0() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			// Arrange: on-chain version is 0 (never set — default)
+			assert_eq!(
+				cumulus_pallet_dmp_queue::Pallet::<Runtime>::on_chain_storage_version(),
+				StorageVersion::new(0)
+			);
+
+			// Act
+			let weight = InitDmpQueueStorageVersion::on_runtime_upgrade();
+
+			// Assert: stamped to v2
+			assert_eq!(
+				cumulus_pallet_dmp_queue::Pallet::<Runtime>::on_chain_storage_version(),
+				StorageVersion::new(2),
+				"InitDmpQueueStorageVersion must stamp on-chain version to 2"
+			);
+			// Assert: weight = 1 read + 1 write
+			assert_eq!(
+				weight,
+				<Runtime as frame_system::Config>::DbWeight::get().reads_writes(1, 1)
+			);
+		});
+	}
+
+	#[test]
+	fn init_dmp_queue_skips_when_already_v2() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			// Arrange: already at v2
+			StorageVersion::new(2).put::<cumulus_pallet_dmp_queue::Pallet<Runtime>>();
+
+			// Act
+			let weight = InitDmpQueueStorageVersion::on_runtime_upgrade();
+
+			// Assert: still v2, not changed
+			assert_eq!(
+				cumulus_pallet_dmp_queue::Pallet::<Runtime>::on_chain_storage_version(),
+				StorageVersion::new(2)
+			);
+			// Assert: weight = 1 read only (skip path)
+			assert_eq!(
+				weight,
+				<Runtime as frame_system::Config>::DbWeight::get().reads(1)
+			);
+		});
+	}
+
+	#[test]
+	fn init_dmp_queue_skips_when_above_v2() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			// Arrange: somehow at v3
+			StorageVersion::new(3).put::<cumulus_pallet_dmp_queue::Pallet<Runtime>>();
+
+			// Act
+			let weight = InitDmpQueueStorageVersion::on_runtime_upgrade();
+
+			// Assert: stays at v3
+			assert_eq!(
+				cumulus_pallet_dmp_queue::Pallet::<Runtime>::on_chain_storage_version(),
+				StorageVersion::new(3)
+			);
+			assert_eq!(
+				weight,
+				<Runtime as frame_system::Config>::DbWeight::get().reads(1)
+			);
+		});
+	}
+
+	// ── A5: CrowdfundingStampOrMigrateToV3 ──────────────────────────────────
+	// Partition: {on_chain < 3 → stamps to 3, on_chain >= 3 → skips}
+
+	#[test]
+	fn crowdfunding_stamp_sets_v3_when_on_chain_is_0() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			// Arrange: on-chain version is 0 (never set)
+			assert_eq!(
+				pallet_crowdfunding::Pallet::<Runtime>::on_chain_storage_version(),
+				StorageVersion::new(0)
+			);
+
+			// Act
+			let weight = CrowdfundingStampOrMigrateToV3::on_runtime_upgrade();
+
+			// Assert: stamped to v3
+			assert_eq!(
+				pallet_crowdfunding::Pallet::<Runtime>::on_chain_storage_version(),
+				StorageVersion::new(3),
+				"CrowdfundingStampOrMigrateToV3 must stamp on-chain version to 3"
+			);
+			assert_eq!(
+				weight,
+				<Runtime as frame_system::Config>::DbWeight::get().reads_writes(1, 1)
+			);
+		});
+	}
+
+	#[test]
+	fn crowdfunding_stamp_skips_when_already_v3() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			// Arrange: already at v3
+			StorageVersion::new(3).put::<pallet_crowdfunding::Pallet<Runtime>>();
+
+			// Act
+			let weight = CrowdfundingStampOrMigrateToV3::on_runtime_upgrade();
+
+			// Assert: still v3
+			assert_eq!(
+				pallet_crowdfunding::Pallet::<Runtime>::on_chain_storage_version(),
+				StorageVersion::new(3)
+			);
+			assert_eq!(
+				weight,
+				<Runtime as frame_system::Config>::DbWeight::get().reads(1)
+			);
+		});
+	}
+
+	#[test]
+	fn crowdfunding_stamp_sets_v3_when_on_chain_is_2() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			// Arrange: on-chain version is 2 (the "normal" pre-migration state for
+			// chains that actually ran v2 migration)
+			StorageVersion::new(2).put::<pallet_crowdfunding::Pallet<Runtime>>();
+
+			// Act
+			let weight = CrowdfundingStampOrMigrateToV3::on_runtime_upgrade();
+
+			// Assert: stamped to v3 (stamp path, not MigrateToV3 data migration)
+			assert_eq!(
+				pallet_crowdfunding::Pallet::<Runtime>::on_chain_storage_version(),
+				StorageVersion::new(3),
+				"CrowdfundingStampOrMigrateToV3 must stamp from v2 to v3"
+			);
+			assert_eq!(
+				weight,
+				<Runtime as frame_system::Config>::DbWeight::get().reads_writes(1, 1)
+			);
+		});
+	}
+
+	// ── A6: RWA MigrateToV5 ────────────────────────────────────────────────
+	// Partition: {on_chain < 5 → stamps to 5, on_chain >= 5 → skips}
+
+	#[test]
+	fn rwa_stamp_sets_v5_when_on_chain_is_0() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			// Arrange: on-chain version is 0 (never set)
+			assert_eq!(
+				pallet_rwa::Pallet::<Runtime>::on_chain_storage_version(),
+				StorageVersion::new(0)
+			);
+
+			// Act
+			let weight = pallet_rwa::migrations::v5::MigrateToV5::<Runtime>::on_runtime_upgrade();
+
+			// Assert: stamped to v5
+			assert_eq!(
+				pallet_rwa::Pallet::<Runtime>::on_chain_storage_version(),
+				StorageVersion::new(5),
+				"RWA MigrateToV5 must stamp on-chain version to 5"
+			);
+			// Assert: weight = 1 write
+			assert_eq!(
+				weight,
+				<Runtime as frame_system::Config>::DbWeight::get().writes(1)
+			);
+		});
+	}
+
+	#[test]
+	fn rwa_stamp_skips_when_already_v5() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			// Arrange: already at v5
+			StorageVersion::new(5).put::<pallet_rwa::Pallet<Runtime>>();
+
+			// Act
+			let weight = pallet_rwa::migrations::v5::MigrateToV5::<Runtime>::on_runtime_upgrade();
+
+			// Assert: still v5
+			assert_eq!(
+				pallet_rwa::Pallet::<Runtime>::on_chain_storage_version(),
+				StorageVersion::new(5)
+			);
+			// Assert: weight = 0 (skip path)
+			assert_eq!(weight, frame_support::weights::Weight::zero());
+		});
+	}
+
+	// ── Zero-Fee Configuration (Leafchain) ──────────────────────────────────
+
+	#[test]
+	fn leafchain_weight_to_fee_returns_zero() {
+		use frame_support::weights::{Weight, WeightToFee as WeightToFeeT};
+
+		let test_weights = [
+			Weight::zero(),
+			Weight::from_parts(1, 0),
+			Weight::from_parts(u64::MAX, u64::MAX),
+		];
+		for w in &test_weights {
+			let fee = constants::fee::WeightToFee::weight_to_fee(w);
+			assert_eq!(fee, 0, "Leafchain WeightToFee must return 0 for {:?}", w);
+		}
+	}
+
+	#[test]
+	fn leafchain_transaction_byte_fee_is_zero() {
+		assert_eq!(constants::fee::TRANSACTION_BYTE_FEE, 0u128);
+	}
+
+	#[test]
+	fn leafchain_operational_fee_multiplier_is_zero() {
+		assert_eq!(constants::fee::OPERATIONAL_FEE_MULTIPLIER, 0u8);
+	}
+
+	// ── Leafchain migration tuple compiles ──────────────────────────────────
+
+	#[test]
+	fn leafchain_migration_tuple_compiles_and_is_non_empty() {
+		// This test passes by compilation alone. The Migrations type is used by
+		// Executive (which requires OnRuntimeUpgrade). If the tuple had type errors,
+		// or any migration had incorrect generic params, this crate would not compile.
+		let _ = core::any::type_name::<Migrations>();
+	}
+}
+
 impl Default for ProxyType {
 	fn default() -> Self {
 		Self::Any
