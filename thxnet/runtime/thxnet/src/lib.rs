@@ -1863,6 +1863,30 @@ pub mod migrations {
 		pub const ImOnlinePalletName: &'static str = "ImOnline";
 	}
 
+	/// Bridge migration: stamp pallet_staking from StorageVersion 13 → 14.
+	///
+	/// Context: The upstream `MigrateToV14` has a manual guard `in_code == 14 && on_chain == 13`.
+	/// In v1.12.0, `in_code` is 15, so that guard NEVER fires. We use `VersionedMigration<13,14,...>`
+	/// which only checks `on_chain == 13` — the correct condition for our live chains.
+	///
+	/// The v14 migration itself is purely a version stamp (no data transformation), so the inner
+	/// `UncheckedOnRuntimeUpgrade` is a no-op.
+	pub struct StakingV13ToV14Noop;
+	impl frame_support::traits::UncheckedOnRuntimeUpgrade for StakingV13ToV14Noop {
+		fn on_runtime_upgrade() -> Weight {
+			log::info!(target: "runtime::staking", "StakingV13ToV14Noop: stamping v13→v14 (no-op body)");
+			Weight::zero()
+		}
+	}
+	/// `VersionedMigration` auto-stamps on_chain_storage_version from 13 to 14 when on_chain == 13.
+	pub type StakingBridgeV13ToV14 = frame_support::migrations::VersionedMigration<
+		13,
+		14,
+		StakingV13ToV14Noop,
+		pallet_staking::Pallet<Runtime>,
+		<Runtime as frame_system::Config>::DbWeight,
+	>;
+
 	/// Upgrade Session keys to exclude `ImOnline` key.
 	/// When this is removed, should also remove `OldSessionKeys`.
 	pub struct UpgradeSessionKeys;
@@ -1960,7 +1984,9 @@ pub mod migrations {
 		pallet_nomination_pools::migration::versioned::V5toV6<Runtime>,
 		pallet_nomination_pools::migration::versioned::V6ToV7<Runtime>,
 		// v1.3.0 → v1.4.0
-		pallet_staking::migrations::v14::MigrateToV14<Runtime>,
+		// NOTE: Replaced upstream MigrateToV14 (guarded by `in_code==14`, dead in v1.12.0)
+		// with custom VersionedMigration bridge that correctly checks `on_chain==13`.
+		StakingBridgeV13ToV14,
 		pallet_grandpa::migrations::MigrateV4ToV5<Runtime>,
 		parachains_configuration::migration::v10::MigrateToV10<Runtime>,
 		// v1.4.0 → v1.5.0

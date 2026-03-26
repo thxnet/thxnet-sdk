@@ -29,6 +29,7 @@ pallet-proxy = { path = "../../../../substrate/frame/proxy", default-features = 
 pallet-utility = { path = "../../../../substrate/frame/utility", default-features = false }
 pallet-identity = { path = "../../../../substrate/frame/identity", default-features = false }
 pallet-message-queue = { path = "../../../../substrate/frame/message-queue", default-features = false }
+pallet-treasury = { path = "../../../../substrate/frame/treasury", default-features = false }
 pallet-trustless-agent = { path = "../../pallets/trustless-agent", default-features = false }
 pallet-rwa = { path = "../../pallets/rwa", default-features = false }
 pallet-rwa-runtime-api = { path = "../../pallets/rwa/runtime-api", default-features = false }
@@ -124,6 +125,7 @@ std = [
     "pallet-utility/std",
     "pallet-identity/std",
     "pallet-message-queue/std",
+    "pallet-treasury/std",
     "pallet-trustless-agent/std",
     "pallet-rwa/std",
     "pallet-rwa-runtime-api/std",
@@ -169,6 +171,7 @@ runtime-benchmarks = [
     "pallet-timestamp/runtime-benchmarks",
     "pallet-utility/runtime-benchmarks",
     "pallet-identity/runtime-benchmarks",
+    "pallet-treasury/runtime-benchmarks",
     "pallet-trustless-agent/runtime-benchmarks",
     "pallet-rwa/runtime-benchmarks",
     "pallet-crowdfunding/runtime-benchmarks",
@@ -202,6 +205,7 @@ try-runtime = [
     "pallet-utility/try-runtime",
     "pallet-identity/try-runtime",
     "pallet-message-queue/try-runtime",
+    "pallet-treasury/try-runtime",
     "pallet-trustless-agent/try-runtime",
     "pallet-rwa/try-runtime",
     "pallet-crowdfunding/try-runtime",

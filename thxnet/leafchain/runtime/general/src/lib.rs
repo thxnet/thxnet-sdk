@@ -118,16 +118,108 @@ pub type UncheckedExtrinsic =
 /// Extrinsic type that has already been checked.
 pub type CheckedExtrinsic = generic::CheckedExtrinsic<AccountId, RuntimeCall, SignedExtra>;
 
+/// Force-stamp cumulus_pallet_dmp_queue StorageVersion to v2.
+///
+/// Context: All 9 leafchains have DmpQueue with ZERO storage keys (no data).
+/// On-chain StorageVersion is NULL (never set, reads as 0). Code declares STORAGE_VERSION = 2.
+/// The lazy migration stub in v1.12.0 DmpQueue does NOT write a version stamp itself.
+/// Without this stamp, try-runtime fails on `on_chain != in_code` assertion.
+///
+/// Safety: No data exists — purely a metadata correction.
+pub struct InitDmpQueueStorageVersion;
+impl frame_support::traits::OnRuntimeUpgrade for InitDmpQueueStorageVersion {
+	fn on_runtime_upgrade() -> Weight {
+		use frame_support::traits::GetStorageVersion;
+		let on_chain = cumulus_pallet_dmp_queue::Pallet::<Runtime>::on_chain_storage_version();
+		if on_chain < 2 {
+			log::info!(
+				target: "runtime::dmp_queue",
+				"InitDmpQueueStorageVersion: stamping on-chain version from {:?} to 2",
+				on_chain,
+			);
+			frame_support::traits::StorageVersion::new(2)
+				.put::<cumulus_pallet_dmp_queue::Pallet<Runtime>>();
+			<Runtime as frame_system::Config>::DbWeight::get().reads_writes(1, 1)
+		} else {
+			log::info!(
+				target: "runtime::dmp_queue",
+				"InitDmpQueueStorageVersion: already at {:?}, skipping",
+				on_chain,
+			);
+			<Runtime as frame_system::Config>::DbWeight::get().reads(1)
+		}
+	}
+
+	#[cfg(feature = "try-runtime")]
+	fn post_upgrade(_state: sp_std::vec::Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+		use frame_support::traits::GetStorageVersion;
+		frame_support::ensure!(
+			cumulus_pallet_dmp_queue::Pallet::<Runtime>::on_chain_storage_version() >= 2,
+			"DmpQueue on-chain version should be >= 2 after migration"
+		);
+		Ok(())
+	}
+}
+
+/// Force-stamp pallet_crowdfunding StorageVersion to v3.
+///
+/// Context: The upstream MigrateToV3 guard checks `on_chain == 2` before migrating.
+/// On ALL leafchains, on-chain is 0 (never set), so the guard always skips, leaving
+/// on_chain stuck at 0 while code declares v3 — causing try-runtime assertion failure.
+///
+/// Chain-specific scenarios:
+/// - Avatect mainnet: on-chain v0, but data IS already v3 format (protocol_fee_bps
+///   exists in all 21 campaigns from genesis). MigrateToV3 would skip due to guard.
+///   Stamp is safe — no data transformation needed.
+/// - All other chains: on-chain v0, ZERO Crowdfunding data. Stamp is trivially safe.
+/// - Sand testnet: Crowdfunding pallet was never deployed. On-chain reads as v0.
+///   Stamp is trivially safe.
+pub struct CrowdfundingStampOrMigrateToV3;
+impl frame_support::traits::OnRuntimeUpgrade for CrowdfundingStampOrMigrateToV3 {
+	fn on_runtime_upgrade() -> Weight {
+		use frame_support::traits::GetStorageVersion;
+		let on_chain = pallet_crowdfunding::Pallet::<Runtime>::on_chain_storage_version();
+		if on_chain < 3 {
+			log::info!(
+				target: "runtime::crowdfunding",
+				"CrowdfundingStampOrMigrateToV3: stamping on-chain version from {:?} to 3 \
+				(data already in v3 format or non-existent)",
+				on_chain,
+			);
+			frame_support::traits::StorageVersion::new(3)
+				.put::<pallet_crowdfunding::Pallet<Runtime>>();
+			<Runtime as frame_system::Config>::DbWeight::get().reads_writes(1, 1)
+		} else {
+			log::info!(
+				target: "runtime::crowdfunding",
+				"CrowdfundingStampOrMigrateToV3: already at {:?}, skipping",
+				on_chain,
+			);
+			<Runtime as frame_system::Config>::DbWeight::get().reads(1)
+		}
+	}
+
+	#[cfg(feature = "try-runtime")]
+	fn post_upgrade(_state: sp_std::vec::Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+		use frame_support::traits::GetStorageVersion;
+		frame_support::ensure!(
+			pallet_crowdfunding::Pallet::<Runtime>::on_chain_storage_version() >= 3,
+			"Crowdfunding on-chain version should be >= 3 after migration"
+		);
+		Ok(())
+	}
+}
+
 /// Cumulative migrations for live leafchains upgrading from v0.9.40 to v1.12.0.
 ///
-/// On-chain state at v0.9.40 (Avatect genesis):
-///   - XcmpQueue: on-chain v2 (declared) or v3 (if migrate_to_latest ran on upgrade)
-///   - DmpQueue:  on-chain v1 (declared) or v2 (if migrate_to_latest ran)
-///               → v1.10.0 DmpQueue is lazy-migration stub, handles transition via on_idle
-///   - CollatorSelection: on-chain v0
-///   - Rwa:            on-chain v5 (stamped at genesis by #[pallet::storage_version])
-///   - Crowdfunding:   on-chain v3 (stamped at genesis by #[pallet::storage_version])
-///   - TrustlessAgent: N/A (new pallet, on-chain v0)
+/// On-chain state at v0.9.40:
+///   - XcmpQueue: v2 (ECQ chains) or v3 (Group A chains)
+///   - DmpQueue:  v0 (NULL, never set) — all chains have ZERO DmpQueue storage keys
+///   - CollatorSelection: v0
+///   - Rwa:            v0 (new pallet, or v5 on Avatect)
+///   - Crowdfunding:   v0 (never set, but data is v3 format on Avatect)
+///   - TrustlessAgent: v0 (new pallet)
+///   - Treasury:       v0 (NULL, in on-chain metadata but not in old source)
 ///
 /// Each migration is version-guarded internally (VersionedMigration or manual check).
 /// Including all steps is safe — guards auto-skip when on-chain version doesn't match.
@@ -145,11 +237,13 @@ pub type Migrations = (
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 	// CollatorSelection v1→v2 (Candidates → CandidateList)
 	pallet_collator_selection::migration::v2::MigrationToV2<Runtime>,
+	// DmpQueue: force-stamp StorageVersion to v2 (all chains have 0 DmpQueue data)
+	InitDmpQueueStorageVersion,
 	// ── Custom pallet migrations ──
 	// RWA: stamp on-chain version to v5 (noop if already ≥5, no data change)
 	pallet_rwa::migrations::v5::MigrateToV5<Runtime>,
-	// Crowdfunding: add protocol_fee_bps to Campaign records (v2→v3, skips if on-chain ≠2)
-	pallet_crowdfunding::migrations::v3::MigrateToV3<Runtime>,
+	// Crowdfunding: force-stamp to v3 (replaces MigrateToV3 which has broken v2 guard)
+	CrowdfundingStampOrMigrateToV3,
 	// TrustlessAgent: initial deployment, initialize counters (v0→v1)
 	pallet_trustless_agent::migrations::Migrations<Runtime>,
 );
@@ -480,6 +574,51 @@ impl pallet_sudo::Config for Runtime {
 	type RuntimeCall = RuntimeCall;
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = pallet_sudo::weights::SubstrateWeight<Runtime>;
+}
+
+// ── Treasury Pallet ─────────────────────────────────────────────────────
+//
+// Treasury was present in on-chain metadata (index 19) for all 9 leafchains
+// at genesis, with NULL StorageVersion and 0 data keys. It was later removed
+// from the source code but stayed in on-chain state. Re-adding it here to
+// keep the runtime consistent with on-chain metadata.
+
+parameter_types! {
+	pub const TreasuryPalletId: PalletId = PalletId(*b"py/trsry");
+	pub TreasuryAccount: AccountId = TreasuryPalletId::get().into_account_truncating();
+	pub const ProposalBond: Permill = Permill::from_percent(5);
+	pub const ProposalBondMinimum: Balance = 100 * DOLLARS;
+	pub const ProposalBondMaximum: Balance = 500 * DOLLARS;
+	pub const SpendPeriod: BlockNumber = 24 * DAYS;
+	pub const TreasuryBurn: Permill = Permill::from_percent(1);
+	pub const MaxApprovals: u32 = 100;
+}
+
+impl pallet_treasury::Config for Runtime {
+	type PalletId = TreasuryPalletId;
+	type Currency = Balances;
+	type ApproveOrigin = EnsureRoot<AccountId>;
+	type RejectOrigin = EnsureRoot<AccountId>;
+	type RuntimeEvent = RuntimeEvent;
+	type OnSlash = Treasury;
+	type ProposalBond = ProposalBond;
+	type ProposalBondMinimum = ProposalBondMinimum;
+	type ProposalBondMaximum = ProposalBondMaximum;
+	type SpendPeriod = SpendPeriod;
+	type Burn = TreasuryBurn;
+	type BurnDestination = ();
+	type SpendFunds = ();
+	type MaxApprovals = MaxApprovals;
+	type WeightInfo = pallet_treasury::weights::SubstrateWeight<Runtime>;
+	type SpendOrigin = frame_support::traits::NeverEnsureOrigin<Balance>;
+	type AssetKind = ();
+	type Beneficiary = AccountId;
+	type BeneficiaryLookup = sp_runtime::traits::IdentityLookup<AccountId>;
+	type Paymaster = frame_support::traits::tokens::PayFromAccount<Balances, TreasuryAccount>;
+	type BalanceConverter = frame_support::traits::tokens::UnityAssetBalanceConversion;
+	type PayoutPeriod = SpendPeriod;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = ();
 }
 
 parameter_types! {
@@ -908,6 +1047,9 @@ construct_runtime!(
 		Assets: pallet_assets = 13,
 		Nfts: pallet_nfts = 14,
 
+		// Treasury (present in on-chain metadata at index 19 since genesis, 0 data keys)
+		Treasury: pallet_treasury = 19,
+
 		// Collator support. The order of these 4 are important and shall not change.
 		Authorship: pallet_authorship = 20,
 		CollatorSelection: pallet_collator_selection = 21,
@@ -953,6 +1095,7 @@ mod benches {
 		[pallet_crowdfunding, Crowdfunding]
 		[pallet_nfts, Nfts]
 		[pallet_proxy, Proxy]
+		[pallet_treasury, Treasury]
 		[pallet_session, SessionBench::<Runtime>]
 		[pallet_timestamp, Timestamp]
 		[pallet_collator_selection, CollatorSelection]
