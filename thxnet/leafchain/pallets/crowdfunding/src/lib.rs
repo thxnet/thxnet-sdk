@@ -1434,9 +1434,9 @@ pub mod pallet {
                     drop(imbalance);
                 }
                 PaymentCurrency::Asset(asset_id) => {
-                    use frame_support::traits::tokens::{Precision, Fortitude};
+                    use frame_support::traits::tokens::{Precision, Fortitude, Preservation};
                     <T::Fungibles as fungibles::Mutate<T::AccountId>>::burn_from(
-                        *asset_id, who, amount, Precision::Exact, Fortitude::Polite,
+                        *asset_id, who, amount, Preservation::Expendable, Precision::Exact, Fortitude::Polite,
                     )?;
                 }
             }
