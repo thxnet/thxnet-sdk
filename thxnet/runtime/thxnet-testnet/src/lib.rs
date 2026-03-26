@@ -1942,6 +1942,49 @@ pub mod migrations {
 		}
 	}
 
+	/// Force-stamp parachains_disputes StorageVersion to v1.
+	///
+	/// Context: `parachains_disputes` declares `STORAGE_VERSION = StorageVersion::new(1)` in code.
+	/// On-chain StorageVersion is 0 because THXNet never ran the upstream v0→v1 migration.
+	///
+	/// Without this stamp, try-runtime will assert fail: on-chain 0 != in-code 1.
+	/// Safety: No data transformation — purely a metadata correction.
+	pub struct StampParasDisputesV1;
+	impl frame_support::traits::OnRuntimeUpgrade for StampParasDisputesV1 {
+		fn on_runtime_upgrade() -> Weight {
+			use frame_support::traits::GetStorageVersion;
+			let on_chain =
+				parachains_disputes::Pallet::<Runtime>::on_chain_storage_version();
+			if on_chain < 1 {
+				log::info!(
+					target: "runtime::paras_disputes",
+					"StampParasDisputesV1: stamping on-chain version from {:?} to 1",
+					on_chain,
+				);
+				frame_support::traits::StorageVersion::new(1)
+					.put::<parachains_disputes::Pallet<Runtime>>();
+				<Runtime as frame_system::Config>::DbWeight::get().reads_writes(1, 1)
+			} else {
+				log::info!(
+					target: "runtime::paras_disputes",
+					"StampParasDisputesV1: already at {:?}, skipping",
+					on_chain,
+				);
+				<Runtime as frame_system::Config>::DbWeight::get().reads(1)
+			}
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade(_state: sp_std::vec::Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+			use frame_support::traits::GetStorageVersion;
+			frame_support::ensure!(
+				parachains_disputes::Pallet::<Runtime>::on_chain_storage_version() == 1,
+				"StampParasDisputesV1: on-chain version must be 1 after migration"
+			);
+			Ok(())
+		}
+	}
+
 	/// Upgrade Session keys to exclude `ImOnline` key.
 	/// When this is removed, should also remove `OldSessionKeys`.
 	pub struct UpgradeSessionKeys;
@@ -2184,6 +2227,8 @@ pub mod migrations {
 		crowdloan::migration::MigrateToTrackInactiveV2<Runtime>,
 		// THXNet-specific: Stamp pallet_bounties to v4 (prefix rename was always a noop)
 		StampBountiesV4,
+		// THXNet-specific: Stamp parachains_disputes to v1 (upstream v0→v1 never ran)
+		StampParasDisputesV1,
 		// v1.11.0 → v1.12.0
 		pallet_staking::migrations::v15::MigrateV14ToV15<Runtime>,
 	);
