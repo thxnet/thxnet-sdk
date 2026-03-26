@@ -1568,6 +1568,15 @@ impl pallet_dao::Config for Runtime {
 }
 
 parameter_types! {
+	pub const RescueCooldown: BlockNumber = 100;
+}
+
+impl pallet_finality_rescue::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type RescueCooldown = RescueCooldown;
+}
+
+parameter_types! {
 	pub const AssetDeposit: Balance = 10 * DOLLARS;
 	pub const AssetAccountDeposit: Balance = deposit(1, 16);
 	pub const ApprovalDeposit: Balance = EXISTENTIAL_DEPOSIT;
@@ -1753,6 +1762,7 @@ construct_runtime! {
 		Assets: pallet_assets::{Pallet, Call, Storage, Event<T>} = 132,
 		Nfts: pallet_nfts::{Pallet, Call, Storage, Event<T>} = 133,
 		Dao: pallet_dao::{Pallet, Call, Storage, Event<T>} = 134,
+		FinalityRescue: pallet_finality_rescue::{Pallet, Call, Storage, Event<T>} = 135,
 
 		// Parachain sudo wrapper.
 		ParasSudoWrapper: runtime_common::paras_sudo_wrapper::{Pallet, Call} = 250,

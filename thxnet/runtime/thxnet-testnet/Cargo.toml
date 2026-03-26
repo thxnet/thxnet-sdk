@@ -89,6 +89,7 @@ pallet-xcm-benchmarks = { path = "../../../polkadot/xcm/pallet-xcm-benchmarks", 
 # THXNet-specific pallets
 pallet-sudo = { path = "../../../substrate/frame/sudo", default-features = false }
 pallet-dao = { path = "../../pallets/dao", default-features = false }
+pallet-finality-rescue = { path = "../../pallets/finality-rescue", default-features = false }
 pallet-assets = { path = "../../../substrate/frame/assets", default-features = false }
 pallet-nfts = { path = "../../../substrate/frame/nfts", default-features = false }
 pallet-nfts-runtime-api = { path = "../../../substrate/frame/nfts/runtime-api", default-features = false }
@@ -195,6 +196,7 @@ std = [
 	"thxnet-testnet-runtime-constants/std",
 	"pallet-sudo/std",
 	"pallet-dao/std",
+	"pallet-finality-rescue/std",
 	"pallet-assets/std",
 	"pallet-nfts/std",
 	"pallet-nfts-runtime-api/std",
@@ -244,6 +246,7 @@ runtime-benchmarks = [
 	"pallet-election-provider-support-benchmarking/runtime-benchmarks",
 	"pallet-elections-phragmen/runtime-benchmarks",
 	"pallet-fast-unstake/runtime-benchmarks",
+	"pallet-finality-rescue/runtime-benchmarks",
 	"pallet-grandpa/runtime-benchmarks",
 	"pallet-identity/runtime-benchmarks",
 	"pallet-im-online/runtime-benchmarks",
@@ -323,6 +326,7 @@ try-runtime = [
 	"pallet-xcm/try-runtime",
 	"pallet-sudo/try-runtime",
 	"pallet-dao/try-runtime",
+	"pallet-finality-rescue/try-runtime",
 	"pallet-assets/try-runtime",
 	"pallet-nfts/try-runtime",
 	"pallet-asset-tx-payment/try-runtime",
