@@ -1897,6 +1897,50 @@ pub mod migrations {
 		<Runtime as frame_system::Config>::DbWeight,
 	>;
 
+	/// Force-stamp pallet_bounties StorageVersion to v4.
+	///
+	/// Context: `pallet_bounties` declares `STORAGE_VERSION = StorageVersion::new(4)` in code.
+	/// On-chain StorageVersion is NULL (reads as 0) because THXNet never ran the upstream
+	/// v4 migration (which was a prefix rename from `Treasury` to `Bounties` — irrelevant
+	/// since THXNet always used `Bounties` as the pallet name at index 34).
+	///
+	/// Without this stamp, try-runtime will assert fail: on-chain 0 != in-code 4.
+	/// Safety: No data transformation — purely a metadata correction.
+	pub struct StampBountiesV4;
+	impl frame_support::traits::OnRuntimeUpgrade for StampBountiesV4 {
+		fn on_runtime_upgrade() -> Weight {
+			use frame_support::traits::GetStorageVersion;
+			let on_chain = pallet_bounties::Pallet::<Runtime>::on_chain_storage_version();
+			if on_chain < 4 {
+				log::info!(
+					target: "runtime::bounties",
+					"StampBountiesV4: stamping on-chain version from {:?} to 4",
+					on_chain,
+				);
+				frame_support::traits::StorageVersion::new(4)
+					.put::<pallet_bounties::Pallet<Runtime>>();
+				<Runtime as frame_system::Config>::DbWeight::get().reads_writes(1, 1)
+			} else {
+				log::info!(
+					target: "runtime::bounties",
+					"StampBountiesV4: already at {:?}, skipping",
+					on_chain,
+				);
+				<Runtime as frame_system::Config>::DbWeight::get().reads(1)
+			}
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade(_state: sp_std::vec::Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+			use frame_support::traits::GetStorageVersion;
+			frame_support::ensure!(
+				pallet_bounties::Pallet::<Runtime>::on_chain_storage_version() == 4,
+				"StampBountiesV4: on-chain version must be 4 after migration"
+			);
+			Ok(())
+		}
+	}
+
 	/// Upgrade Session keys to exclude `ImOnline` key.
 	/// When this is removed, should also remove `OldSessionKeys`.
 	pub struct UpgradeSessionKeys;
@@ -2138,6 +2182,8 @@ pub mod migrations {
 		// v1.9.0 → v1.10.0
 		parachains_inclusion::migration::MigrateToV1<Runtime>,
 		crowdloan::migration::MigrateToTrackInactiveV2<Runtime>,
+		// THXNet-specific: Stamp pallet_bounties to v4 (prefix rename was always a noop)
+		StampBountiesV4,
 		// v1.11.0 → v1.12.0
 		pallet_staking::migrations::v15::MigrateV14ToV15<Runtime>,
 	);
@@ -3458,6 +3504,100 @@ mod migration_tests {
 				"Should return 1 read when spec version is above threshold"
 			);
 		});
+	}
+
+	// ── A4: StampBountiesV4 ────────────────────────────────────────────────
+	// Partition: {on_chain < 4 → stamps to 4, on_chain == 4 → skips, on_chain > 4 → skips}
+
+	#[test]
+	fn stamp_bounties_v4_stamps_when_on_chain_is_0() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			// Arrange: on-chain version is 0 (never set — default)
+			assert_eq!(
+				pallet_bounties::Pallet::<Runtime>::on_chain_storage_version(),
+				StorageVersion::new(0)
+			);
+
+			// Act
+			let weight = migrations::StampBountiesV4::on_runtime_upgrade();
+
+			// Assert: stamped to v4
+			assert_eq!(
+				pallet_bounties::Pallet::<Runtime>::on_chain_storage_version(),
+				StorageVersion::new(4),
+				"StampBountiesV4 must stamp on-chain version to 4"
+			);
+			// Assert: weight = 1 read + 1 write
+			assert_eq!(
+				weight,
+				<Runtime as frame_system::Config>::DbWeight::get().reads_writes(1, 1)
+			);
+		});
+	}
+
+	#[test]
+	fn stamp_bounties_v4_skips_when_already_v4() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			// Arrange: already at v4
+			StorageVersion::new(4).put::<pallet_bounties::Pallet<Runtime>>();
+
+			// Act
+			let weight = migrations::StampBountiesV4::on_runtime_upgrade();
+
+			// Assert: still v4, not changed
+			assert_eq!(
+				pallet_bounties::Pallet::<Runtime>::on_chain_storage_version(),
+				StorageVersion::new(4)
+			);
+			// Assert: weight = 1 read only (skip path)
+			assert_eq!(
+				weight,
+				<Runtime as frame_system::Config>::DbWeight::get().reads(1)
+			);
+		});
+	}
+
+	#[test]
+	fn stamp_bounties_v4_skips_when_above_v4() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			// Arrange: somehow at v5
+			StorageVersion::new(5).put::<pallet_bounties::Pallet<Runtime>>();
+
+			// Act
+			let weight = migrations::StampBountiesV4::on_runtime_upgrade();
+
+			// Assert: stays at v5
+			assert_eq!(
+				pallet_bounties::Pallet::<Runtime>::on_chain_storage_version(),
+				StorageVersion::new(5)
+			);
+			assert_eq!(
+				weight,
+				<Runtime as frame_system::Config>::DbWeight::get().reads(1)
+			);
+		});
+	}
+
+	#[test]
+	fn stamp_bounties_v4_stamps_intermediate_versions() {
+		// Verify that on_chain versions 1, 2, 3 all get stamped to 4
+		for v in 1..=3u16 {
+			sp_io::TestExternalities::default().execute_with(|| {
+				StorageVersion::new(v).put::<pallet_bounties::Pallet<Runtime>>();
+
+				let weight = migrations::StampBountiesV4::on_runtime_upgrade();
+
+				assert_eq!(
+					pallet_bounties::Pallet::<Runtime>::on_chain_storage_version(),
+					StorageVersion::new(4),
+					"StampBountiesV4 must stamp from v{} to v4", v
+				);
+				assert_eq!(
+					weight,
+					<Runtime as frame_system::Config>::DbWeight::get().reads_writes(1, 1)
+				);
+			});
+		}
 	}
 
 	// ── C1-C3: Zero-Fee Configuration ───────────────────────────────────────
