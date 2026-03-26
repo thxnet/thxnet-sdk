@@ -1976,11 +1976,20 @@ pub mod migrations {
 	type MigrationsEarly = (
 		// v0.9.40 → v1.1.0 (ImOnline migration skipped — pallet fully removed in Phase 4)
 		pallet_offences::migration::v1::MigrateToV1<Runtime>,
+		// THXNet rootchain is at configuration StorageVersion v4. The v5 and v6 migrations
+		// were removed from polkadot-sdk after v1.0.0 (Polkadot/Kusama already ran them).
+		// We port them here so the chain v4 → v5 → v6 → v7 is unbroken.
+		parachains_configuration::migration::v5::MigrateToV5<Runtime>,
+		parachains_configuration::migration::v6::MigrateToV6<Runtime>,
 		parachains_configuration::migration::v7::MigrateToV7<Runtime>,
 		parachains_configuration::migration::v8::MigrateToV8<Runtime>,
 		parachains_configuration::migration::v9::MigrateToV9<Runtime>,
 		paras_registrar::migration::MigrateToV1<Runtime, ParachainsToUnlock>,
 		// v1.2.0 → v1.3.0
+		// THXNet rootchain is at nomination_pools StorageVersion v4. The original MigrateToV5
+		// has a broken guard (`in_code == 5`) that never fires in v1.12.0. We use the
+		// VersionedMigration wrapper which correctly checks `on_chain == 4`.
+		pallet_nomination_pools::migration::versioned::V4toV5<Runtime>,
 		pallet_nomination_pools::migration::versioned::V5toV6<Runtime>,
 		pallet_nomination_pools::migration::versioned::V6ToV7<Runtime>,
 		// v1.3.0 → v1.4.0
