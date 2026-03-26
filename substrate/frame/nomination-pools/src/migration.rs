@@ -377,7 +377,13 @@ pub mod v5 {
 			let rpool_keys = RewardPools::<T>::iter_keys().count();
 			let rpool_values = RewardPools::<T>::iter_values().count();
 			if rpool_keys != rpool_values {
-				log!(info, "There are {} undecodable RewardPools in storage. keys: {}, values: {}", rpool_keys.saturating_sub(rpool_values), rpool_keys, rpool_values);
+				log!(
+					info,
+					"There are {} undecodable RewardPools in storage. keys: {}, values: {}",
+					rpool_keys.saturating_sub(rpool_values),
+					rpool_keys,
+					rpool_values
+				);
 			}
 			Ok((rpool_values as u64).encode())
 		}

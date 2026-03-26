@@ -38,7 +38,10 @@ use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 pub use sp_runtime::BuildStorage;
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
-	traits::{AccountIdConversion, AccountIdLookup, BlakeTwo256, Block as BlockT, ConvertInto, IdentifyAccount, Verify},
+	traits::{
+		AccountIdConversion, AccountIdLookup, BlakeTwo256, Block as BlockT, ConvertInto,
+		IdentifyAccount, Verify,
+	},
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, MultiSignature,
 };
@@ -168,12 +171,12 @@ impl frame_support::traits::OnRuntimeUpgrade for InitDmpQueueStorageVersion {
 /// on_chain stuck at 0 while code declares v3 — causing try-runtime assertion failure.
 ///
 /// Chain-specific scenarios:
-/// - Avatect mainnet: on-chain v0, but data IS already v3 format (protocol_fee_bps
-///   exists in all 21 campaigns from genesis). MigrateToV3 would skip due to guard.
-///   Stamp is safe — no data transformation needed.
+/// - Avatect mainnet: on-chain v0, but data IS already v3 format (protocol_fee_bps exists in all 21
+///   campaigns from genesis). MigrateToV3 would skip due to guard. Stamp is safe — no data
+///   transformation needed.
 /// - All other chains: on-chain v0, ZERO Crowdfunding data. Stamp is trivially safe.
-/// - Sand testnet: Crowdfunding pallet was never deployed. On-chain reads as v0.
-///   Stamp is trivially safe.
+/// - Sand testnet: Crowdfunding pallet was never deployed. On-chain reads as v0. Stamp is trivially
+///   safe.
 pub struct CrowdfundingStampOrMigrateToV3;
 impl frame_support::traits::OnRuntimeUpgrade for CrowdfundingStampOrMigrateToV3 {
 	fn on_runtime_upgrade() -> Weight {
@@ -843,10 +846,7 @@ mod leafchain_migration_tests {
 				StorageVersion::new(2)
 			);
 			// Assert: weight = 1 read only (skip path)
-			assert_eq!(
-				weight,
-				<Runtime as frame_system::Config>::DbWeight::get().reads(1)
-			);
+			assert_eq!(weight, <Runtime as frame_system::Config>::DbWeight::get().reads(1));
 		});
 	}
 
@@ -864,10 +864,7 @@ mod leafchain_migration_tests {
 				cumulus_pallet_dmp_queue::Pallet::<Runtime>::on_chain_storage_version(),
 				StorageVersion::new(3)
 			);
-			assert_eq!(
-				weight,
-				<Runtime as frame_system::Config>::DbWeight::get().reads(1)
-			);
+			assert_eq!(weight, <Runtime as frame_system::Config>::DbWeight::get().reads(1));
 		});
 	}
 
@@ -913,10 +910,7 @@ mod leafchain_migration_tests {
 				pallet_crowdfunding::Pallet::<Runtime>::on_chain_storage_version(),
 				StorageVersion::new(3)
 			);
-			assert_eq!(
-				weight,
-				<Runtime as frame_system::Config>::DbWeight::get().reads(1)
-			);
+			assert_eq!(weight, <Runtime as frame_system::Config>::DbWeight::get().reads(1));
 		});
 	}
 
@@ -965,10 +959,7 @@ mod leafchain_migration_tests {
 				"RWA MigrateToV5 must stamp on-chain version to 5"
 			);
 			// Assert: weight = 1 write
-			assert_eq!(
-				weight,
-				<Runtime as frame_system::Config>::DbWeight::get().writes(1)
-			);
+			assert_eq!(weight, <Runtime as frame_system::Config>::DbWeight::get().writes(1));
 		});
 	}
 
@@ -997,11 +988,8 @@ mod leafchain_migration_tests {
 	fn leafchain_weight_to_fee_returns_zero() {
 		use frame_support::weights::{Weight, WeightToFee as WeightToFeeT};
 
-		let test_weights = [
-			Weight::zero(),
-			Weight::from_parts(1, 0),
-			Weight::from_parts(u64::MAX, u64::MAX),
-		];
+		let test_weights =
+			[Weight::zero(), Weight::from_parts(1, 0), Weight::from_parts(u64::MAX, u64::MAX)];
 		for w in &test_weights {
 			let fee = constants::fee::WeightToFee::weight_to_fee(w);
 			assert_eq!(fee, 0, "Leafchain WeightToFee must return 0 for {:?}", w);

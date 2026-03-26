@@ -41,7 +41,13 @@ where
 	C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
 	C::Api: substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
 	C::Api: pallet_rwa_runtime_api::RwaApi<Block, AccountId, Balance, BlockNumber, u32>,
-	C::Api: pallet_crowdfunding_runtime_api::CrowdfundingApi<Block, AccountId, Balance, BlockNumber, u32>,
+	C::Api: pallet_crowdfunding_runtime_api::CrowdfundingApi<
+		Block,
+		AccountId,
+		Balance,
+		BlockNumber,
+		u32,
+	>,
 	C::Api: BlockBuilder<Block>,
 	P: TransactionPool + Sync + Send + 'static,
 {

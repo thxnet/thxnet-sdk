@@ -50,9 +50,12 @@ pub fn test_authorities() -> Vec<(pallet_grandpa::AuthorityId, u64)> {
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
-	pallet_grandpa::GenesisConfig::<Test> { authorities: test_authorities(), _config: Default::default() }
-		.assimilate_storage(&mut t)
-		.unwrap();
+	pallet_grandpa::GenesisConfig::<Test> {
+		authorities: test_authorities(),
+		_config: Default::default(),
+	}
+	.assimilate_storage(&mut t)
+	.unwrap();
 
 	t.into()
 }

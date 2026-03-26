@@ -33,10 +33,11 @@ impl AssetLifecycleGuard<AccountId> for CrowdfundingLifecycleGuard {
 		// Check if any active campaign references this RWA asset.
 		// A campaign is "active" if its status is Funding, Paused, or MilestonePhase.
 		let has_active = pallet_crowdfunding::Campaigns::<Runtime>::iter_values().any(|c| {
-			c.rwa_asset_id == Some(rwa_asset_id)
-				&& matches!(
+			c.rwa_asset_id == Some(rwa_asset_id) &&
+				matches!(
 					c.status,
-					CampaignStatus::Funding | CampaignStatus::Paused | CampaignStatus::MilestonePhase
+					CampaignStatus::Funding |
+						CampaignStatus::Paused | CampaignStatus::MilestonePhase
 				)
 		});
 		if has_active {
@@ -50,10 +51,11 @@ impl AssetLifecycleGuard<AccountId> for CrowdfundingLifecycleGuard {
 	fn can_slash_participation(rwa_asset_id: u32, _participation_id: u32) -> DispatchResult {
 		// Same logic: block slashing if any active campaign is linked.
 		let has_active = pallet_crowdfunding::Campaigns::<Runtime>::iter_values().any(|c| {
-			c.rwa_asset_id == Some(rwa_asset_id)
-				&& matches!(
+			c.rwa_asset_id == Some(rwa_asset_id) &&
+				matches!(
 					c.status,
-					CampaignStatus::Funding | CampaignStatus::Paused | CampaignStatus::MilestonePhase
+					CampaignStatus::Funding |
+						CampaignStatus::Paused | CampaignStatus::MilestonePhase
 				)
 		});
 		if has_active {
@@ -91,8 +93,7 @@ impl pallet_crowdfunding::LicenseVerifier<AccountId, BlockNumber> for RwaLicense
 				.ok_or(sp_runtime::DispatchError::Other("Participation not found"))?;
 		match &participation.status {
 			ParticipationStatus::Active { .. } => {},
-			_ =>
-				return Err(sp_runtime::DispatchError::Other("Participation not active")),
+			_ => return Err(sp_runtime::DispatchError::Other("Participation not active")),
 		}
 
 		// Check caller is a holder.

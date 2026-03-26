@@ -1877,8 +1877,9 @@ pub mod migrations {
 	/// Bridge migration: stamp pallet_staking from StorageVersion 13 → 14.
 	///
 	/// Context: The upstream `MigrateToV14` has a manual guard `in_code == 14 && on_chain == 13`.
-	/// In v1.12.0, `in_code` is 15, so that guard NEVER fires. We use `VersionedMigration<13,14,...>`
-	/// which only checks `on_chain == 13` — the correct condition for our live chains.
+	/// In v1.12.0, `in_code` is 15, so that guard NEVER fires. We use
+	/// `VersionedMigration<13,14,...>` which only checks `on_chain == 13` — the correct condition
+	/// for our live chains.
 	///
 	/// The v14 migration itself is purely a version stamp (no data transformation), so the inner
 	/// `UncheckedOnRuntimeUpgrade` is a no-op.
@@ -1953,8 +1954,7 @@ pub mod migrations {
 	impl frame_support::traits::OnRuntimeUpgrade for StampParasDisputesV1 {
 		fn on_runtime_upgrade() -> Weight {
 			use frame_support::traits::GetStorageVersion;
-			let on_chain =
-				parachains_disputes::Pallet::<Runtime>::on_chain_storage_version();
+			let on_chain = parachains_disputes::Pallet::<Runtime>::on_chain_storage_version();
 			if on_chain < 1 {
 				log::info!(
 					target: "runtime::paras_disputes",
@@ -2205,8 +2205,14 @@ pub mod migrations {
 		// v1.4.0 → v1.5.0
 		pallet_nomination_pools::migration::versioned::V7ToV8<Runtime>,
 		UpgradeSessionKeys,
-		frame_support::migrations::RemovePallet<ImOnlinePalletName, <Runtime as frame_system::Config>::DbWeight>,
-		frame_support::migrations::RemovePallet<TipsPalletName, <Runtime as frame_system::Config>::DbWeight>,
+		frame_support::migrations::RemovePallet<
+			ImOnlinePalletName,
+			<Runtime as frame_system::Config>::DbWeight,
+		>,
+		frame_support::migrations::RemovePallet<
+			TipsPalletName,
+			<Runtime as frame_system::Config>::DbWeight,
+		>,
 	);
 
 	/// Second half of cumulative migrations (v1.5.0 → v1.12.0).
@@ -3382,13 +3388,10 @@ mod migration_tests {
 					// UPGRADE_SESSION_KEYS_FROM_SPEC is 104_000_000 for testnet
 					spec_version: 105_000_000u32.into(),
 					spec_name: "thxnet-testnet".into(),
-				}
+				},
 			);
 			let weight = migrations::UpgradeSessionKeys::on_runtime_upgrade();
-			assert_eq!(
-				weight,
-				<Runtime as frame_system::Config>::DbWeight::get().reads(1)
-			);
+			assert_eq!(weight, <Runtime as frame_system::Config>::DbWeight::get().reads(1));
 		});
 	}
 
@@ -3423,10 +3426,7 @@ mod migration_tests {
 				pallet_bounties::Pallet::<Runtime>::on_chain_storage_version(),
 				StorageVersion::new(4)
 			);
-			assert_eq!(
-				weight,
-				<Runtime as frame_system::Config>::DbWeight::get().reads(1)
-			);
+			assert_eq!(weight, <Runtime as frame_system::Config>::DbWeight::get().reads(1));
 		});
 	}
 
@@ -3439,10 +3439,7 @@ mod migration_tests {
 				pallet_bounties::Pallet::<Runtime>::on_chain_storage_version(),
 				StorageVersion::new(5)
 			);
-			assert_eq!(
-				weight,
-				<Runtime as frame_system::Config>::DbWeight::get().reads(1)
-			);
+			assert_eq!(weight, <Runtime as frame_system::Config>::DbWeight::get().reads(1));
 		});
 	}
 
@@ -3455,7 +3452,8 @@ mod migration_tests {
 				assert_eq!(
 					pallet_bounties::Pallet::<Runtime>::on_chain_storage_version(),
 					StorageVersion::new(4),
-					"StampBountiesV4 must stamp from v{} to v4", v
+					"StampBountiesV4 must stamp from v{} to v4",
+					v
 				);
 				assert_eq!(
 					weight,
@@ -3503,7 +3501,7 @@ mod migration_tests {
 			};
 			let info = call.get_dispatch_info();
 			pallet_transaction_payment::NextFeeMultiplier::<Runtime>::put(
-				sp_runtime::FixedU128::from_u32(1)
+				sp_runtime::FixedU128::from_u32(1),
 			);
 			let fee = TransactionPayment::compute_fee(100, &info, 0);
 			assert_eq!(fee, 0, "compute_fee must return 0 on zero-fee chain, got {}", fee);

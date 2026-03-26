@@ -104,10 +104,7 @@ pub(crate) fn reset_grandpa_state<B: AuxStore>(
 			(Vec::new(), false)
 		},
 		Err(e) => {
-			log::warn!(
-				"🔧 THX Network: Error reading AuthoritySet ({}), using empty changes",
-				e
-			);
+			log::warn!("🔧 THX Network: Error reading AuthoritySet ({}), using empty changes", e);
 			(Vec::new(), false)
 		},
 	};

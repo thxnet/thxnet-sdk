@@ -23,8 +23,8 @@ pub mod chain_spec;
 mod fake_runtime_api;
 mod grandpa_support;
 mod parachains_db;
-mod thxnet_grandpa_recovery;
 mod relay_chain_selection;
+mod thxnet_grandpa_recovery;
 
 #[cfg(feature = "full-node")]
 pub mod overseer;
