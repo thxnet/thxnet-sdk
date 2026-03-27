@@ -42,13 +42,13 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: ${{ runner.os }}-cargo-
 
-      - name: Build rootchain binaries
+      - name: Build rootchain node + mainnet runtime WASM
         run: cargo build --locked --release -p polkadot
 
-      - name: Build testnet runtime WASM
+      - name: Build testnet rootchain runtime WASM
         run: cargo build --locked --release -p thxnet-testnet-runtime
 
-      - name: Build leafchain binary
+      - name: Build leafchain node + leafchain runtime WASM
         run: cargo build --locked --release -p thxnet-leafchain
 
       - name: Upload binaries
@@ -200,9 +200,9 @@ jobs:
 
       - name: Build try-runtime WASMs
         run: |
-          cargo build --release -p thxnet-testnet-runtime --features try-runtime
-          cargo build --release -p thxnet-runtime --features try-runtime
-          cargo build --release -p general-runtime --features try-runtime
+          cargo build --locked --release -p thxnet-testnet-runtime --features try-runtime
+          cargo build --locked --release -p thxnet-runtime --features try-runtime
+          cargo build --locked --release -p general-runtime --features try-runtime
           mkdir -p /tmp/try-runtime-wasm
           cp target/release/wbuild/thxnet-testnet-runtime/thxnet_testnet_runtime.compact.compressed.wasm \
             /tmp/try-runtime-wasm/thxnet-testnet-runtime-try-runtime.wasm
@@ -213,7 +213,7 @@ jobs:
 
       - name: Build fast-runtime binary
         run: |
-          cargo build --release -p polkadot --features fast-runtime
+          cargo build --locked --release -p polkadot --features fast-runtime
           mkdir -p /tmp/fast-runtime-bins
           cp target/release/polkadot /tmp/fast-runtime-bins/polkadot-fast-runtime
           cp target/release/polkadot-prepare-worker /tmp/fast-runtime-bins/

@@ -34,12 +34,12 @@ jobs:
 
       - name: Cargo check — rootchain runtimes
         run: |
-          cargo check \
+          cargo check --locked \
             --package thxnet-runtime \
             --package thxnet-testnet-runtime
 
       - name: Cargo check — leafchain
         run: |
-          cargo check \
+          cargo check --locked \
             --package general-runtime \
             --package thxnet-leafchain

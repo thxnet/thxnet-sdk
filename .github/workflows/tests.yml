@@ -1,0 +1,70 @@
+name: Tests
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  nextest:
+    name: Cargo nextest
+    runs-on: ubuntu-latest
+    container:
+      image: docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
+    env:
+      RUSTFLAGS: "-C debug-assertions -D warnings"
+      WASM_BUILD_RUSTFLAGS: "-C debug-assertions -D warnings"
+      WASM_BUILD_WORKSPACE_HINT: ${{ github.workspace }}
+      RUST_BACKTRACE: full
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            /root/.cargo/registry/index/
+            /root/.cargo/registry/cache/
+            /root/.cargo/git/db/
+          key: ${{ runner.os }}-cargo-test-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      - name: Run tests
+        run: |
+          cargo nextest run --locked --release \
+            --package thxnet-runtime \
+            --package thxnet-testnet-runtime \
+            --package general-runtime \
+            --package thxnet-leafchain
+
+  bench-check:
+    name: Benchmark compilation check
+    runs-on: ubuntu-latest
+    container:
+      image: docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
+    env:
+      SKIP_WASM_BUILD: 1
+      WASM_BUILD_WORKSPACE_HINT: ${{ github.workspace }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            /root/.cargo/registry/index/
+            /root/.cargo/registry/cache/
+            /root/.cargo/git/db/
+          key: ${{ runner.os }}-cargo-bench-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      - name: Check benchmarks compile
+        run: |
+          cargo check --locked --benches \
+            --package thxnet-runtime \
+            --package thxnet-testnet-runtime \
+            --package general-runtime

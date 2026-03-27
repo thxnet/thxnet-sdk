@@ -1,18 +1,21 @@
-name: Rustfmt check
+name: Quick checks
 
 on:
   push:
     branches:
       - main
+      - master
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
 
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  quick_check:
-    strategy:
-      matrix:
-        os: ["ubuntu-latest"]
-    runs-on: ${{ matrix.os }}
+  fmt:
+    name: Rustfmt
+    runs-on: ubuntu-latest
     container:
       image: paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
     steps:
@@ -20,3 +23,25 @@ jobs:
 
       - name: Cargo fmt
         run: cargo +nightly fmt --all -- --check
+
+  taplo:
+    name: TOML format
+    runs-on: ubuntu-latest
+    container:
+      image: paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Check TOML formatting
+        run: taplo format --check --config .config/taplo.toml
+
+  zepter:
+    name: Feature propagation
+    runs-on: ubuntu-latest
+    container:
+      image: paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Check feature propagation
+        run: zepter run check
