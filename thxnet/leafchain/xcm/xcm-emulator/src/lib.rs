@@ -723,9 +723,12 @@ macro_rules! __impl_parachain {
 					let block_number = <Self as Parachain>::System::block_number();
 
 					// Initialize AuraExt SlotInfo (see execute_with for explanation)
-					<$crate::cumulus_pallet_aura_ext::RelaySlotInfo<<Self as Parachain>::Runtime>>::put(
-								($crate::sp_consensus_aura::Slot::from(0u64), 1u32),
-							);
+					#[allow(clippy::needless_update)]
+					{
+						<$crate::cumulus_pallet_aura_ext::RelaySlotInfo<
+							<Self as Parachain>::Runtime,
+						>>::put(($crate::sp_consensus_aura::Slot::from(0u64), 1u32));
+					}
 
 					// Clear UnincludedSegment (see execute_with for explanation)
 					{
