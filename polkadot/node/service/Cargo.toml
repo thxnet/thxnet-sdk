@@ -178,8 +178,8 @@ serde = { features = ["derive"], workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
 thiserror = { workspace = true }
 thxnet-runtime = { path = "../../../thxnet/runtime/thxnet", optional = true }
-thxnet-runtime-constants = { path = "../../../thxnet/runtime/thxnet/constants", optional = true }
 thxnet-runtime-common = { package = "polkadot-runtime-common", path = "../../runtime/common", optional = true, default-features = true }
+thxnet-runtime-constants = { path = "../../../thxnet/runtime/thxnet/constants", optional = true }
 westend-runtime = { optional = true, workspace = true, default-features = true }
 westend-runtime-constants = { optional = true, workspace = true, default-features = true }
 xcm.default-features = true
@@ -240,8 +240,8 @@ rococo-native = [
 ]
 thxnet-native = [
 	"thxnet-runtime",
-	"thxnet-runtime-constants",
 	"thxnet-runtime-common",
+	"thxnet-runtime-constants",
 ]
 
 # Generate the metadata hash needed for CheckMetadataHash
@@ -257,14 +257,14 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"pallet-transaction-payment/runtime-benchmarks",
 	"polkadot-primitives/runtime-benchmarks",
-	"polkadot-runtime-common?/runtime-benchmarks",
 	"polkadot-runtime-parachains/runtime-benchmarks",
 	"polkadot-test-client/runtime-benchmarks",
 	"rococo-runtime?/runtime-benchmarks",
 	"sc-service/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
-	"westend-runtime-constants?/runtime-benchmarks",
+	"thxnet-runtime-common?/runtime-benchmarks",
 	"thxnet-runtime?/runtime-benchmarks",
+	"westend-runtime-constants?/runtime-benchmarks",
 	"westend-runtime?/runtime-benchmarks",
 	"xcm-runtime-apis/runtime-benchmarks",
 	"xcm/runtime-benchmarks",
@@ -272,10 +272,10 @@ runtime-benchmarks = [
 try-runtime = [
 	"frame-system/try-runtime",
 	"pallet-transaction-payment/try-runtime",
-	"polkadot-runtime-common?/try-runtime",
 	"polkadot-runtime-parachains/try-runtime",
 	"rococo-runtime?/try-runtime",
 	"sp-runtime/try-runtime",
+	"thxnet-runtime-common?/try-runtime",
 	"thxnet-runtime?/try-runtime",
 	"westend-runtime?/try-runtime",
 ]
