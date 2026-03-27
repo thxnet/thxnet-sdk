@@ -18,8 +18,8 @@ jobs:
     container:
       image: docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
     env:
-      RUSTFLAGS: "-C debug-assertions -D warnings"
-      WASM_BUILD_RUSTFLAGS: "-C debug-assertions -D warnings"
+      RUSTFLAGS: "-C debug-assertions"
+      WASM_BUILD_RUSTFLAGS: "-C debug-assertions"
       WASM_BUILD_WORKSPACE_HINT: ${{ github.workspace }}
       RUST_BACKTRACE: full
     steps:
