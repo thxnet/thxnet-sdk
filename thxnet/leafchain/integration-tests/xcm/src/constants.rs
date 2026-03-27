@@ -96,6 +96,7 @@ pub mod thxnet {
 					(get_account_id_from_seed::<sr25519::Public>(BOB), INITIAL_BALANCE),
 					(get_account_id_from_seed::<sr25519::Public>(CHARLIE), INITIAL_BALANCE),
 				],
+				dev_accounts: None,
 			},
 			session: thxnet_runtime::SessionConfig {
 				keys: initial_authorities
@@ -114,6 +115,7 @@ pub mod thxnet {
 						)
 					})
 					.collect::<Vec<_>>(),
+				non_authority_keys: Default::default(),
 			},
 			staking: thxnet_runtime::StakingConfig {
 				validator_count: initial_authorities.len() as u32,
@@ -153,7 +155,7 @@ pub mod thxnet {
 					hrmp_channel_max_message_size: 1024 * 1024,
 					hrmp_max_parachain_outbound_channels: 4,
 					hrmp_max_message_num_per_candidate: 5,
-					scheduler_params: polkadot_primitives::vstaging::SchedulerParams {
+					scheduler_params: polkadot_primitives::SchedulerParams {
 						group_rotation_frequency: 20,
 						paras_availability_period: 4,
 						..Default::default()
@@ -200,6 +202,7 @@ pub mod leafchain_a {
 					(get_account_id_from_seed::<sr25519::Public>(BOB), INITIAL_BALANCE),
 					(get_account_id_from_seed::<sr25519::Public>(CHARLIE), INITIAL_BALANCE),
 				],
+				dev_accounts: None,
 			},
 			parachain_info: general_runtime::ParachainInfoConfig {
 				parachain_id: PARA_ID.into(),
@@ -215,6 +218,7 @@ pub mod leafchain_a {
 					.into_iter()
 					.map(|(acc, aura)| (acc.clone(), acc, general_runtime::SessionKeys { aura }))
 					.collect(),
+				non_authority_keys: Default::default(),
 			},
 			aura: Default::default(),
 			aura_ext: Default::default(),
@@ -244,6 +248,7 @@ pub mod leafchain_b {
 					(get_account_id_from_seed::<sr25519::Public>(BOB), INITIAL_BALANCE),
 					(get_account_id_from_seed::<sr25519::Public>(CHARLIE), INITIAL_BALANCE),
 				],
+				dev_accounts: None,
 			},
 			parachain_info: general_runtime::ParachainInfoConfig {
 				parachain_id: PARA_ID.into(),
@@ -259,6 +264,7 @@ pub mod leafchain_b {
 					.into_iter()
 					.map(|(acc, aura)| (acc.clone(), acc, general_runtime::SessionKeys { aura }))
 					.collect(),
+				non_authority_keys: Default::default(),
 			},
 			aura: Default::default(),
 			aura_ext: Default::default(),

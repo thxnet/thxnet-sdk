@@ -16,6 +16,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
+use polkadot_sdk::*;
+
 /// An overarching CLI command definition.
 #[derive(Debug, clap::Parser)]
 pub struct Cli {
@@ -57,6 +59,7 @@ pub enum Subcommand {
 	Inspect(node_inspect::cli::InspectCmd),
 
 	/// Sub-commands concerned with benchmarking.
+	///
 	/// The pallet benchmarking moved to the `pallet` sub-command.
 	#[command(subcommand)]
 	Benchmark(frame_benchmarking_cli::BenchmarkCmd),
@@ -75,7 +78,15 @@ pub enum Subcommand {
 	Sign(sc_cli::SignCmd),
 
 	/// Build a chain specification.
+	/// DEPRECATED: `build-spec` command will be removed after 1/04/2026. Use `export-chain-spec`
+	/// command instead.
+	#[deprecated(
+		note = "build-spec command will be removed after 1/04/2026. Use export-chain-spec command instead"
+	)]
 	BuildSpec(sc_cli::BuildSpecCmd),
+
+	/// Export the chain specification.
+	ExportChainSpec(sc_cli::ExportChainSpecCmd),
 
 	/// Validate blocks.
 	CheckBlock(sc_cli::CheckBlockCmd),

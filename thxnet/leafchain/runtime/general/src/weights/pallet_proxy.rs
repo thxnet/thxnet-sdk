@@ -200,6 +200,12 @@ impl<T: frame_system::Config> pallet_proxy::WeightInfo for WeightInfo<T> {
 	/// Storage: Proxy Proxies (r:1 w:1)
 	/// Proof: Proxy Proxies (max_values: None, max_size: Some(1241), added: 3716, mode: MaxEncodedLen)
 	/// The range of component `p` is `[0, 30]`.
+	fn poke_deposit() -> Weight {
+		Weight::from_parts(20_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 4706))
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
 	fn kill_pure(p: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `264 + p * (37 ±0)`

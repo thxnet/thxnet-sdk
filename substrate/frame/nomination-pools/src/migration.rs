@@ -17,8 +17,8 @@
 
 use super::*;
 use crate::log;
+use alloc::{collections::btree_map::BTreeMap, vec::Vec};
 use frame_support::traits::{OnRuntimeUpgrade, UncheckedOnRuntimeUpgrade};
-use sp_std::{collections::btree_map::BTreeMap, vec::Vec};
 
 #[cfg(feature = "try-runtime")]
 use sp_runtime::TryRuntimeError;
@@ -46,19 +46,6 @@ pub mod versioned {
 		<T as frame_system::Config>::DbWeight,
 	>;
 
-	/// V4 → V5: adds `total_commission_pending` and `total_commission_claimed` to `RewardPool`.
-	///
-	/// Context: The original `MigrateToV5` has a broken guard (`in_code == 5`) that never fires
-	/// in v1.12.0 where `in_code` is 8. This `VersionedMigration` wrapper correctly checks
-	/// `on_chain == 4` and stamps to 5.
-	pub type V4toV5<T> = frame_support::migrations::VersionedMigration<
-		4,
-		5,
-		v5::UncheckedMigrateV4ToV5<T>,
-		crate::pallet::Pallet<T>,
-		<T as frame_system::Config>::DbWeight,
-	>;
-
 	/// Wrapper over `MigrateToV6` with convenience version checks.
 	pub type V5toV6<T> = frame_support::migrations::VersionedMigration<
 		5,
@@ -73,7 +60,7 @@ pub mod unversioned {
 	use super::*;
 
 	/// Checks and updates `TotalValueLocked` if out of sync.
-	pub struct TotalValueLockedSync<T>(sp_std::marker::PhantomData<T>);
+	pub struct TotalValueLockedSync<T>(core::marker::PhantomData<T>);
 	impl<T: Config> OnRuntimeUpgrade for TotalValueLockedSync<T> {
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
@@ -120,6 +107,221 @@ pub mod unversioned {
 			Ok(())
 		}
 	}
+
+	/// Migrate existing pools from [`adapter::StakeStrategyType::Transfer`] to
+	/// [`adapter::StakeStrategyType::Delegate`].
+	///
+	/// Note: This only migrates the pools, the members are not migrated. They can use the
+	/// permission-less [`Pallet::migrate_delegation()`] to migrate their funds.
+	///
+	/// This migration does not break any existing pool storage item, does not need to happen in any
+	/// sequence and hence can be applied unversioned on a production runtime.
+	///
+	/// Takes `MaxPools` as type parameter to limit the number of pools that should be migrated in a
+	/// single block. It should be set such that migration weight does not exceed the block weight
+	/// limit. If all pools can be safely migrated, it is good to keep this number a little higher
+	/// than the actual number of pools to handle any extra pools created while the migration is
+	/// proposed, and before it is executed.
+	///
+	/// If there are pools that fail to migrate or did not fit in the bounds, the remaining pools
+	/// can be migrated via the permission-less extrinsic [`Call::migrate_pool_to_delegate_stake`].
+	pub struct DelegationStakeMigration<T, MaxPools>(core::marker::PhantomData<(T, MaxPools)>);
+
+	impl<T: Config, MaxPools: Get<u32>> OnRuntimeUpgrade for DelegationStakeMigration<T, MaxPools> {
+		fn on_runtime_upgrade() -> Weight {
+			let mut count: u32 = 0;
+
+			BondedPools::<T>::iter_keys().take(MaxPools::get() as usize).for_each(|id| {
+				let pool_acc = Pallet::<T>::generate_bonded_account(id);
+
+				// only migrate if the pool is in Transfer Strategy.
+				if T::StakeAdapter::pool_strategy(Pool::from(pool_acc)) ==
+					adapter::StakeStrategyType::Transfer
+				{
+					let _ = Pallet::<T>::migrate_to_delegate_stake(id).map_err(|err| {
+						log!(
+							warn,
+							"failed to migrate pool {:?} to delegate stake strategy with err: {:?}",
+							id,
+							err
+						)
+					});
+					count.saturating_inc();
+				}
+			});
+
+			log!(info, "migrated {:?} pools to delegate stake strategy", count);
+
+			// reads: (bonded pool key + current pool strategy) * MaxPools (worst case)
+			T::DbWeight::get()
+				.reads_writes(2, 0)
+				.saturating_mul(MaxPools::get() as u64)
+				// migration weight: `pool_migrate` weight * count
+				.saturating_add(T::WeightInfo::pool_migrate().saturating_mul(count.into()))
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
+			// ensure stake adapter is correct.
+			ensure!(
+				T::StakeAdapter::strategy_type() == adapter::StakeStrategyType::Delegate,
+				"Current strategy is not `Delegate"
+			);
+
+			if BondedPools::<T>::count() > MaxPools::get() {
+				// we log a warning if the number of pools exceeds the bound.
+				log!(
+					warn,
+					"Number of pools {} exceeds the maximum bound {}. This would leave some pools unmigrated.", BondedPools::<T>::count(), MaxPools::get()
+				);
+			}
+
+			let mut pool_balances: Vec<BalanceOf<T>> = Vec::new();
+			BondedPools::<T>::iter_keys().take(MaxPools::get() as usize).for_each(|id| {
+				let pool_account = Pallet::<T>::generate_bonded_account(id);
+
+				// we ensure migration is idempotent.
+				let pool_balance = T::StakeAdapter::total_balance(Pool::from(pool_account.clone()))
+					// we check actual account balance if pool has not migrated yet.
+					.unwrap_or(T::Currency::total_balance(&pool_account));
+
+				pool_balances.push(pool_balance);
+			});
+
+			Ok(pool_balances.encode())
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade(data: Vec<u8>) -> Result<(), TryRuntimeError> {
+			let expected_pool_balances: Vec<BalanceOf<T>> = Decode::decode(&mut &data[..]).unwrap();
+
+			for (index, id) in
+				BondedPools::<T>::iter_keys().take(MaxPools::get() as usize).enumerate()
+			{
+				let pool_account = Pallet::<T>::generate_bonded_account(id);
+				if T::StakeAdapter::pool_strategy(Pool::from(pool_account.clone())) ==
+					adapter::StakeStrategyType::Transfer
+				{
+					log!(error, "Pool {} failed to migrate", id,);
+					return Err(TryRuntimeError::Other("Pool failed to migrate"));
+				}
+
+				let actual_balance =
+					T::StakeAdapter::total_balance(Pool::from(pool_account.clone()))
+						.expect("after migration, this should return a value");
+				let expected_balance = expected_pool_balances.get(index).unwrap();
+
+				if actual_balance != *expected_balance {
+					log!(
+						error,
+						"Pool {} balance mismatch. Expected: {:?}, Actual: {:?}",
+						id,
+						expected_balance,
+						actual_balance
+					);
+					return Err(TryRuntimeError::Other("Pool balance mismatch"));
+				}
+
+				// account balance should be zero.
+				let pool_account_balance = T::Currency::total_balance(&pool_account);
+				if pool_account_balance != Zero::zero() {
+					log!(
+						error,
+						"Pool account balance was expected to be zero. Pool: {}, Balance: {:?}",
+						id,
+						pool_account_balance
+					);
+					return Err(TryRuntimeError::Other("Pool account balance not migrated"));
+				}
+			}
+
+			Ok(())
+		}
+	}
+
+	/// One-time migration to claim trapped balance for a specific pool member.
+	///
+	/// Generic over `T: Config` and `A: Get<T::AccountId>` where `A` provides the account
+	/// of the affected member. If `A` does not have trapped balance, this is a no-op.
+	pub struct ClaimTrappedBalance<T, A>(core::marker::PhantomData<(T, A)>);
+
+	impl<T: Config, A: Get<T::AccountId>> OnRuntimeUpgrade for ClaimTrappedBalance<T, A> {
+		fn on_runtime_upgrade() -> Weight {
+			let member_account = A::get();
+			match Pallet::<T>::do_claim_trapped_balance(&member_account) {
+				Ok(()) => {
+					log!(info, "Successfully claimed trapped balance for {:?}", member_account);
+				},
+				Err(e) => {
+					log!(info, "No trapped balance to claim for {:?}: {:?}", member_account, e);
+				},
+			}
+
+			// Worst case: slash applied + trapped balance withdrawn.
+			T::WeightInfo::apply_slash()
+				.saturating_add(T::WeightInfo::withdraw_unbonded_update(T::MaxUnbonding::get()))
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
+			let member_account = A::get();
+			let expected = PoolMembers::<T>::get(&member_account)
+				.map(|m| m.total_balance())
+				.unwrap_or_default();
+			let actual =
+				T::StakeAdapter::member_delegation_balance(Member::from(member_account.clone()))
+					.unwrap_or_default();
+
+			log!(
+				info,
+				"pre_upgrade: member {:?}, expected_balance: {:?}, actual_balance: {:?}, \
+				 trapped: {:?}",
+				member_account,
+				expected,
+				actual,
+				actual.saturating_sub(expected)
+			);
+
+			Ok((expected, actual).encode())
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade(data: Vec<u8>) -> Result<(), TryRuntimeError> {
+			let member_account = A::get();
+			let (pre_expected, pre_actual): (BalanceOf<T>, BalanceOf<T>) =
+				Decode::decode(&mut &data[..])
+					.map_err(|_| TryRuntimeError::Other("Failed to decode pre_upgrade data"))?;
+
+			let post_actual =
+				T::StakeAdapter::member_delegation_balance(Member::from(member_account.clone()))
+					.unwrap_or_default();
+
+			let post_expected = PoolMembers::<T>::get(&member_account)
+				.map(|m| m.total_balance())
+				.unwrap_or_default();
+
+			log!(
+				info,
+				"post_upgrade: member {:?}, pre_expected: {:?}, pre_actual: {:?}, \
+				 post_expected: {:?}, post_actual: {:?}",
+				member_account,
+				pre_expected,
+				pre_actual,
+				post_expected,
+				post_actual
+			);
+
+			// If there was trapped balance before, it should now be resolved
+			if pre_actual > pre_expected {
+				ensure!(
+					post_actual == post_expected,
+					TryRuntimeError::Other("Trapped balance was not fully claimed after migration")
+				);
+			}
+
+			Ok(())
+		}
+	}
 }
 
 pub mod v8 {
@@ -144,7 +346,7 @@ pub mod v8 {
 		}
 	}
 
-	pub struct VersionUncheckedMigrateV7ToV8<T>(sp_std::marker::PhantomData<T>);
+	pub struct VersionUncheckedMigrateV7ToV8<T>(core::marker::PhantomData<T>);
 	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateV7ToV8<T> {
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
@@ -214,7 +416,7 @@ pub(crate) mod v7 {
 	impl<T: Config> V7BondedPool<T> {
 		#[allow(dead_code)]
 		fn bonded_account(&self) -> T::AccountId {
-			Pallet::<T>::create_bonded_account(self.id)
+			Pallet::<T>::generate_bonded_account(self.id)
 		}
 	}
 
@@ -223,7 +425,7 @@ pub(crate) mod v7 {
 	pub type BondedPools<T: Config> =
 		CountedStorageMap<Pallet<T>, Twox64Concat, PoolId, V7BondedPoolInner<T>>;
 
-	pub struct VersionUncheckedMigrateV6ToV7<T>(sp_std::marker::PhantomData<T>);
+	pub struct VersionUncheckedMigrateV6ToV7<T>(core::marker::PhantomData<T>);
 	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateV6ToV7<T> {
 		fn on_runtime_upgrade() -> Weight {
 			let migrated = BondedPools::<T>::count();
@@ -343,11 +545,11 @@ mod v6 {
 
 	/// This migration would restrict reward account of pools to go below ED by doing a named
 	/// freeze on all the existing pools.
-	pub struct MigrateToV6<T>(sp_std::marker::PhantomData<T>);
+	pub struct MigrateToV6<T>(core::marker::PhantomData<T>);
 
 	impl<T: Config> MigrateToV6<T> {
 		fn freeze_ed(pool_id: PoolId) -> Result<(), ()> {
-			let reward_acc = Pallet::<T>::create_reward_account(pool_id);
+			let reward_acc = Pallet::<T>::generate_reward_account(pool_id);
 			Pallet::<T>::freeze_pool_deposit(&reward_acc).map_err(|e| {
 				log!(error, "Failed to freeze ED for pool {} with error: {:?}", pool_id, e);
 				()
@@ -383,7 +585,7 @@ mod v6 {
 		#[cfg(feature = "try-runtime")]
 		fn post_upgrade(_data: Vec<u8>) -> Result<(), TryRuntimeError> {
 			// there should be no ED imbalances anymore..
-			Pallet::<T>::check_ed_imbalance()
+			Pallet::<T>::check_ed_imbalance().map(|_| ())
 		}
 	}
 }
@@ -409,75 +611,9 @@ pub mod v5 {
 		}
 	}
 
-	/// Unchecked version of the V4→V5 migration, for use with `VersionedMigration`.
-	///
-	/// Context: The original `MigrateToV5` has a manual guard `in_code == 5 && on_chain == 4`.
-	/// In v1.12.0, `in_code` is 8, so the guard never fires. This struct provides the raw
-	/// migration logic without version guards — `VersionedMigration<4, 5, ...>` handles the
-	/// version check and stamp.
-	pub struct UncheckedMigrateV4ToV5<T>(sp_std::marker::PhantomData<T>);
-	impl<T: Config> UncheckedOnRuntimeUpgrade for UncheckedMigrateV4ToV5<T> {
-		fn on_runtime_upgrade() -> Weight {
-			let mut translated = 0u64;
-			RewardPools::<T>::translate::<OldRewardPool<T>, _>(|_id, old_value| {
-				translated.saturating_inc();
-				Some(old_value.migrate_to_v5())
-			});
-
-			log!(info, "UncheckedMigrateV4ToV5: upgraded {} pools", translated);
-
-			// reads: translated + onchain version.
-			// writes: translated + current.put.
-			T::DbWeight::get().reads_writes(translated + 1, translated + 1)
-		}
-
-		#[cfg(feature = "try-runtime")]
-		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
-			let rpool_keys = RewardPools::<T>::iter_keys().count();
-			let rpool_values = RewardPools::<T>::iter_values().count();
-			if rpool_keys != rpool_values {
-				log!(
-					info,
-					"There are {} undecodable RewardPools in storage. keys: {}, values: {}",
-					rpool_keys.saturating_sub(rpool_values),
-					rpool_keys,
-					rpool_values
-				);
-			}
-			Ok((rpool_values as u64).encode())
-		}
-
-		#[cfg(feature = "try-runtime")]
-		fn post_upgrade(data: Vec<u8>) -> Result<(), TryRuntimeError> {
-			let old_rpool_values: u64 = Decode::decode(&mut &data[..]).unwrap();
-			let rpool_keys = RewardPools::<T>::iter_keys().count() as u64;
-			let rpool_values = RewardPools::<T>::iter_values().count() as u64;
-			ensure!(
-				rpool_keys == rpool_values,
-				"There are STILL undecodable RewardPools - migration failed"
-			);
-			if old_rpool_values != rpool_values {
-				log!(
-					info,
-					"Fixed {} undecodable RewardPools.",
-					rpool_values.saturating_sub(old_rpool_values)
-				);
-			}
-			ensure!(
-				RewardPools::<T>::iter().all(|(_, reward_pool)| reward_pool
-					.total_commission_pending >=
-					Zero::zero() && reward_pool
-					.total_commission_claimed >=
-					Zero::zero()),
-				"a commission value has been incorrectly set"
-			);
-			Ok(())
-		}
-	}
-
 	/// This migration adds `total_commission_pending` and `total_commission_claimed` field to every
 	/// `RewardPool`, if any.
-	pub struct MigrateToV5<T>(sp_std::marker::PhantomData<T>);
+	pub struct MigrateToV5<T>(core::marker::PhantomData<T>);
 	impl<T: Config> OnRuntimeUpgrade for MigrateToV5<T> {
 		fn on_runtime_upgrade() -> Weight {
 			let in_code = Pallet::<T>::in_code_storage_version();
@@ -632,7 +768,7 @@ pub mod v4 {
 	#[deprecated(
 		note = "To avoid mangled storage please use `MigrateV3ToV5` instead. See: github.com/paritytech/substrate/pull/13715"
 	)]
-	pub struct MigrateToV4<T, U>(sp_std::marker::PhantomData<(T, U)>);
+	pub struct MigrateToV4<T, U>(core::marker::PhantomData<(T, U)>);
 	#[allow(deprecated)]
 	impl<T: Config, U: Get<Perbill>> OnRuntimeUpgrade for MigrateToV4<T, U> {
 		fn on_runtime_upgrade() -> Weight {
@@ -714,7 +850,7 @@ pub mod v3 {
 	use super::*;
 
 	/// This migration removes stale bonded-pool metadata, if any.
-	pub struct MigrateToV3<T>(sp_std::marker::PhantomData<T>);
+	pub struct MigrateToV3<T>(core::marker::PhantomData<T>);
 	impl<T: Config> OnRuntimeUpgrade for MigrateToV3<T> {
 		fn on_runtime_upgrade() -> Weight {
 			let current = Pallet::<T>::in_code_storage_version();
@@ -852,7 +988,7 @@ pub mod v2 {
 
 	/// Migrate the pool reward scheme to the new version, as per
 	/// <https://github.com/paritytech/substrate/pull/11669.>.
-	pub struct MigrateToV2<T>(sp_std::marker::PhantomData<T>);
+	pub struct MigrateToV2<T>(core::marker::PhantomData<T>);
 	impl<T: Config> MigrateToV2<T> {
 		fn run(current: StorageVersion) -> Weight {
 			let mut reward_pools_translated = 0u64;
@@ -898,7 +1034,7 @@ pub mod v2 {
 					};
 
 					let accumulated_reward = RewardPool::<T>::current_balance(id);
-					let reward_account = Pallet::<T>::create_reward_account(id);
+					let reward_account = Pallet::<T>::generate_reward_account(id);
 					let mut sum_paid_out = BalanceOf::<T>::zero();
 
 					members
@@ -1020,7 +1156,7 @@ pub mod v2 {
 			// all reward accounts must have more than ED.
 			RewardPools::<T>::iter().try_for_each(|(id, _)| -> Result<(), TryRuntimeError> {
 				ensure!(
-					<T::Currency as frame_support::traits::fungible::Inspect<T::AccountId>>::balance(&Pallet::<T>::create_reward_account(id)) >=
+					<T::Currency as frame_support::traits::fungible::Inspect<T::AccountId>>::balance(&Pallet::<T>::generate_reward_account(id)) >=
 						T::Currency::minimum_balance(),
 					"Reward accounts must have greater balance than ED."
 				);
@@ -1111,7 +1247,7 @@ pub mod v1 {
 	/// Trivial migration which makes the roles of each pool optional.
 	///
 	/// Note: The depositor is not optional since they can never change.
-	pub struct MigrateToV1<T>(sp_std::marker::PhantomData<T>);
+	pub struct MigrateToV1<T>(core::marker::PhantomData<T>);
 	impl<T: Config> OnRuntimeUpgrade for MigrateToV1<T> {
 		fn on_runtime_upgrade() -> Weight {
 			let current = Pallet::<T>::in_code_storage_version();
@@ -1160,10 +1296,9 @@ mod helpers {
 	use super::*;
 
 	pub(crate) fn calculate_tvl_by_total_stake<T: Config>() -> BalanceOf<T> {
-		BondedPools::<T>::iter()
-			.map(|(id, inner)| {
-				T::Staking::total_stake(&BondedPool { id, inner: inner.clone() }.bonded_account())
-					.unwrap_or_default()
+		BondedPools::<T>::iter_keys()
+			.map(|id| {
+				T::StakeAdapter::total_stake(Pool::from(Pallet::<T>::generate_bonded_account(id)))
 			})
 			.reduce(|acc, total_balance| acc + total_balance)
 			.unwrap_or_default()

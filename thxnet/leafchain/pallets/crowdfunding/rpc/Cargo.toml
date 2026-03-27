@@ -7,7 +7,7 @@ license.workspace = true
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.6.1" }
-jsonrpsee = { version = "0.22.0", features = ["client-core", "macros", "server"] }
+jsonrpsee = { features = ["client-core", "server", "macros"], workspace = true }
 serde = { version = "1.0.152", features = ["derive"] }
 
 sp-api = { path = "../../../../../substrate/primitives/api" }

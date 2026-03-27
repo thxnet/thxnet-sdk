@@ -67,7 +67,8 @@ impl<
 		TargetHeaderHash,
 		SourceNoncesRange,
 		Proof,
-	> where
+	>
+where
 	SourceHeaderHash: Clone,
 	SourceHeaderNumber: Clone + Ord,
 	SourceNoncesRange: NoncesRange,
@@ -189,7 +190,8 @@ impl<
 		TargetHeaderHash,
 		SourceNoncesRange,
 		Proof,
-	> where
+	>
+where
 	SourceHeaderHash: Clone + Debug + Send + Sync,
 	SourceHeaderNumber: Clone + Ord + Debug + Send + Sync,
 	SourceNoncesRange: NoncesRange + Debug + Send + Sync,
@@ -200,10 +202,6 @@ impl<
 	type SourceNoncesRange = SourceNoncesRange;
 	type ProofParameters = ();
 	type TargetNoncesData = ();
-
-	fn is_empty(&self) -> bool {
-		self.source_queue.is_empty()
-	}
 
 	async fn required_source_header_at_target<
 		RS: RaceState<
@@ -277,11 +275,11 @@ impl<
 			.map(|nonces| nonce >= *nonces.start())
 			.unwrap_or(false);
 		if need_to_select_new_nonces {
-			log::trace!(
+			tracing::trace!(
 				target: "bridge",
-				"Latest nonce at target is {}. Clearing nonces to submit: {:?}",
-				nonce,
-				race_state.nonces_to_submit(),
+				%nonce,
+				nonces_to_submit=?race_state.nonces_to_submit(),
+				"Latest nonce at target. Clearing nonces to submit"
 			);
 
 			race_state.reset_nonces_to_submit();
@@ -294,11 +292,11 @@ impl<
 			.map(|nonces| nonce >= *nonces.start())
 			.unwrap_or(false);
 		if need_new_nonces_to_submit {
-			log::trace!(
+			tracing::trace!(
 				target: "bridge",
-				"Latest nonce at target is {}. Clearing submitted nonces: {:?}",
-				nonce,
-				race_state.nonces_submitted(),
+				%nonce,
+				nonces_submitted=?race_state.nonces_submitted(),
+				"Latest nonce at target. Clearing submitted nonces"
 			);
 
 			race_state.reset_nonces_submitted();
@@ -379,14 +377,6 @@ mod tests {
 
 	fn target_nonces(latest_nonce: MessageNonce) -> TargetClientNonces<()> {
 		TargetClientNonces { latest_nonce, nonces_data: () }
-	}
-
-	#[test]
-	fn strategy_is_empty_works() {
-		let mut strategy = BasicStrategy::<TestMessageLane>::new();
-		assert!(strategy.is_empty());
-		strategy.source_nonces_updated(header_id(1), source_nonces(1..=1));
-		assert!(!strategy.is_empty());
 	}
 
 	#[test]

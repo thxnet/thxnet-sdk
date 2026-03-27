@@ -23,8 +23,8 @@ use super::{
 	Round, SetId, VoterSet,
 };
 use crate::{communication::grandpa_protocol_name, environment::SharedVoterSetState};
+use codec::{DecodeAll, Encode};
 use futures::prelude::*;
-use parity_scale_codec::{DecodeAll, Encode};
 use sc_network::{
 	config::{MultiaddrWithPeerId, Role},
 	event::Event as NetworkEvent,
@@ -42,12 +42,7 @@ use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnbound
 use sp_consensus_grandpa::AuthorityList;
 use sp_keyring::Ed25519Keyring;
 use sp_runtime::traits::NumberFor;
-use std::{
-	collections::HashSet,
-	pin::Pin,
-	sync::Arc,
-	task::{Context, Poll},
-};
+use std::{collections::HashSet, pin::Pin, sync::Arc, task::Poll};
 
 #[derive(Debug)]
 pub(crate) enum Event {
@@ -333,17 +328,6 @@ pub(crate) fn make_test_network() -> (impl Future<Output = Tester>, TestNetwork)
 	let notification_service = TestNotificationService { rx: notification_rx, sender: tx.clone() };
 	let net = TestNetwork { sender: tx };
 	let sync = TestSync {};
-
-	#[derive(Clone)]
-	struct Exit;
-
-	impl futures::Future for Exit {
-		type Output = ();
-
-		fn poll(self: Pin<&mut Self>, _: &mut Context) -> Poll<()> {
-			Poll::Pending
-		}
-	}
 
 	let bridge = super::NetworkBridge::new(
 		net.clone(),
@@ -706,25 +690,12 @@ fn peer_with_higher_view_leads_to_catch_up_request() {
 }
 
 fn local_chain_spec() -> Box<dyn sc_chain_spec::ChainSpec> {
-	use sc_chain_spec::{ChainSpec, GenericChainSpec};
-	use serde::{Deserialize, Serialize};
-	use sp_runtime::{BuildStorage, Storage};
-
-	#[derive(Debug, Serialize, Deserialize)]
-	struct Genesis(std::collections::BTreeMap<String, String>);
-	impl BuildStorage for Genesis {
-		fn assimilate_storage(&self, storage: &mut Storage) -> Result<(), String> {
-			storage.top.extend(
-				self.0.iter().map(|(a, b)| (a.clone().into_bytes(), b.clone().into_bytes())),
-			);
-			Ok(())
-		}
-	}
-	let chain_spec = GenericChainSpec::<Genesis>::from_json_bytes(
-		&include_bytes!("../../../../chain-spec/res/chain_spec.json")[..],
-	)
-	.unwrap();
-	chain_spec.cloned_box()
+	let chain_spec =
+		sc_chain_spec::GenericChainSpec::<sc_chain_spec::NoExtension, ()>::from_json_bytes(
+			&include_bytes!("../../../../chain-spec/res/chain_spec.json")[..],
+		)
+		.unwrap();
+	sc_chain_spec::ChainSpec::cloned_box(&chain_spec)
 }
 
 #[test]

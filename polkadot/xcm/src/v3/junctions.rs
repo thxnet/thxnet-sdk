@@ -17,8 +17,8 @@
 //! XCM `Junctions`/`InteriorMultiLocation` datatype.
 
 use super::{Junction, MultiLocation, NetworkId};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::{mem, result};
-use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 
 /// Maximum number of `Junction`s that a `Junctions` can contain.
@@ -38,6 +38,7 @@ pub(crate) const MAX_JUNCTIONS: usize = 8;
 	PartialOrd,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	Debug,
 	TypeInfo,
 	MaxEncodedLen,
@@ -580,7 +581,7 @@ impl Junctions {
 	}
 
 	/// Returns a reference iterator over the junctions.
-	pub fn iter(&self) -> JunctionsRefIterator {
+	pub fn iter(&self) -> JunctionsRefIterator<'_> {
 		JunctionsRefIterator { junctions: self, next: 0, back: 0 }
 	}
 

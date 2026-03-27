@@ -789,4 +789,10 @@ impl<T: frame_system::Config> pallet_staking::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(5))
 			.saturating_add(T::DbWeight::get().writes(4))
 	}
+	fn migrate_currency() -> Weight {
+		Weight::zero()
+	}
+	fn manual_slash() -> Weight {
+		Weight::zero()
+	}
 }

@@ -32,7 +32,7 @@ use crate::{
 	on_demand::{headers::OnDemandHeadersRelay, OnDemandRelay},
 };
 use relay_substrate_client::{
-	AccountIdOf, AccountKeyPairOf, ChainWithRuntimeVersion, ChainWithTransactions,
+	AccountIdOf, AccountKeyPairOf, ChainWithRuntimeVersion, ChainWithTransactions, Client,
 };
 use sp_core::Pair;
 
@@ -53,20 +53,20 @@ macro_rules! declare_relay_to_relay_bridge_schema {
 	($left_chain:ident, $right_chain:ident) => {
 		bp_runtime::paste::item! {
 			#[doc = $left_chain " and " $right_chain " headers+messages relay params."]
-			#[derive(Debug, PartialEq, StructOpt)]
+			#[derive(Debug, PartialEq, Parser)]
 			pub struct [<$left_chain $right_chain HeadersAndMessages>] {
-				#[structopt(flatten)]
+				#[command(flatten)]
 				shared: HeadersAndMessagesSharedParams,
 
-				#[structopt(flatten)]
+				#[command(flatten)]
 				left: [<$left_chain ConnectionParams>],
 				// default signer, which is always used to sign messages relay transactions on the left chain
-				#[structopt(flatten)]
+				#[command(flatten)]
 				left_sign: [<$left_chain SigningParams>],
 
-				#[structopt(flatten)]
+				#[command(flatten)]
 				right: [<$right_chain ConnectionParams>],
-				#[structopt(flatten)]
+				#[command(flatten)]
 				// default signer, which is always used to sign messages relay transactions on the right chain
 				right_sign: [<$right_chain SigningParams>],
 			}
@@ -148,7 +148,7 @@ where
 		.await?;
 
 		let left_to_right_on_demand_headers =
-			OnDemandHeadersRelay::<<L2R as RelayToRelayHeadersCliBridge>::Finality>::new(
+			OnDemandHeadersRelay::<<L2R as RelayToRelayHeadersCliBridge>::Finality, _, _>::new(
 				self.common.left.client.clone(),
 				self.common.right.client.clone(),
 				self.common.right.tx_params.clone(),
@@ -156,7 +156,7 @@ where
 				None,
 			);
 		let right_to_left_on_demand_headers =
-			OnDemandHeadersRelay::<<R2L as RelayToRelayHeadersCliBridge>::Finality>::new(
+			OnDemandHeadersRelay::<<R2L as RelayToRelayHeadersCliBridge>::Finality, _, _>::new(
 				self.common.right.client.clone(),
 				self.common.left.client.clone(),
 				self.common.left.tx_params.clone(),

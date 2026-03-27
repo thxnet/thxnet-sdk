@@ -298,11 +298,11 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("thxnet-general-runtime"),
 	impl_name: create_runtime_str!("thxnet-general-runtime"),
 	authoring_version: 1,
-	spec_version: 17,
+	spec_version: 18,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
-	state_version: 1,
+	system_version: 1,
 };
 
 /// We assume that ~5% of the block weight is consumed by `on_initialize`
@@ -392,6 +392,7 @@ impl frame_system::Config for Runtime {
 	type SS58Prefix = SS58Prefix;
 	type OnSetCode = cumulus_pallet_parachain_system::ParachainSetCode<Self>;
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
+	type ExtensionsWeightInfo = ();
 	type SingleBlockMigrations = ();
 	type MultiBlockMigrator = ();
 	type PreInherents = ();
@@ -432,6 +433,7 @@ impl pallet_balances::Config for Runtime {
 	/// The ubiquitous event type.
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = pallet_balances::weights::SubstrateWeight<Runtime>;
+	type DoneSlashHandler = ();
 }
 
 parameter_types! {
@@ -446,6 +448,7 @@ impl pallet_transaction_payment::Config for Runtime {
 	type OperationalFeeMultiplier = OperationalFeeMultiplier;
 	type RuntimeEvent = RuntimeEvent;
 	type WeightToFee = WeightToFee;
+	type WeightInfo = pallet_transaction_payment::weights::SubstrateWeight<Runtime>;
 }
 
 impl pallet_asset_tx_payment::Config for Runtime {
@@ -455,6 +458,7 @@ impl pallet_asset_tx_payment::Config for Runtime {
 		CreditToBlockAuthor,
 	>;
 	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = ();
 }
 
 parameter_types! {
@@ -479,6 +483,7 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 	type SelfParaId = parachain_info::Pallet<Runtime>;
 	type WeightInfo = ();
 	type XcmpMessageHandler = XcmpQueue;
+	type RelayParentOffset = ConstU32<0>;
 }
 
 impl parachain_info::Config for Runtime {}
@@ -513,6 +518,8 @@ impl cumulus_pallet_xcmp_queue::Config for Runtime {
 	type VersionWrapper = ();
 	type XcmpQueue = TransformOrigin<MessageQueue, AggregateMessageOrigin, ParaId, ParaIdToSibling>;
 	type MaxInboundSuspended = sp_core::ConstU32<1_000>;
+	type MaxActiveOutboundChannels = ConstU32<128>;
+	type MaxPageSize = ConstU32<{ 103 * 1024 }>;
 	type ControllerOrigin = EnsureRoot<AccountId>;
 	type ControllerOriginConverter = XcmOriginToTransactDispatchOrigin;
 	type PriceForSiblingDelivery = polkadot_runtime_common::xcm_sender::NoPriceForMessageDelivery<
@@ -543,7 +550,10 @@ impl pallet_session::Config for Runtime {
 	type ValidatorId = <Self as frame_system::Config>::AccountId;
 	// we don't have stash and controller, thus we don't need the convert as well.
 	type ValidatorIdOf = pallet_collator_selection::IdentityCollator;
+	type DisablingStrategy = pallet_session::disabling::UpToLimitWithReEnablingDisablingStrategy;
 	type WeightInfo = ();
+	type Currency = Balances;
+	type KeyDeposit = ();
 }
 
 impl pallet_aura::Config for Runtime {
@@ -608,13 +618,8 @@ parameter_types! {
 impl pallet_treasury::Config for Runtime {
 	type PalletId = TreasuryPalletId;
 	type Currency = Balances;
-	type ApproveOrigin = EnsureRoot<AccountId>;
 	type RejectOrigin = EnsureRoot<AccountId>;
 	type RuntimeEvent = RuntimeEvent;
-	type OnSlash = Treasury;
-	type ProposalBond = ProposalBond;
-	type ProposalBondMinimum = ProposalBondMinimum;
-	type ProposalBondMaximum = ProposalBondMaximum;
 	type SpendPeriod = SpendPeriod;
 	type Burn = TreasuryBurn;
 	type BurnDestination = ();
@@ -628,6 +633,7 @@ impl pallet_treasury::Config for Runtime {
 	type Paymaster = frame_support::traits::tokens::PayFromAccount<Balances, TreasuryAccount>;
 	type BalanceConverter = frame_support::traits::tokens::UnityAssetBalanceConversion;
 	type PayoutPeriod = SpendPeriod;
+	type BlockNumberProvider = System;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
 }
@@ -648,6 +654,7 @@ impl pallet_multisig::Config for Runtime {
 	type RuntimeCall = RuntimeCall;
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = pallet_multisig::weights::SubstrateWeight<Runtime>;
+	type BlockNumberProvider = System;
 }
 
 impl pallet_utility::Config for Runtime {
@@ -686,6 +693,8 @@ impl pallet_assets::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type StringLimit = StringLimit;
 	type WeightInfo = pallet_assets::weights::SubstrateWeight<Runtime>;
+	type ReserveData = ();
+	type Holder = ();
 }
 
 parameter_types! {
@@ -728,6 +737,7 @@ impl pallet_nfts::Config for Runtime {
 	type StringLimit = StringLimit;
 	type ValueLimit = ValueLimit;
 	type WeightInfo = pallet_nfts::weights::SubstrateWeight<Runtime>;
+	type BlockNumberProvider = System;
 }
 
 parameter_types! {
@@ -751,6 +761,7 @@ parameter_types! {
 	PartialOrd,
 	Encode,
 	Decode,
+	codec::DecodeWithMemTracking,
 	sp_runtime::RuntimeDebug,
 	MaxEncodedLen,
 	scale_info::TypeInfo,
@@ -1034,16 +1045,18 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 	fn filter(&self, c: &RuntimeCall) -> bool {
 		match self {
 			ProxyType::Any => true,
-			ProxyType::NonTransfer =>
-				matches!(
-					c,
-					RuntimeCall::System(..) |
-						RuntimeCall::Timestamp(..) |
-						RuntimeCall::Session(..) | RuntimeCall::Utility(..) |
-						RuntimeCall::Proxy(..) | RuntimeCall::Multisig(..) |
-						RuntimeCall::Assets(..) | RuntimeCall::Nfts(..) |
-						RuntimeCall::TrustlessAgent(..)
-				),
+			ProxyType::NonTransfer => matches!(
+				c,
+				RuntimeCall::System(..) |
+					RuntimeCall::Timestamp(..) |
+					RuntimeCall::Session(..) |
+					RuntimeCall::Utility(..) |
+					RuntimeCall::Proxy(..) |
+					RuntimeCall::Multisig(..) |
+					RuntimeCall::Assets(..) |
+					RuntimeCall::Nfts(..) |
+					RuntimeCall::TrustlessAgent(..)
+			),
 			ProxyType::Governance => matches!(c, RuntimeCall::Utility(..)),
 			ProxyType::Staking => {
 				matches!(c, RuntimeCall::Session(..) | RuntimeCall::Utility(..))
@@ -1089,6 +1102,7 @@ impl pallet_proxy::Config for Runtime {
 	type RuntimeCall = RuntimeCall;
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = weights::pallet_proxy::WeightInfo<Runtime>;
+	type BlockNumberProvider = System;
 }
 
 parameter_types! {
@@ -1123,6 +1137,8 @@ impl pallet_identity::Config for Runtime {
 	type PendingUsernameExpiration = ConstU32<{ 7 * DAYS }>;
 	type MaxSuffixLength = ConstU32<7>;
 	type MaxUsernameLength = ConstU32<32>;
+	type UsernameDeposit = ConstU128<{ deposit(0, 32) }>;
+	type UsernameGracePeriod = ConstU32<{ 30 * DAYS }>;
 }
 
 parameter_types! {
@@ -1356,7 +1372,7 @@ impl_runtime_apis! {
 			VERSION
 		}
 
-		fn execute_block(block: Block) {
+		fn execute_block(block: <Block as BlockT>::LazyBlock) {
 			Executive::execute_block(block)
 		}
 
@@ -1393,7 +1409,7 @@ impl_runtime_apis! {
 		}
 
 		fn check_inherents(
-			block: Block,
+			block: <Block as BlockT>::LazyBlock,
 			data: sp_inherents::InherentData,
 		) -> sp_inherents::CheckInherentsResult {
 			data.check_extrinsics(&block)
@@ -1605,6 +1621,12 @@ impl_runtime_apis! {
 		}
 	}
 
+	impl cumulus_primitives_core::RelayParentOffsetApi<Block> for Runtime {
+		fn relay_parent_offset() -> u32 {
+			0
+		}
+	}
+
 	impl sp_genesis_builder::GenesisBuilder<Block> for Runtime {
 		fn build_state(config: Vec<u8>) -> sp_genesis_builder::Result {
 			frame_support::genesis_builder_helper::build_state::<RuntimeGenesisConfig>(config)
@@ -1627,7 +1649,7 @@ impl_runtime_apis! {
 		}
 
 		fn execute_block(
-			block: Block,
+			block: <Block as BlockT>::LazyBlock,
 			state_root_check: bool,
 			signature_check: bool,
 			select: frame_try_runtime::TryStateSelect,

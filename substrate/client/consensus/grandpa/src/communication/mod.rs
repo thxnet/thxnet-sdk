@@ -40,12 +40,12 @@ use std::{
 	time::Duration,
 };
 
+use codec::{Decode, DecodeAll, Encode};
 use finality_grandpa::{
 	voter,
 	voter_set::VoterSet,
 	Message::{Precommit, Prevote, PrimaryPropose},
 };
-use parity_scale_codec::{Decode, DecodeAll, Encode};
 use sc_network::{NetworkBlock, NetworkSyncForkRequest, NotificationService, ReputationChange};
 use sc_network_gossip::{GossipEngine, Network as GossipNetwork};
 use sc_telemetry::{telemetry, TelemetryHandle, CONSENSUS_DEBUG, CONSENSUS_INFO};
@@ -865,7 +865,9 @@ fn check_compact_commit<Block: BlockT>(
 			round.0,
 			set_id.0,
 			&mut buf,
-		) {
+		)
+		.is_valid()
+		{
 			debug!(target: LOG_TARGET, "Bad commit message signature {}", id);
 			telemetry!(
 				telemetry;
@@ -952,7 +954,9 @@ fn check_catch_up<Block: BlockT>(
 
 			if !sp_consensus_grandpa::check_message_signature_with_buffer(
 				&msg, id, sig, round, set_id, buf,
-			) {
+			)
+			.is_valid()
+			{
 				debug!(target: LOG_TARGET, "Bad catch up message signature {}", id);
 				telemetry!(
 					telemetry;
@@ -988,7 +992,7 @@ fn check_catch_up<Block: BlockT>(
 	)?;
 
 	// check signatures on all contained precommits.
-	let _ = check_signatures::<Block, _>(
+	check_signatures::<Block, _>(
 		msg.precommits.iter().map(|vote| {
 			(
 				finality_grandpa::Message::Precommit(vote.precommit.clone()),

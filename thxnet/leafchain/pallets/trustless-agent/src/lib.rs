@@ -189,7 +189,17 @@ pub mod pallet {
 	}
 
 	/// Escrow status
-	#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+	#[derive(
+		Clone,
+		Encode,
+		Decode,
+		DecodeWithMemTracking,
+		Eq,
+		PartialEq,
+		RuntimeDebug,
+		TypeInfo,
+		MaxEncodedLen,
+	)]
 	pub enum EscrowStatus {
 		/// Escrow is active and waiting for completion
 		Active,
@@ -243,7 +253,17 @@ pub mod pallet {
 	pub type DisputeId = u64;
 
 	/// Dispute status
-	#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+	#[derive(
+		Clone,
+		Encode,
+		Decode,
+		DecodeWithMemTracking,
+		Eq,
+		PartialEq,
+		RuntimeDebug,
+		TypeInfo,
+		MaxEncodedLen,
+	)]
 	pub enum DisputeStatus {
 		/// Dispute is open and awaiting resolution
 		Open,

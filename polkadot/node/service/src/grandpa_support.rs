@@ -64,7 +64,7 @@ where
 /// w3f validators and randomly selected validators from the latest session (at
 /// #1500988).
 #[cfg(feature = "full-node")]
-pub(crate) fn kusama_hard_forks() -> Vec<grandpa::AuthoritySetHardFork<Block>> {
+pub(crate) fn kusama_hard_forks() -> Vec<sc_consensus_grandpa::AuthoritySetHardFork<Block>> {
 	use sp_core::crypto::Ss58Codec;
 	use std::str::FromStr;
 
@@ -141,7 +141,7 @@ pub(crate) fn kusama_hard_forks() -> Vec<grandpa::AuthoritySetHardFork<Block>> {
 		.into_iter()
 		.map(|address| {
 			(
-				grandpa_primitives::AuthorityId::from_ss58check(address)
+				sp_consensus_grandpa::AuthorityId::from_ss58check(address)
 					.expect("hard fork authority addresses are static and they should be carefully defined; qed."),
 				1,
 			)
@@ -154,7 +154,7 @@ pub(crate) fn kusama_hard_forks() -> Vec<grandpa::AuthoritySetHardFork<Block>> {
 			let hash = Hash::from_str(hash)
 				.expect("hard fork hashes are static and they should be carefully defined; qed.");
 
-			grandpa::AuthoritySetHardFork {
+			sc_consensus_grandpa::AuthoritySetHardFork {
 				set_id,
 				block: (hash, number),
 				authorities: authorities.clone(),
@@ -168,7 +168,7 @@ pub(crate) fn kusama_hard_forks() -> Vec<grandpa::AuthoritySetHardFork<Block>> {
 /// These are the 10 validators active after the finality deadlock incident area
 /// (blocks 14,205,952 through 14,206,626).
 #[cfg(feature = "full-node")]
-pub(crate) fn thxnet_post_incident_authorities() -> Vec<(grandpa_primitives::AuthorityId, u64)> {
+pub(crate) fn thxnet_post_incident_authorities() -> Vec<(sp_consensus_grandpa::AuthorityId, u64)> {
 	use sp_core::crypto::Ss58Codec;
 
 	let addresses: Vec<&str> = vec![
@@ -188,7 +188,7 @@ pub(crate) fn thxnet_post_incident_authorities() -> Vec<(grandpa_primitives::Aut
 		.into_iter()
 		.map(|address| {
 			(
-				grandpa_primitives::AuthorityId::from_ss58check(address)
+				sp_consensus_grandpa::AuthorityId::from_ss58check(address)
 					.expect("hard fork authority addresses are static and they should be carefully defined; qed."),
 				1,
 			)
@@ -212,7 +212,7 @@ pub(crate) fn thxnet_post_incident_authorities() -> Vec<(grandpa_primitives::Aut
 /// This is NOT a chain fork — block hashes and the canonical chain are unchanged.
 /// Only the GRANDPA finality gadget's authority tracking is overridden.
 #[cfg(feature = "full-node")]
-pub(crate) fn thxnet_hard_forks() -> Vec<grandpa::AuthoritySetHardFork<Block>> {
+pub(crate) fn thxnet_hard_forks() -> Vec<sc_consensus_grandpa::AuthoritySetHardFork<Block>> {
 	use std::str::FromStr;
 
 	// (client_set_id, block_hash, block_number)
@@ -237,7 +237,7 @@ pub(crate) fn thxnet_hard_forks() -> Vec<grandpa::AuthoritySetHardFork<Block>> {
 			let hash = Hash::from_str(hash)
 				.expect("hard fork hashes are static and they should be carefully defined; qed.");
 
-			grandpa::AuthoritySetHardFork {
+			sc_consensus_grandpa::AuthoritySetHardFork {
 				set_id,
 				block: (hash, number),
 				authorities: authorities.clone(),

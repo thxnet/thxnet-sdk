@@ -20,10 +20,10 @@
 
 use std::{cmp::Ord, fmt::Debug, ops::Add};
 
+use codec::{Decode, Encode};
 use finality_grandpa::voter_set::VoterSet;
 use fork_tree::{FilterAction, ForkTree};
 use log::debug;
-use parity_scale_codec::{Decode, Encode};
 use parking_lot::MappedMutexGuard;
 use sc_consensus::shared_data::{SharedData, SharedDataLocked};
 use sc_telemetry::{telemetry, TelemetryHandle, CONSENSUS_INFO};
@@ -80,14 +80,14 @@ impl<H, N> Clone for SharedAuthoritySet<H, N> {
 
 impl<H, N> SharedAuthoritySet<H, N> {
 	/// Returns access to the [`AuthoritySet`].
-	pub(crate) fn inner(&self) -> MappedMutexGuard<AuthoritySet<H, N>> {
+	pub(crate) fn inner(&self) -> MappedMutexGuard<'_, AuthoritySet<H, N>> {
 		self.inner.shared_data()
 	}
 
 	/// Returns access to the [`AuthoritySet`] and locks it.
 	///
 	/// For more information see [`SharedDataLocked`].
-	pub(crate) fn inner_locked(&self) -> SharedDataLocked<AuthoritySet<H, N>> {
+	pub(crate) fn inner_locked(&self) -> SharedDataLocked<'_, AuthoritySet<H, N>> {
 		self.inner.shared_data_locked()
 	}
 }
@@ -662,9 +662,7 @@ pub struct PendingChange<H, N> {
 }
 
 impl<H: Decode, N: Decode> Decode for PendingChange<H, N> {
-	fn decode<I: parity_scale_codec::Input>(
-		value: &mut I,
-	) -> Result<Self, parity_scale_codec::Error> {
+	fn decode<I: codec::Input>(value: &mut I) -> Result<Self, codec::Error> {
 		let next_authorities = Decode::decode(value)?;
 		let delay = Decode::decode(value)?;
 		let canon_height = Decode::decode(value)?;

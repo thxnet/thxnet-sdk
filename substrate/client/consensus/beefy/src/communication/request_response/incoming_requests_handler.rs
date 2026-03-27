@@ -1,5 +1,6 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Substrate.
+// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
 // Substrate is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -8,11 +9,11 @@
 
 // Substrate is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
+// along with Substrate. If not, see <https://www.gnu.org/licenses/>.
 
 //! Helper for handling (i.e. answering) BEEFY justifications requests from a remote peer.
 
@@ -87,9 +88,9 @@ impl<B: Block> IncomingRequest<B> {
 					sent_feedback: None,
 				};
 				if let Err(_) = pending_response.send(response) {
-					return Err(Error::DecodingErrorNoReputationChange(peer, err))
+					return Err(Error::DecodingErrorNoReputationChange(peer, err));
 				}
-				return Err(Error::DecodingError(peer, err))
+				return Err(Error::DecodingError(peer, err));
 			},
 		};
 		Ok(Self::new(peer, payload, pending_response))
@@ -144,7 +145,7 @@ where
 		genesis_hash: Hash,
 		fork_id: Option<&str>,
 		client: Arc<Client>,
-		prometheus_registry: Option<prometheus::Registry>,
+		prometheus_registry: Option<prometheus_endpoint::Registry>,
 	) -> (Self, Network::RequestResponseProtocolConfig) {
 		let (request_receiver, config): (_, Network::RequestResponseProtocolConfig) =
 			on_demand_justifications_protocol_config::<_, _, Network>(genesis_hash, fork_id);

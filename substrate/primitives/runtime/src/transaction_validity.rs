@@ -21,8 +21,9 @@ use crate::{
 	codec::{Decode, Encode},
 	RuntimeDebug,
 };
+use alloc::{vec, vec::Vec};
 use scale_info::TypeInfo;
-use sp_std::prelude::*;
+use sp_weights::Weight;
 
 /// Priority for a transaction. Additive. Higher is better.
 pub type TransactionPriority = u64;
@@ -37,6 +38,8 @@ pub type TransactionTag = Vec<u8>;
 /// An invalid transaction validity.
 #[derive(Clone, PartialEq, Eq, Encode, Decode, Copy, RuntimeDebug, TypeInfo)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "std", derive(strum::AsRefStr))]
+#[cfg_attr(feature = "std", strum(serialize_all = "snake_case"))]
 pub enum InvalidTransaction {
 	/// The call of the transaction is not expected.
 	Call,
@@ -82,6 +85,10 @@ pub enum InvalidTransaction {
 	MandatoryValidation,
 	/// The sending address is disabled or known to be invalid.
 	BadSigner,
+	/// The implicit data was unable to be calculated.
+	IndeterminateImplicit,
+	/// The transaction extension did not authorize any origin.
+	UnknownOrigin,
 }
 
 impl InvalidTransaction {
@@ -113,6 +120,10 @@ impl From<InvalidTransaction> for &'static str {
 				"Transaction dispatch is mandatory; transactions must not be validated.",
 			InvalidTransaction::Custom(_) => "InvalidTransaction custom error",
 			InvalidTransaction::BadSigner => "Invalid signing address",
+			InvalidTransaction::IndeterminateImplicit =>
+				"The implicit data was unable to be calculated",
+			InvalidTransaction::UnknownOrigin =>
+				"The transaction extension did not authorize any origin",
 		}
 	}
 }
@@ -120,6 +131,8 @@ impl From<InvalidTransaction> for &'static str {
 /// An unknown transaction validity.
 #[derive(Clone, PartialEq, Eq, Encode, Decode, Copy, RuntimeDebug, TypeInfo)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "std", derive(strum::AsRefStr))]
+#[cfg_attr(feature = "std", strum(serialize_all = "snake_case"))]
 pub enum UnknownTransaction {
 	/// Could not lookup some information that is required to validate the transaction.
 	CannotLookup,
@@ -209,6 +222,11 @@ impl std::fmt::Display for TransactionValidityError {
 /// Information on a transaction's validity and, if valid, on how it relates to other transactions.
 pub type TransactionValidity = Result<ValidTransaction, TransactionValidityError>;
 
+/// Information on a transaction's validity and, if valid, on how it relates to other transactions
+/// and some refund for the operation.
+pub type TransactionValidityWithRefund =
+	Result<(ValidTransaction, Weight), TransactionValidityError>;
+
 impl From<InvalidTransaction> for TransactionValidity {
 	fn from(invalid_transaction: InvalidTransaction) -> Self {
 		Err(TransactionValidityError::Invalid(invalid_transaction))
@@ -226,7 +244,7 @@ impl From<UnknownTransaction> for TransactionValidity {
 /// Depending on the source we might apply different validation schemes.
 /// For instance we can disallow specific kinds of transactions if they were not produced
 /// by our local node (for instance off-chain workers).
-#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug, TypeInfo, Hash)]
 pub enum TransactionSource {
 	/// Transaction is already included in block.
 	///
@@ -269,6 +287,16 @@ pub struct ValidTransaction {
 	/// will enable other transactions that depend on (require) those tags to be included as well.
 	/// Provided and required tags allow Substrate to build a dependency graph of transactions
 	/// and import them in the right (linear) order.
+	///
+	/// <div class="warning">
+	///
+	/// If two different transactions have the same `provides` tags, the transaction pool
+	/// treats them as conflicting. One of these transactions will be dropped - e.g. depending on
+	/// submission time, priority of transaction.
+	///
+	/// A transaction that has no provided tags, will be dropped by the transaction pool.
+	///
+	/// </div>
 	pub provides: Vec<TransactionTag>,
 	/// Transaction longevity
 	///
@@ -338,7 +366,7 @@ pub struct ValidTransactionBuilder {
 impl ValidTransactionBuilder {
 	/// Set the priority of a transaction.
 	///
-	/// Note that the final priority for `FRAME` is combined from all `SignedExtension`s.
+	/// Note that the final priority for `FRAME` is combined from all `TransactionExtension`s.
 	/// Most likely for unsigned transactions you want the priority to be higher
 	/// than for regular transactions. We recommend exposing a base priority for unsigned
 	/// transactions as a runtime module parameter, so that the runtime can tune inter-module

@@ -1,4 +1,4 @@
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::{pallet_prelude::*, BoundedVec};
 use scale_info::TypeInfo;
 use sp_runtime::{DispatchResult, Permill, RuntimeDebug};
@@ -35,7 +35,17 @@ pub trait AssetLifecycleGuard<AccountId> {
 impl<AccountId> AssetLifecycleGuard<AccountId> for () {}
 
 /// Payment currency: native token or a specific fungible asset.
-#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Clone,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Eq,
+	PartialEq,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 pub enum PaymentCurrency<AssetId> {
 	#[codec(index = 0)]
 	Native,
@@ -44,7 +54,17 @@ pub enum PaymentCurrency<AssetId> {
 }
 
 /// Asset lifecycle status.
-#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Clone,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Eq,
+	PartialEq,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 pub enum AssetStatus<BlockNumber> {
 	#[codec(index = 0)]
 	Active,
@@ -59,7 +79,17 @@ pub enum AssetStatus<BlockNumber> {
 }
 
 /// Per-asset participation policy, defined at asset creation.
-#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Clone,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Eq,
+	PartialEq,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 pub struct AssetPolicy<Balance, BlockNumber, AssetId> {
 	/// Currency for deposit and entry_fee (native or fungible asset).
 	pub deposit_currency: PaymentCurrency<AssetId>,
@@ -76,7 +106,17 @@ pub struct AssetPolicy<Balance, BlockNumber, AssetId> {
 }
 
 /// Full RWA asset record.
-#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Clone,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Eq,
+	PartialEq,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 #[scale_info(skip_type_params(MaxMetadataLen))]
 pub struct AssetInfo<AccountId, Balance, BlockNumber, AssetId, MaxMetadataLen: Get<u32>> {
 	pub owner: AccountId,
@@ -90,7 +130,17 @@ pub struct AssetInfo<AccountId, Balance, BlockNumber, AssetId, MaxMetadataLen: G
 }
 
 /// Participation lifecycle status.
-#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Clone,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Eq,
+	PartialEq,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 #[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
 pub enum ParticipationStatus<BlockNumber> {
 	#[codec(index = 0)]
@@ -108,7 +158,17 @@ pub enum ParticipationStatus<BlockNumber> {
 }
 
 /// A participation record. Solo (1 holder) or group (multiple holders).
-#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Clone,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Eq,
+	PartialEq,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 #[scale_info(skip_type_params(MaxGroupSize))]
 pub struct Participation<AccountId, Balance, BlockNumber, MaxGroupSize: Get<u32>> {
 	pub rwa_asset_id: u32,
@@ -122,7 +182,17 @@ pub struct Participation<AccountId, Balance, BlockNumber, MaxGroupSize: Get<u32>
 }
 
 /// Kind of slash recipient.
-#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Clone,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Eq,
+	PartialEq,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 pub enum SlashRecipientKind<AccountId> {
 	/// The asset's beneficiary (dynamic, resolved at slash time).
 	#[codec(index = 0)]
@@ -139,7 +209,17 @@ pub enum SlashRecipientKind<AccountId> {
 }
 
 /// One entry in a per-asset slash distribution.
-#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Clone,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Eq,
+	PartialEq,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 pub struct SlashRecipient<AccountId> {
 	pub kind: SlashRecipientKind<AccountId>,
 	pub share: Permill,

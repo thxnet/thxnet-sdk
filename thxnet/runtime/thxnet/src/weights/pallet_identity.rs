@@ -344,19 +344,43 @@ impl<T: frame_system::Config> pallet_identity::WeightInfo for WeightInfo<T> {
 	fn remove_username_authority() -> Weight {
 		Weight::from_parts(10_000_000, 0)
 	}
-	fn set_username_for() -> Weight {
+	fn set_username_for(_p: u32) -> Weight {
 		Weight::from_parts(10_000_000, 0)
 	}
 	fn accept_username() -> Weight {
 		Weight::from_parts(10_000_000, 0)
 	}
-	fn remove_expired_approval() -> Weight {
+	fn remove_expired_approval(_p: u32) -> Weight {
 		Weight::from_parts(10_000_000, 0)
 	}
 	fn set_primary_username() -> Weight {
 		Weight::from_parts(10_000_000, 0)
 	}
-	fn remove_dangling_username() -> Weight {
+	fn unbind_username() -> Weight {
 		Weight::from_parts(10_000_000, 0)
+	}
+	fn remove_username() -> Weight {
+		Weight::from_parts(10_000_000, 0)
+	}
+	fn kill_username(_p: u32) -> Weight {
+		Weight::from_parts(10_000_000, 0)
+	}
+	fn migration_v2_authority_step() -> Weight {
+		Weight::zero()
+	}
+	fn migration_v2_username_step() -> Weight {
+		Weight::zero()
+	}
+	fn migration_v2_identity_step() -> Weight {
+		Weight::zero()
+	}
+	fn migration_v2_pending_username_step() -> Weight {
+		Weight::zero()
+	}
+	fn migration_v2_cleanup_authority_step() -> Weight {
+		Weight::zero()
+	}
+	fn migration_v2_cleanup_username_step() -> Weight {
+		Weight::zero()
 	}
 }

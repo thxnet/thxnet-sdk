@@ -37,7 +37,8 @@ impl AssetLifecycleGuard<AccountId> for CrowdfundingLifecycleGuard {
 				matches!(
 					c.status,
 					CampaignStatus::Funding |
-						CampaignStatus::Paused | CampaignStatus::MilestonePhase
+						CampaignStatus::Paused |
+						CampaignStatus::MilestonePhase
 				)
 		});
 		if has_active {
@@ -55,7 +56,8 @@ impl AssetLifecycleGuard<AccountId> for CrowdfundingLifecycleGuard {
 				matches!(
 					c.status,
 					CampaignStatus::Funding |
-						CampaignStatus::Paused | CampaignStatus::MilestonePhase
+						CampaignStatus::Paused |
+						CampaignStatus::MilestonePhase
 				)
 		});
 		if has_active {

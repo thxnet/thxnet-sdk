@@ -25,18 +25,20 @@
 use std::pin::Pin;
 
 use bounded_vec::BoundedVec;
+use codec::{Decode, Encode, Error as CodecError, Input};
 use futures::Future;
-use parity_scale_codec::{Decode, Encode, Error as CodecError, Input};
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
 use polkadot_primitives::{
-	BlakeTwo256, BlockNumber, CandidateCommitments, CandidateHash, CollatorPair,
-	CommittedCandidateReceipt, CompactStatement, CoreIndex, EncodeAs, Hash, HashT, HeadData,
-	Id as ParaId, PersistedValidationData, SessionIndex, Signed, UncheckedSigned, ValidationCode,
-	ValidationCodeHash, ValidatorIndex, MAX_CODE_SIZE, MAX_POV_SIZE,
+	BlakeTwo256, BlockNumber, CandidateCommitments, CandidateHash, ChunkIndex, CollatorPair,
+	CommittedCandidateReceiptError, CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
+	CompactStatement, CoreIndex, EncodeAs, Hash, HashT, HeadData, Id as ParaId,
+	PersistedValidationData, SessionIndex, Signed, UncheckedSigned, ValidationCode,
+	ValidationCodeHash, MAX_CODE_SIZE, MAX_POV_SIZE,
 };
 pub use sp_consensus_babe::{
 	AllowedSlots as BabeAllowedSlots, BabeEpochConfiguration, Epoch as BabeEpoch,
+	Randomness as BabeRandomness,
 };
 
 pub use polkadot_parachain_primitives::primitives::{
@@ -58,7 +60,7 @@ pub use disputes::{
 /// relatively rare.
 ///
 /// The associated worker binaries should use the same version as the node that spawns them.
-pub const NODE_VERSION: &'static str = "1.12.0";
+pub const NODE_VERSION: &'static str = "1.21.3";
 
 // For a 16-ary Merkle Prefix Trie, we can expect at most 16 32-byte hashes per node
 // plus some overhead:
@@ -68,6 +70,10 @@ const MERKLE_NODE_MAX_SIZE: usize = 512 + 100;
 const MERKLE_PROOF_MAX_DEPTH: usize = 8;
 
 /// The bomb limit for decompressing code blobs.
+#[deprecated(
+	note = "`VALIDATION_CODE_BOMB_LIMIT` will be removed. Use `validation_code_bomb_limit`
+	runtime API to retrieve the value from the runtime"
+)]
 pub const VALIDATION_CODE_BOMB_LIMIT: usize = (MAX_CODE_SIZE * 4u32) as usize;
 
 /// The bomb limit for decompressing PoV blobs.
@@ -104,7 +110,7 @@ pub const MAX_FINALITY_LAG: u32 = 500;
 /// Type of a session window size.
 ///
 /// We are not using `NonZeroU32` here because `expect` and `unwrap` are not yet const, so global
-/// constants of `SessionWindowSize` would require `lazy_static` in that case.
+/// constants of `SessionWindowSize` would require `LazyLock` in that case.
 ///
 /// See: <https://github.com/rust-lang/rust/issues/67441>
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
@@ -347,6 +353,10 @@ pub enum InvalidCandidate {
 	CodeHashMismatch,
 	/// Validation has generated different candidate commitments.
 	CommitmentsHashMismatch,
+	/// The candidate receipt contains an invalid session index.
+	InvalidSessionIndex,
+	/// The candidate receipt invalid UMP signals.
+	InvalidUMPSignals(CommittedCandidateReceiptError),
 }
 
 /// Result of the validation of the candidate.
@@ -639,7 +649,7 @@ pub struct ErasureChunk {
 	/// The erasure-encoded chunk of data belonging to the candidate block.
 	pub chunk: Vec<u8>,
 	/// The index of this erasure-encoded chunk of data.
-	pub index: ValidatorIndex,
+	pub index: ChunkIndex,
 	/// Proof for this chunk's branch in the Merkle tree.
 	pub proof: Proof,
 }
@@ -655,7 +665,7 @@ impl ErasureChunk {
 #[cfg(not(target_os = "unknown"))]
 pub fn maybe_compress_pov(pov: PoV) -> PoV {
 	let PoV { block_data: BlockData(raw) } = pov;
-	let raw = sp_maybe_compressed_blob::compress(&raw, POV_BOMB_LIMIT).unwrap_or(raw);
+	let raw = sp_maybe_compressed_blob::compress_weakly(&raw, POV_BOMB_LIMIT).unwrap_or(raw);
 
 	let pov = PoV { block_data: BlockData(raw) };
 	pov

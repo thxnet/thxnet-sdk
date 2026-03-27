@@ -606,4 +606,16 @@ impl<T: frame_system::Config> pallet_nomination_pools::WeightInfo for WeightInfo
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
+	fn apply_slash() -> Weight {
+		Weight::zero()
+	}
+	fn apply_slash_fail() -> Weight {
+		Weight::zero()
+	}
+	fn pool_migrate() -> Weight {
+		Weight::zero()
+	}
+	fn migrate_delegation() -> Weight {
+		Weight::zero()
+	}
 }

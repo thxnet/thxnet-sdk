@@ -517,7 +517,8 @@ pub mod pallet {
 					!matches!(
 						c.status,
 						CampaignStatus::Cancelled |
-							CampaignStatus::Completed | CampaignStatus::Succeeded
+							CampaignStatus::Completed |
+							CampaignStatus::Succeeded
 					),
 					Error::<T>::InvalidCampaignStatus
 				);
@@ -1329,7 +1330,8 @@ pub mod pallet {
 					matches!(
 						c.status,
 						CampaignStatus::Funding |
-							CampaignStatus::Paused | CampaignStatus::MilestonePhase
+							CampaignStatus::Paused |
+							CampaignStatus::MilestonePhase
 					),
 					Error::<T>::InvalidCampaignStatus
 				);

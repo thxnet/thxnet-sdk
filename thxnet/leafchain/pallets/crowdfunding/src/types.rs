@@ -1,4 +1,4 @@
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::{
 	pallet_prelude::*, BoundedVec, CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
 };
@@ -43,7 +43,17 @@ impl<AccountId, BlockNumber> LicenseVerifier<AccountId, BlockNumber> for () {
 }
 
 /// Payment currency: native token or a specific fungible asset.
-#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Clone,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Eq,
+	PartialEq,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 pub enum PaymentCurrency<AssetId> {
 	#[codec(index = 0)]
 	Native,
@@ -52,7 +62,17 @@ pub enum PaymentCurrency<AssetId> {
 }
 
 /// A single milestone definition.
-#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Clone,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Eq,
+	PartialEq,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 pub struct Milestone {
 	pub release_bps: u16,
 	pub description_hash: [u8; 32],
@@ -65,6 +85,7 @@ pub struct Milestone {
 	EqNoBound,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	RuntimeDebugNoBound,
 	TypeInfo,
 	MaxEncodedLen,
@@ -86,6 +107,7 @@ pub enum FundingModel<Balance: Clone + PartialEq + Eq + core::fmt::Debug, MaxMil
 	EqNoBound,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	RuntimeDebugNoBound,
 	TypeInfo,
 	MaxEncodedLen,
@@ -115,6 +137,7 @@ pub struct CampaignConfig<
 	EqNoBound,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	RuntimeDebugNoBound,
 	TypeInfo,
 	MaxEncodedLen,
@@ -141,7 +164,18 @@ pub enum EligibilityRule<
 }
 
 /// Campaign lifecycle status.
-#[derive(Clone, Copy, Encode, Decode, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Clone,
+	Copy,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Eq,
+	PartialEq,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 #[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
 pub enum CampaignStatus {
 	#[codec(index = 0)]

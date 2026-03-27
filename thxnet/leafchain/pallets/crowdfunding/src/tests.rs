@@ -1389,7 +1389,7 @@ mod invest_supplementary {
 		ExtBuilder::default().build().execute_with(|| {
 			let id = create_funded_campaign(ALICE, default_aon_config(20, 1000));
 			run_to_block(20); // exactly at deadline
-				  // now == deadline => passes ensure!(now <= deadline)
+					 // now == deadline => passes ensure!(now <= deadline)
 			assert_ok!(Crowdfunding::invest(RuntimeOrigin::signed(BOB), id, 500));
 		});
 	}
@@ -2281,7 +2281,7 @@ mod milestone_supplementary {
 			assert_ok!(Crowdfunding::claim_milestone_funds(RuntimeOrigin::signed(ALICE), id, 0));
 			let c = pallet::Campaigns::<Test>::get(id).unwrap();
 			assert_eq!(c.total_disbursed, 600); // 60% of 1000
-									// Not yet completed (milestone 1 still pending)
+									   // Not yet completed (milestone 1 still pending)
 			assert!(matches!(c.status, CampaignStatus::MilestonePhase));
 		});
 	}
@@ -8729,7 +8729,7 @@ mod atk_withdrawal {
 			assert_ok!(Crowdfunding::invest(RuntimeOrigin::signed(BOB), id, 500));
 
 			run_to_block(21); // past deadline
-				  // Status is still Funding (not finalized yet)
+					 // Status is still Funding (not finalized yet)
 			let c = pallet::Campaigns::<Test>::get(id).unwrap();
 			assert!(matches!(c.status, CampaignStatus::Funding));
 

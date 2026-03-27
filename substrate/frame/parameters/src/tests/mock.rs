@@ -37,7 +37,6 @@ impl frame_system::Config for Runtime {
 
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Runtime {
-	type ReserveIdentifier = [u8; 8];
 	type AccountStore = System;
 }
 
@@ -76,7 +75,7 @@ pub mod dynamic_params {
 	}
 
 	#[dynamic_pallet_params]
-	#[codec(index = 3)]
+	#[codec(index = 4)]
 	pub mod somE_weird_SPElLInG_s {
 		#[codec(index = 0)]
 		pub static V: u64 = 0;
@@ -108,7 +107,7 @@ mod custom_origin {
 		) -> Result<Self::Success, RuntimeOrigin> {
 			// Account 123 is allowed to set parameters in benchmarking only:
 			#[cfg(feature = "runtime-benchmarks")]
-			if ensure_signed(origin.clone()).map_or(false, |acc| acc == 123) {
+			if ensure_signed(origin.clone()).is_ok_and(|acc| acc == 123) {
 				return Ok(());
 			}
 
@@ -141,8 +140,6 @@ impl Config for Runtime {
 impl pallet_example_basic::Config for Runtime {
 	// Use the dynamic key in the pallet config:
 	type MagicNumber = dynamic_params::pallet1::Key1;
-
-	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
 }
 

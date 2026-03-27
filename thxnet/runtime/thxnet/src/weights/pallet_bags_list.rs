@@ -106,4 +106,7 @@ impl<T: frame_system::Config> pallet_bags_list::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(10))
 			.saturating_add(T::DbWeight::get().writes(6))
 	}
+	fn on_idle() -> Weight {
+		Weight::zero()
+	}
 }

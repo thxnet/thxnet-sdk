@@ -1,20 +1,19 @@
 // This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
-// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
+// SPDX-License-Identifier: Apache-2.0
 
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with this program. If not, see <https://www.gnu.org/licenses/>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 //! Basic types used in delegated staking.
 
@@ -64,15 +63,25 @@ impl<T: Config> Delegation<T> {
 			)
 	}
 
-	/// Save self to storage. If the delegation amount is zero, remove the delegation.
-	pub(crate) fn update_or_kill(self, key: &T::AccountId) {
-		// Clean up if no delegation left.
-		if self.amount == Zero::zero() {
-			<Delegators<T>>::remove(key);
-			return
+	/// Save self to storage.
+	///
+	/// If the delegation amount is zero, remove the delegation. Also adds and removes provider
+	/// reference as needed.
+	pub(crate) fn update(self, key: &T::AccountId) {
+		if <Delegators<T>>::contains_key(key) {
+			// Clean up if no delegation left.
+			if self.amount == Zero::zero() {
+				<Delegators<T>>::remove(key);
+				// Remove provider if no delegation left.
+				let _ = frame_system::Pallet::<T>::dec_providers(key).defensive();
+				return
+			}
+		} else {
+			// this is a new delegation. Provide for this account.
+			frame_system::Pallet::<T>::inc_providers(key);
 		}
 
-		<Delegators<T>>::insert(key, self)
+		<Delegators<T>>::insert(key, self);
 	}
 }
 
@@ -118,8 +127,16 @@ impl<T: Config> AgentLedger<T> {
 	}
 
 	/// Save self to storage with the given key.
+	///
+	/// Increments provider count if this is a new agent.
 	pub(crate) fn update(self, key: &T::AccountId) {
 		<Agents<T>>::insert(key, self)
+	}
+
+	/// Remove self from storage.
+	pub(crate) fn remove(key: &T::AccountId) {
+		debug_assert!(<Agents<T>>::contains_key(key), "Agent should exist in storage");
+		<Agents<T>>::remove(key);
 	}
 
 	/// Effective total balance of the `Agent`.
@@ -143,18 +160,18 @@ impl<T: Config> AgentLedger<T> {
 
 /// Wrapper around `AgentLedger` to provide some helper functions to mutate the ledger.
 #[derive(Clone)]
-pub struct Agent<T: Config> {
+pub struct AgentLedgerOuter<T: Config> {
 	/// storage key
 	pub key: T::AccountId,
 	/// storage value
 	pub ledger: AgentLedger<T>,
 }
 
-impl<T: Config> Agent<T> {
+impl<T: Config> AgentLedgerOuter<T> {
 	/// Get `Agent` from storage if it exists or return an error.
-	pub(crate) fn get(agent: &T::AccountId) -> Result<Agent<T>, DispatchError> {
+	pub(crate) fn get(agent: &T::AccountId) -> Result<AgentLedgerOuter<T>, DispatchError> {
 		let ledger = AgentLedger::<T>::get(agent).ok_or(Error::<T>::NotAgent)?;
-		Ok(Agent { key: agent.clone(), ledger })
+		Ok(AgentLedgerOuter { key: agent.clone(), ledger })
 	}
 
 	/// Remove funds that are withdrawn from [Config::CoreStaking] but not claimed by a delegator.
@@ -176,7 +193,7 @@ impl<T: Config> Agent<T> {
 			.checked_sub(&amount)
 			.defensive_ok_or(ArithmeticError::Overflow)?;
 
-		Ok(Agent {
+		Ok(AgentLedgerOuter {
 			ledger: AgentLedger {
 				total_delegated: new_total_delegated,
 				unclaimed_withdrawals: new_unclaimed_withdrawals,
@@ -197,7 +214,7 @@ impl<T: Config> Agent<T> {
 			.checked_add(&amount)
 			.defensive_ok_or(ArithmeticError::Overflow)?;
 
-		Ok(Agent {
+		Ok(AgentLedgerOuter {
 			ledger: AgentLedger { unclaimed_withdrawals: new_unclaimed_withdrawals, ..self.ledger },
 			..self
 		})
@@ -224,7 +241,10 @@ impl<T: Config> Agent<T> {
 		let pending_slash = self.ledger.pending_slash.defensive_saturating_sub(amount);
 		let total_delegated = self.ledger.total_delegated.defensive_saturating_sub(amount);
 
-		Agent { ledger: AgentLedger { pending_slash, total_delegated, ..self.ledger }, ..self }
+		AgentLedgerOuter {
+			ledger: AgentLedger { pending_slash, total_delegated, ..self.ledger },
+			..self
+		}
 	}
 
 	/// Get the total stake of agent bonded in [`Config::CoreStaking`].
@@ -248,29 +268,14 @@ impl<T: Config> Agent<T> {
 		self.ledger.update(&key)
 	}
 
-	/// Save self and remove if no delegation left.
-	///
-	/// Returns:
-	/// - true if agent killed.
-	/// - error if the delegate is in an unexpected state.
-	pub(crate) fn update_or_kill(self) -> Result<bool, DispatchError> {
+	/// Update agent ledger.
+	pub(crate) fn update(self) {
 		let key = self.key;
-		// see if delegate can be killed
-		if self.ledger.total_delegated == Zero::zero() {
-			ensure!(
-				self.ledger.unclaimed_withdrawals == Zero::zero() &&
-					self.ledger.pending_slash == Zero::zero(),
-				Error::<T>::BadState
-			);
-			<Agents<T>>::remove(key);
-			return Ok(true)
-		}
 		self.ledger.update(&key);
-		Ok(false)
 	}
 
 	/// Reloads self from storage.
-	pub(crate) fn refresh(self) -> Result<Agent<T>, DispatchError> {
+	pub(crate) fn reload(self) -> Result<AgentLedgerOuter<T>, DispatchError> {
 		Self::get(&self.key)
 	}
 
@@ -279,7 +284,6 @@ impl<T: Config> Agent<T> {
 	/// This is similar to [Self::available_to_bond] except it also includes `unclaimed_withdrawals`
 	/// of `Agent`.
 	#[cfg(test)]
-	#[allow(unused)]
 	pub(crate) fn total_unbonded(&self) -> BalanceOf<T> {
 		let bonded_stake = self.bonded_stake();
 

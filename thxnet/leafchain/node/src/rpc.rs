@@ -8,7 +8,6 @@
 use std::sync::Arc;
 
 use general_runtime::{opaque::Block, AccountId, Balance, BlockNumber, Nonce};
-pub use sc_rpc::DenyUnsafe;
 use sc_transaction_pool_api::TransactionPool;
 use sp_api::ProvideRuntimeApi;
 use sp_block_builder::BlockBuilder;
@@ -23,8 +22,6 @@ pub struct FullDeps<C, P> {
 	pub client: Arc<C>,
 	/// Transaction pool instance.
 	pub pool: Arc<P>,
-	/// Whether to deny unsafe calls
-	pub deny_unsafe: DenyUnsafe,
 }
 
 /// Instantiate all RPC extensions.
@@ -57,9 +54,9 @@ where
 	use substrate_frame_rpc_system::{System, SystemApiServer};
 
 	let mut module = RpcExtension::new(());
-	let FullDeps { client, pool, deny_unsafe } = deps;
+	let FullDeps { client, pool } = deps;
 
-	module.merge(System::new(client.clone(), pool, deny_unsafe).into_rpc())?;
+	module.merge(System::new(client.clone(), pool).into_rpc())?;
 	module.merge(TransactionPayment::new(client.clone()).into_rpc())?;
 	module.merge(RwaRpcHandler::<_, Block>::new(client.clone()).into_rpc())?;
 	module.merge(CrowdfundingRpcHandler::<_, Block>::new(client).into_rpc())?;
