@@ -58,5 +58,5 @@ try-runtime = [
 	"frame-system/try-runtime",
 	"pallet-assets?/try-runtime",
 	"pallet-balances?/try-runtime",
-	"sp-runtime/try-runtime"
+	"sp-runtime/try-runtime",
 ]

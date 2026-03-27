@@ -203,6 +203,7 @@ runtime-benchmarks = [
 	"pallet-staking/runtime-benchmarks",
 	"polkadot-parachain-primitives/runtime-benchmarks",
 	"polkadot-primitives/runtime-benchmarks",
+	"polkadot-runtime-common?/runtime-benchmarks",
 	"polkadot-runtime-parachains/runtime-benchmarks",
 	"polkadot-test-client/runtime-benchmarks",
 	"rococo-runtime?/runtime-benchmarks",
@@ -212,7 +213,6 @@ runtime-benchmarks = [
 	"thxnet-runtime?/runtime-benchmarks",
 	"westend-runtime?/runtime-benchmarks",
 	"xcm-fee-payment-runtime-api/runtime-benchmarks",
-	"polkadot-runtime-common?/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-support/try-runtime",
@@ -220,12 +220,12 @@ try-runtime = [
 	"pallet-babe/try-runtime",
 	"pallet-staking/try-runtime",
 	"pallet-transaction-payment/try-runtime",
+	"polkadot-runtime-common?/try-runtime",
 	"polkadot-runtime-parachains/try-runtime",
 	"rococo-runtime?/try-runtime",
 	"sp-runtime/try-runtime",
 	"thxnet-runtime?/try-runtime",
 	"westend-runtime?/try-runtime",
-	"polkadot-runtime-common?/try-runtime"
 ]
 fast-runtime = ["rococo-runtime?/fast-runtime", "thxnet-runtime?/fast-runtime", "westend-runtime?/fast-runtime"]
 
