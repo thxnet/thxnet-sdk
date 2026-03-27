@@ -3282,14 +3282,12 @@ mod test_fees {
 			claims::PrevalidateAttests::<Runtime>::new(),
 			frame_system::WeightReclaim::<Runtime>::new(),
 		);
-		let uxt = UncheckedExtrinsic {
-			function: call,
-			signature: Some((
-				MultiAddress::Id(Alice.to_account_id()),
-				MultiSignature::Sr25519(Alice.sign(b"foo")),
-				extra,
-			)),
-		};
+		let uxt = UncheckedExtrinsic::new_signed(
+			call,
+			MultiAddress::Id(Alice.to_account_id()),
+			MultiSignature::Sr25519(Alice.sign(b"foo")),
+			extra,
+		);
 		let len = uxt.encoded_size();
 
 		let mut ext = sp_io::TestExternalities::new_empty();
@@ -3466,7 +3464,7 @@ mod multiplier_tests {
 		let mut fees_paid = 0;
 
 		frame_system::Pallet::<Runtime>::set_block_consumed_resources(Weight::MAX, 0);
-		let info = DispatchInfo { weight: Weight::MAX, ..Default::default() };
+		let info = DispatchInfo { call_weight: Weight::MAX, ..Default::default() };
 
 		let mut t: sp_io::TestExternalities = frame_system::GenesisConfig::<Runtime>::default()
 			.build_storage()

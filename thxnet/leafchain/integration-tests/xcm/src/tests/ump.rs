@@ -94,7 +94,7 @@ fn send_xcm_from_parachain_to_relay() {
 		let result = general_runtime::PolkadotXcm::send(
 			general_runtime::RuntimeOrigin::root(),
 			bx!(dest.into()),
-			bx!(xcm::VersionedXcm::V4(message)),
+			bx!(xcm::VersionedXcm::V5(message)),
 		);
 
 		log::info!("XCM send result: {:?}", result);

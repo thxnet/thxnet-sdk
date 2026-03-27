@@ -127,7 +127,7 @@ fn send_custom_xcm_between_parachains() {
 		let result = general_runtime::PolkadotXcm::send(
 			general_runtime::RuntimeOrigin::root(),
 			bx!(dest.into()),
-			bx!(xcm::VersionedXcm::V4(message)),
+			bx!(xcm::VersionedXcm::V5(message)),
 		);
 
 		log::info!("Custom XCMP message send result: {:?}", result);
