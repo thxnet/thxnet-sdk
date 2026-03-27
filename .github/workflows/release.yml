@@ -17,17 +17,22 @@ defaults:
 jobs:
   wasm:
     name: Build WASM runtimes
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     container:
       image: docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
-      volumes:
-        - /data/ci-cache:/cache
     env:
-      CARGO_TARGET_DIR: /cache/cargo-target/release
-      CARGO_HOME: /cache/cargo-home
       WASM_BUILD_WORKSPACE_HINT: ${{ github.workspace }}
     steps:
       - uses: actions/checkout@v5
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            /root/.cargo/registry/index/
+            /root/.cargo/registry/cache/
+            /root/.cargo/git/db/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
 
       - name: Build WASM runtimes
         run: |
@@ -35,13 +40,9 @@ jobs:
             --package thxnet-runtime \
             --package thxnet-testnet-runtime \
             --package general-runtime
-          cp /cache/cargo-target/release/release/wbuild/thxnet-runtime/thxnet_runtime.compact.compressed.wasm thxnet-runtime.wasm
-          cp /cache/cargo-target/release/release/wbuild/thxnet-testnet-runtime/thxnet_testnet_runtime.compact.compressed.wasm thxnet-testnet-runtime.wasm
-          cp /cache/cargo-target/release/release/wbuild/general-runtime/general_runtime.compact.compressed.wasm general-runtime.wasm
-
-      - name: Clean build cache
-        if: always()
-        run: rm -rf /cache/cargo-target/release
+          cp target/release/wbuild/thxnet-runtime/thxnet_runtime.compact.compressed.wasm thxnet-runtime.wasm
+          cp target/release/wbuild/thxnet-testnet-runtime/thxnet_testnet_runtime.compact.compressed.wasm thxnet-testnet-runtime.wasm
+          cp target/release/wbuild/general-runtime/general_runtime.compact.compressed.wasm general-runtime.wasm
 
       - name: Publish WASM runtimes
         if: startsWith(github.ref, 'refs/tags/')

@@ -25,17 +25,22 @@ jobs:
 
   build-binaries:
     name: Build binaries
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     container:
       image: docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
-      volumes:
-        - /data/ci-cache:/cache
     env:
-      CARGO_TARGET_DIR: /cache/cargo-target/release
-      CARGO_HOME: /cache/cargo-home
       WASM_BUILD_WORKSPACE_HINT: ${{ github.workspace }}
     steps:
       - uses: actions/checkout@v5
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            /root/.cargo/registry/index/
+            /root/.cargo/registry/cache/
+            /root/.cargo/git/db/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
 
       - name: Build rootchain binaries
         run: cargo build --locked --release -p polkadot
@@ -52,10 +57,10 @@ jobs:
           name: binaries
           retention-days: 3
           path: |
-            /cache/cargo-target/release/release/polkadot
-            /cache/cargo-target/release/release/polkadot-prepare-worker
-            /cache/cargo-target/release/release/polkadot-execute-worker
-            /cache/cargo-target/release/release/thxnet-leafchain
+            target/release/polkadot
+            target/release/polkadot-prepare-worker
+            target/release/polkadot-execute-worker
+            target/release/thxnet-leafchain
 
       - name: Upload WASM runtimes
         uses: actions/upload-artifact@v5
@@ -63,24 +68,16 @@ jobs:
           name: wasm-runtimes
           retention-days: 3
           path: |
-            /cache/cargo-target/release/release/wbuild/thxnet-runtime/thxnet_runtime.compact.compressed.wasm
-            /cache/cargo-target/release/release/wbuild/thxnet-testnet-runtime/thxnet_testnet_runtime.compact.compressed.wasm
-            /cache/cargo-target/release/release/wbuild/general-runtime/general_runtime.compact.compressed.wasm
-
-      - name: Clean build cache
-        if: always()
-        run: rm -rf /cache/cargo-target/release
-
-      - name: Fix workspace permissions
-        if: always()
-        run: chown -R 1000:1001 $GITHUB_WORKSPACE
+            target/release/wbuild/thxnet-runtime/thxnet_runtime.compact.compressed.wasm
+            target/release/wbuild/thxnet-testnet-runtime/thxnet_testnet_runtime.compact.compressed.wasm
+            target/release/wbuild/general-runtime/general_runtime.compact.compressed.wasm
 
   # ─── Docker images ───────────────────────────────────────────────────
 
   rootchain-image:
     name: Build rootchain image
     needs: build-binaries
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
@@ -129,7 +126,7 @@ jobs:
   leafchain-image:
     name: Build leafchain image
     needs: build-binaries
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
@@ -184,17 +181,22 @@ jobs:
       startsWith(github.head_ref || github.ref_name, 'upgrade/') ||
       startsWith(github.head_ref || github.ref_name, 'experiment/') ||
       startsWith(github.head_ref || github.ref_name, 'feat/endgame')
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     container:
       image: docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
-      volumes:
-        - /data/ci-cache:/cache
     env:
-      CARGO_TARGET_DIR: /cache/cargo-target/upgrade
-      CARGO_HOME: /cache/cargo-home
       WASM_BUILD_WORKSPACE_HINT: ${{ github.workspace }}
     steps:
       - uses: actions/checkout@v5
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            /root/.cargo/registry/index/
+            /root/.cargo/registry/cache/
+            /root/.cargo/git/db/
+          key: ${{ runner.os }}-cargo-upgrade-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
 
       - name: Build try-runtime WASMs
         run: |
@@ -202,20 +204,20 @@ jobs:
           cargo build --release -p thxnet-runtime --features try-runtime
           cargo build --release -p general-runtime --features try-runtime
           mkdir -p /tmp/try-runtime-wasm
-          cp /cache/cargo-target/upgrade/release/wbuild/thxnet-testnet-runtime/thxnet_testnet_runtime.compact.compressed.wasm \
+          cp target/release/wbuild/thxnet-testnet-runtime/thxnet_testnet_runtime.compact.compressed.wasm \
             /tmp/try-runtime-wasm/thxnet-testnet-runtime-try-runtime.wasm
-          cp /cache/cargo-target/upgrade/release/wbuild/thxnet-runtime/thxnet_runtime.compact.compressed.wasm \
+          cp target/release/wbuild/thxnet-runtime/thxnet_runtime.compact.compressed.wasm \
             /tmp/try-runtime-wasm/thxnet-runtime-try-runtime.wasm
-          cp /cache/cargo-target/upgrade/release/wbuild/general-runtime/general_runtime.compact.compressed.wasm \
+          cp target/release/wbuild/general-runtime/general_runtime.compact.compressed.wasm \
             /tmp/try-runtime-wasm/general-runtime-try-runtime.wasm
 
       - name: Build fast-runtime binary
         run: |
           cargo build --release -p polkadot --features fast-runtime
           mkdir -p /tmp/fast-runtime-bins
-          cp /cache/cargo-target/upgrade/release/polkadot /tmp/fast-runtime-bins/polkadot-fast-runtime
-          cp /cache/cargo-target/upgrade/release/polkadot-prepare-worker /tmp/fast-runtime-bins/
-          cp /cache/cargo-target/upgrade/release/polkadot-execute-worker /tmp/fast-runtime-bins/
+          cp target/release/polkadot /tmp/fast-runtime-bins/polkadot-fast-runtime
+          cp target/release/polkadot-prepare-worker /tmp/fast-runtime-bins/
+          cp target/release/polkadot-execute-worker /tmp/fast-runtime-bins/
 
       - name: Upload try-runtime WASMs
         uses: actions/upload-artifact@v5
@@ -230,14 +232,6 @@ jobs:
           name: fast-runtime-bins
           retention-days: 3
           path: /tmp/fast-runtime-bins/
-
-      - name: Clean build cache
-        if: always()
-        run: rm -rf /cache/cargo-target/upgrade
-
-      - name: Fix workspace permissions
-        if: always()
-        run: chown -R 1000:1001 $GITHUB_WORKSPACE
 
   try-runtime:
     name: try-runtime migration tests
@@ -282,9 +276,16 @@ jobs:
   zombienet:
     name: Zombienet smoke test
     needs: [build-upgrade-extras, build-binaries]
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+
+      - name: Install zombienet
+        run: |
+          ZOMBIENET_VERSION=v1.3.106
+          curl -L "https://github.com/paritytech/zombienet/releases/download/${ZOMBIENET_VERSION}/zombienet-linux-x64" \
+            -o /usr/local/bin/zombienet
+          chmod +x /usr/local/bin/zombienet
 
       - name: Download fast-runtime binaries
         uses: actions/download-artifact@v5
@@ -307,31 +308,28 @@ jobs:
           export RELAY_BIN=/tmp/upgrade-bins/polkadot-fast-runtime
           export COLLATOR_BIN=/tmp/upgrade-bins/thxnet-leafchain
 
-          /home/raj/.local/bin/zombienet -p native -f test scripts/zombienet-smoke.zndsl
+          zombienet -p native -f test scripts/zombienet-smoke.zndsl
         timeout-minutes: 15
 
   xcm-tests:
     name: XCM integration tests
     needs: build-upgrade-extras
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     container:
       image: docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
-      volumes:
-        - /data/ci-cache:/cache
     env:
-      CARGO_TARGET_DIR: /cache/cargo-target/xcm
-      CARGO_HOME: /cache/cargo-home
       WASM_BUILD_WORKSPACE_HINT: ${{ github.workspace }}
     steps:
       - uses: actions/checkout@v5
 
+      - uses: actions/cache@v4
+        with:
+          path: |
+            /root/.cargo/registry/index/
+            /root/.cargo/registry/cache/
+            /root/.cargo/git/db/
+          key: ${{ runner.os }}-cargo-xcm-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
       - name: Run XCM integration tests
         run: cargo test -p xcm-integration-tests --release
-
-      - name: Clean build cache
-        if: always()
-        run: rm -rf /cache/cargo-target/xcm
-
-      - name: Fix workspace permissions
-        if: always()
-        run: chown -R 1000:1001 $GITHUB_WORKSPACE

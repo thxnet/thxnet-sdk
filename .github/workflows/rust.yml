@@ -8,8 +8,6 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  CARGO_TARGET_DIR: /cache/cargo-target/check
-  CARGO_HOME: /cache/cargo-home
   WASM_BUILD_WORKSPACE_HINT: ${{ github.workspace }}
 
 concurrency:
@@ -19,13 +17,20 @@ concurrency:
 jobs:
   check:
     name: Cargo check (thxnet crates)
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     container:
       image: docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
-      volumes:
-        - /data/ci-cache:/cache
     steps:
       - uses: actions/checkout@v5
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            /root/.cargo/registry/index/
+            /root/.cargo/registry/cache/
+            /root/.cargo/git/db/
+          key: ${{ runner.os }}-cargo-check-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
 
       - name: Cargo check — rootchain runtimes
         run: |
@@ -38,7 +43,3 @@ jobs:
           cargo check \
             --package general-runtime \
             --package thxnet-leafchain
-
-      - name: Clean build cache
-        if: always()
-        run: rm -rf /cache/cargo-target/check
