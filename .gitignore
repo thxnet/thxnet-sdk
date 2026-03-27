@@ -42,3 +42,15 @@ target/
 # THXNet
 **/chains/
 target
+
+# Local working notes (not for version control)
+CRITICAL_001.md
+CRITICAL_002.md
+CRITICAL_003.md
+ENDGAME_TODO.md
+noel.md
+opus_001.md
+opus_002.md
+opus_003.md
+POLKADOT_SOURCE_OF_TRUTH.md
+TMP_PLAN.md

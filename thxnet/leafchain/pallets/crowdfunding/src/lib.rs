@@ -85,7 +85,6 @@ pub mod pallet {
 		type ItemId: Member + Parameter + Copy + MaxEncodedLen;
 		type NativeCurrency: Currency<Self::AccountId>;
 		type Fungibles: fungibles::Inspect<Self::AccountId, AssetId = Self::AssetId, Balance = BalanceOf<Self>>
-			+ fungibles::Mutate<Self::AccountId>
 			+ fungibles::Mutate<Self::AccountId>;
 		type NftInspect: nonfungibles_v2::Inspect<
 			Self::AccountId,
