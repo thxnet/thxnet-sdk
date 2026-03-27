@@ -17,9 +17,9 @@ pallet-crowdfunding = { path = "..", default-features = false }
 [features]
 default = ["std"]
 std = [
-    "codec/std",
-    "scale-info/std",
-    "sp-api/std",
-    "sp-runtime/std",
-    "pallet-crowdfunding/std",
+	"codec/std",
+	"pallet-crowdfunding/std",
+	"scale-info/std",
+	"sp-api/std",
+	"sp-runtime/std",
 ]
