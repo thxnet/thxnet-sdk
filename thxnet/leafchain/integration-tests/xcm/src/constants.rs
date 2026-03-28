@@ -5,6 +5,7 @@
 //! test runtime or mocking the relay chain behavior.
 
 use polkadot_primitives::{MAX_CODE_SIZE, MAX_POV_SIZE};
+use polkadot_runtime_parachains::paras::{ParaGenesisArgs, ParaKind};
 use sp_core::{sr25519, storage::Storage, Pair, Public};
 use sp_runtime::{BuildStorage, Perbill};
 use xcm_emulator::{get_account_id_from_seed, AccountId};
@@ -172,6 +173,30 @@ pub mod thxnet {
 					..Default::default()
 				},
 				..Default::default()
+			},
+			// Register parachains so that paras::Heads contains entries.
+			// Without this, dmp::can_queue_downward_message returns Unroutable
+			// because it checks paras::Heads::contains_key(para_id).
+			paras: polkadot_runtime_parachains::paras::GenesisConfig {
+				_config: Default::default(),
+				paras: vec![
+					(
+						2000.into(),
+						ParaGenesisArgs {
+							genesis_head: polkadot_primitives::HeadData(vec![0u8]),
+							validation_code: polkadot_primitives::ValidationCode(vec![0u8]),
+							para_kind: ParaKind::Parachain,
+						},
+					),
+					(
+						2001.into(),
+						ParaGenesisArgs {
+							genesis_head: polkadot_primitives::HeadData(vec![0u8]),
+							validation_code: polkadot_primitives::ValidationCode(vec![0u8]),
+							para_kind: ParaKind::Parachain,
+						},
+					),
+				],
 			},
 			sudo: thxnet_runtime::SudoConfig {
 				key: Some(get_account_id_from_seed::<sr25519::Public>(ALICE)),

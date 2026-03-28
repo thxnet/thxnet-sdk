@@ -370,7 +370,7 @@ fn start_consensus(
 		dyn Fn(<Block as sp_runtime::traits::Block>::Hash, Option<Vec<u8>>) + Send + Sync,
 	>,
 ) -> Result<(), sc_service::Error> {
-	let _slot_duration = cumulus_client_consensus_aura::slot_duration(&*client)?;
+	let slot_duration = cumulus_client_consensus_aura::slot_duration(&*client)?;
 
 	let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
 		task_manager.spawn_handle(),
@@ -388,7 +388,17 @@ fn start_consensus(
 	);
 
 	let params = BasicAuraParams {
-		create_inherent_data_providers: move |_, ()| async move { Ok(()) },
+		create_inherent_data_providers: move |_, ()| async move {
+			let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
+
+			let slot =
+				sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
+					*timestamp,
+					slot_duration,
+				);
+
+			Ok((slot, timestamp))
+		},
 		block_import,
 		para_client: client,
 		relay_client: relay_chain_interface,
