@@ -686,7 +686,7 @@ impl pallet_staking::Config for Runtime {
 	type EventListeners = NominationPools;
 	type WeightInfo = weights::pallet_staking::WeightInfo<Runtime>;
 	type MaxControllersInDeprecationBatch = ConstU32<751>;
-	type Filter = frame_support::traits::Everything;
+	type Filter = frame_support::traits::Nothing;
 }
 
 impl pallet_fast_unstake::Config for Runtime {
@@ -1452,7 +1452,7 @@ impl pallet_nomination_pools::Config for Runtime {
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type AdminOrigin = EnsureRoot<AccountId>;
 	type BlockNumberProvider = System;
-	type Filter = frame_support::traits::Everything;
+	type Filter = frame_support::traits::Nothing;
 }
 
 pub struct InitiateNominationPools;
