@@ -24,7 +24,7 @@ use polkadot_primitives::{AccountId, AccountPublic, AssignmentId, ValidatorId};
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
 
-#[cfg(feature = "westend-native")]
+#[cfg(any(feature = "westend-native", feature = "thxnet-native"))]
 use polkadot_primitives::vstaging::SchedulerParams;
 #[cfg(feature = "rococo-native")]
 use rococo_runtime as rococo;

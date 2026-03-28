@@ -192,7 +192,7 @@ full-node = [
 # Configure the native runtimes to use.
 westend-native = ["bitvec", "westend-runtime", "westend-runtime-constants"]
 rococo-native = ["bitvec", "rococo-runtime", "rococo-runtime-constants"]
-thxnet-native = ["polkadot-runtime-common", "thxnet-runtime", "thxnet-runtime-constants"]
+thxnet-native = ["bitvec", "polkadot-runtime-common", "thxnet-runtime", "thxnet-runtime-constants"]
 
 runtime-benchmarks = [
 	"frame-benchmarking-cli/runtime-benchmarks",
