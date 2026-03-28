@@ -142,12 +142,12 @@ build_rootchain() {
 
     log_info "Building ${ROOTCHAIN_TESTNET_PKG}..."
     WASM_BUILD_WORKSPACE_HINT="${PROJECT_ROOT}" \
-        cargo build --release -p "${ROOTCHAIN_TESTNET_PKG}" --features try-runtime
+        cargo build --release --locked -p "${ROOTCHAIN_TESTNET_PKG}" --features try-runtime
     check_wasm_exists "${ROOTCHAIN_TESTNET_WASM}" "rootchain-testnet"
 
     log_info "Building ${ROOTCHAIN_MAINNET_PKG}..."
     WASM_BUILD_WORKSPACE_HINT="${PROJECT_ROOT}" \
-        cargo build --release -p "${ROOTCHAIN_MAINNET_PKG}" --features try-runtime
+        cargo build --release --locked -p "${ROOTCHAIN_MAINNET_PKG}" --features try-runtime
     check_wasm_exists "${ROOTCHAIN_MAINNET_WASM}" "rootchain-mainnet"
 
     log_success "Rootchain runtimes built successfully"
@@ -165,7 +165,7 @@ build_leafchain() {
 
     log_info "Building ${LEAFCHAIN_PKG}..."
     WASM_BUILD_WORKSPACE_HINT="${PROJECT_ROOT}" \
-        cargo build --release -p "${LEAFCHAIN_PKG}" --features try-runtime
+        cargo build --release --locked -p "${LEAFCHAIN_PKG}" --features try-runtime
     check_wasm_exists "${LEAFCHAIN_WASM}" "leafchain"
 
     log_success "Leafchain runtime built successfully"
@@ -192,6 +192,8 @@ run_try_runtime() {
 
     check_wasm_exists "${wasm_path}" "${name}" || return 1
 
+    export RUST_LOG="${RUST_LOG:-remote-ext=debug,runtime=debug}"
+
     # --disable-spec-version-check: required because we're jumping multiple
     #   spec versions (e.g., 94_000_001 -> 112_000_001) and the CLI would
     #   refuse the upgrade otherwise.
@@ -201,6 +203,9 @@ run_try_runtime() {
     #
     # --blocktime: used to calculate weight-to-time mapping for migration
     #   weight limit checks.
+    #
+    # --checks=all: run pre_upgrade() and post_upgrade() hooks for every
+    #   migration — matches upstream polkadot-sdk CI behavior.
 
     local start_time exit_code
     start_time=$(date +%s)
@@ -211,6 +216,7 @@ run_try_runtime() {
         --blocktime "${blocktime}" \
         --disable-mbm-checks \
         --disable-spec-version-check \
+        --checks=all \
         live --uri "${uri}" \
         && exit_code=0 || exit_code=$?
 
