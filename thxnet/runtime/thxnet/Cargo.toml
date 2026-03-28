@@ -91,6 +91,7 @@ pallet-asset-tx-payment = { path = "../../../substrate/frame/transaction-payment
 pallet-assets = { path = "../../../substrate/frame/assets", default-features = false }
 pallet-dao = { path = "../../pallets/dao", default-features = false }
 pallet-finality-rescue = { path = "../../pallets/finality-rescue", default-features = false }
+pallet-migrations = { path = "../../../substrate/frame/migrations", default-features = false }
 pallet-nfts = { path = "../../../substrate/frame/nfts", default-features = false }
 pallet-nfts-runtime-api = { path = "../../../substrate/frame/nfts/runtime-api", default-features = false }
 pallet-sudo = { path = "../../../substrate/frame/sudo", default-features = false }
@@ -171,6 +172,7 @@ std = [
 	"pallet-indices/std",
 	"pallet-membership/std",
 	"pallet-message-queue/std",
+	"pallet-migrations/std",
 	"pallet-multisig/std",
 	"pallet-nfts-runtime-api/std",
 	"pallet-nfts/std",
@@ -255,6 +257,7 @@ runtime-benchmarks = [
 	"pallet-indices/runtime-benchmarks",
 	"pallet-membership/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
+	"pallet-migrations/runtime-benchmarks",
 	"pallet-multisig/runtime-benchmarks",
 	"pallet-nfts/runtime-benchmarks",
 	"pallet-nomination-pools-benchmarking/runtime-benchmarks",
@@ -317,6 +320,7 @@ try-runtime = [
 	"pallet-indices/try-runtime",
 	"pallet-membership/try-runtime",
 	"pallet-message-queue/try-runtime",
+	"pallet-migrations/try-runtime",
 	"pallet-multisig/try-runtime",
 	"pallet-nfts/try-runtime",
 	"pallet-nomination-pools/try-runtime",

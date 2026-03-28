@@ -195,7 +195,7 @@ impl frame_system::Config for Runtime {
 	type SS58Prefix = SS58Prefix;
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
 	type SingleBlockMigrations = Migrations;
-	type MultiBlockMigrator = ();
+	type MultiBlockMigrator = MultiBlockMigrations;
 }
 
 parameter_types! {
@@ -1651,6 +1651,24 @@ impl pallet_finality_rescue::Config for Runtime {
 }
 
 parameter_types! {
+	pub MbmServiceWeight: Weight = Perbill::from_percent(80) * BlockWeights::get().max_block;
+}
+
+impl pallet_migrations::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	#[cfg(not(feature = "runtime-benchmarks"))]
+	type Migrations = pallet_identity::migration::v2::LazyMigrationV1ToV2<Runtime>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type Migrations = pallet_migrations::mock_helpers::MockedMigrations;
+	type CursorMaxLen = ConstU32<65_536>;
+	type IdentifierMaxLen = ConstU32<256>;
+	type MigrationStatusHandler = ();
+	type FailedMigrationHandler = frame_support::migrations::FreezeChainOnFailedMigration;
+	type MaxServiceWeight = MbmServiceWeight;
+	type WeightInfo = weights::pallet_migrations::WeightInfo<Runtime>;
+}
+
+parameter_types! {
 	pub const AssetDeposit: Balance = 10 * DOLLARS;
 	pub const AssetAccountDeposit: Balance = deposit(1, 16);
 	pub const ApprovalDeposit: Balance = EXISTENTIAL_DEPOSIT;
@@ -1914,6 +1932,9 @@ mod runtime {
 	pub type Dao = pallet_dao;
 	#[runtime::pallet_index(135)]
 	pub type FinalityRescue = pallet_finality_rescue;
+	// Multi-Block Migrations pallet.
+	#[runtime::pallet_index(136)]
+	pub type MultiBlockMigrations = pallet_migrations;
 
 	// Parachain sudo wrapper.
 	#[runtime::pallet_index(250)]
@@ -2213,6 +2234,10 @@ pub mod migrations {
 	// We don't have a limit in the Relay Chain.
 	const IDENTITY_MIGRATION_KEY_LIMIT: u64 = u64::MAX;
 
+	parameter_types! {
+		pub BalanceTransferAllowDeath: Weight = <weights::pallet_balances::WeightInfo::<Runtime> as pallet_balances::WeightInfo>::transfer_allow_death();
+	}
+
 	/// One-time migration to fix GRANDPA finality deadlock (mainnet blocks ~14.2M).
 	///
 	/// History: This migration was originally deployed at spec_version 94000004 on the old
@@ -2401,6 +2426,7 @@ pub mod migrations {
 			Runtime,
 			pallet_staking::migrations::v17::MigrateDisabledToSession<Runtime>,
 		>,
+		pallet_child_bounties::migration::MigrateV0ToV1<Runtime, BalanceTransferAllowDeath>,
 		// permanent
 		pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 	);
