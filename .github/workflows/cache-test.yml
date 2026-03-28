@@ -1,0 +1,47 @@
+name: Cache smoke test
+
+on:
+  workflow_dispatch:
+
+env:
+  RUSTC_WRAPPER: sccache
+  SCCACHE_BUCKET: sccache
+  SCCACHE_ENDPOINT: ${{ secrets.SCCACHE_ENDPOINT }}
+  SCCACHE_S3_USE_SSL: "true"
+  SCCACHE_REGION: auto
+  AWS_ACCESS_KEY_ID: ${{ secrets.MINIO_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.MINIO_SECRET_ACCESS_KEY }}
+
+jobs:
+  sccache-test:
+    name: Verify sccache + MinIO
+    runs-on: ubuntu-latest
+    container:
+      image: docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
+    env:
+      WASM_BUILD_WORKSPACE_HINT: ${{ github.workspace }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: sccache version
+        run: sccache --version
+
+      - name: Verify MinIO connection
+        run: sccache --start-server && sccache --show-stats
+
+      - name: Build small crate (cold)
+        run: |
+          cargo check --locked -p thxnet-runtime-constants 2>&1 | tail -10
+          echo "--- stats after cold build ---"
+          sccache --show-stats
+
+      - name: Rebuild (should hit cache)
+        run: |
+          cargo clean -p thxnet-runtime-constants
+          cargo check --locked -p thxnet-runtime-constants 2>&1 | tail -10
+          echo "--- stats after warm rebuild ---"
+          sccache --show-stats
+
+      - name: Stop sccache
+        if: always()
+        run: sccache --stop-server || true
