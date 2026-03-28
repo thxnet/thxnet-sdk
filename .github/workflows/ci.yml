@@ -15,6 +15,14 @@ env:
   REGISTRY: ghcr.io
   ROOTCHAIN_IMAGE: ${{ github.repository_owner }}/rootchain
   LEAFCHAIN_IMAGE: ${{ github.repository_owner }}/leafchain
+  RUSTC_WRAPPER: sccache
+  CARGO_INCREMENTAL: "0"
+  SCCACHE_BUCKET: sccache
+  SCCACHE_ENDPOINT: ${{ secrets.SCCACHE_ENDPOINT }}
+  SCCACHE_S3_USE_SSL: "true"
+  SCCACHE_REGION: auto
+  AWS_ACCESS_KEY_ID: ${{ secrets.MINIO_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.MINIO_SECRET_ACCESS_KEY }}
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -33,23 +41,14 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - uses: actions/cache@v4
-        with:
-          path: |
-            /root/.cargo/registry/index/
-            /root/.cargo/registry/cache/
-            /root/.cargo/git/db/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: ${{ runner.os }}-cargo-
+      - name: Install sccache
+        run: |
+          SCCACHE_VERSION=v0.14.0
+          curl -fsSL "https://github.com/mozilla/sccache/releases/download/${SCCACHE_VERSION}/sccache-${SCCACHE_VERSION}-x86_64-unknown-linux-musl.tar.gz" \
+            | tar xz --strip-components=1 -C /usr/local/bin/ "sccache-${SCCACHE_VERSION}-x86_64-unknown-linux-musl/sccache"
 
-      - name: Build rootchain node + mainnet runtime WASM
-        run: cargo build --locked --release -p polkadot
-
-      - name: Build testnet rootchain runtime WASM
-        run: cargo build --locked --release -p thxnet-testnet-runtime
-
-      - name: Build leafchain node + leafchain runtime WASM
-        run: cargo build --locked --release -p thxnet-leafchain
+      - name: Build all binaries & runtime WASMs
+        run: cargo build --locked --release -p polkadot -p thxnet-testnet-runtime -p thxnet-leafchain
 
       - name: Upload binaries
         uses: actions/upload-artifact@v5
@@ -176,7 +175,6 @@ jobs:
 
   build-upgrade-extras:
     name: Build try-runtime & fast-runtime
-    needs: build-binaries
     if: >-
       startsWith(github.head_ref || github.ref_name, 'upgrade/') ||
       startsWith(github.head_ref || github.ref_name, 'experiment/') ||
@@ -189,20 +187,19 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - uses: actions/cache@v4
-        with:
-          path: |
-            /root/.cargo/registry/index/
-            /root/.cargo/registry/cache/
-            /root/.cargo/git/db/
-          key: ${{ runner.os }}-cargo-upgrade-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: ${{ runner.os }}-cargo-
+      - name: Install sccache
+        run: |
+          SCCACHE_VERSION=v0.14.0
+          curl -fsSL "https://github.com/mozilla/sccache/releases/download/${SCCACHE_VERSION}/sccache-${SCCACHE_VERSION}-x86_64-unknown-linux-musl.tar.gz" \
+            | tar xz --strip-components=1 -C /usr/local/bin/ "sccache-${SCCACHE_VERSION}-x86_64-unknown-linux-musl/sccache"
 
       - name: Build try-runtime WASMs
         run: |
-          cargo build --locked --release -p thxnet-testnet-runtime --features try-runtime
-          cargo build --locked --release -p thxnet-runtime --features try-runtime
-          cargo build --locked --release -p general-runtime --features try-runtime
+          cargo build --locked --release \
+            -p thxnet-testnet-runtime \
+            -p thxnet-runtime \
+            -p general-runtime \
+            --features try-runtime
           mkdir -p /tmp/try-runtime-wasm
           cp target/release/wbuild/thxnet-testnet-runtime/thxnet_testnet_runtime.compact.compressed.wasm \
             /tmp/try-runtime-wasm/thxnet-testnet-runtime-try-runtime.wasm
@@ -313,7 +310,10 @@ jobs:
 
   xcm-tests:
     name: XCM integration tests
-    needs: build-upgrade-extras
+    if: >-
+      startsWith(github.head_ref || github.ref_name, 'upgrade/') ||
+      startsWith(github.head_ref || github.ref_name, 'experiment/') ||
+      startsWith(github.head_ref || github.ref_name, 'feat/endgame')
     runs-on: ubuntu-latest
     container:
       image: docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
@@ -322,14 +322,11 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - uses: actions/cache@v4
-        with:
-          path: |
-            /root/.cargo/registry/index/
-            /root/.cargo/registry/cache/
-            /root/.cargo/git/db/
-          key: ${{ runner.os }}-cargo-xcm-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: ${{ runner.os }}-cargo-
+      - name: Install sccache
+        run: |
+          SCCACHE_VERSION=v0.14.0
+          curl -fsSL "https://github.com/mozilla/sccache/releases/download/${SCCACHE_VERSION}/sccache-${SCCACHE_VERSION}-x86_64-unknown-linux-musl.tar.gz" \
+            | tar xz --strip-components=1 -C /usr/local/bin/ "sccache-${SCCACHE_VERSION}-x86_64-unknown-linux-musl/sccache"
 
       - name: Run XCM integration tests
         run: cargo test -p xcm-integration-tests --release
