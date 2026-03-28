@@ -7,6 +7,7 @@ on:
 
 env:
   RUSTC_WRAPPER: sccache
+  CARGO_INCREMENTAL: "0"
   SCCACHE_BUCKET: sccache
   SCCACHE_ENDPOINT: ${{ secrets.SCCACHE_ENDPOINT }}
   SCCACHE_S3_USE_SSL: "true"
@@ -27,7 +28,7 @@ jobs:
 
       - name: Install sccache
         run: |
-          SCCACHE_VERSION=v0.8.2
+          SCCACHE_VERSION=v0.14.0
           curl -fsSL "https://github.com/mozilla/sccache/releases/download/${SCCACHE_VERSION}/sccache-${SCCACHE_VERSION}-x86_64-unknown-linux-musl.tar.gz" \
             | tar xz --strip-components=1 -C /usr/local/bin/ "sccache-${SCCACHE_VERSION}-x86_64-unknown-linux-musl/sccache"
           sccache --version
@@ -41,11 +42,12 @@ jobs:
           echo "--- stats after cold build ---"
           sccache --show-stats
 
-      - name: Rebuild (should hit cache)
+      - name: Clean all & rebuild (should hit cache from MinIO)
         run: |
-          cargo clean -p thxnet-runtime-constants
+          cargo clean
+          sccache --zero-stats
           cargo check --locked -p thxnet-runtime-constants 2>&1 | tail -10
-          echo "--- stats after warm rebuild ---"
+          echo "--- stats after warm rebuild (expect cache hits) ---"
           sccache --show-stats
 
       - name: Stop sccache
