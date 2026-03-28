@@ -1,6 +1,8 @@
 name: Cache smoke test
 
 on:
+  push:
+    branches: [test/sccache-smoke]
   workflow_dispatch:
 
 env:
