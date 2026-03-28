@@ -358,7 +358,7 @@ macro_rules! __impl_test_ext_for_relay_chain {
 				// send messages if needed
 				$ext_name.with(|v| {
 					v.borrow_mut().execute_with(|| {
-						use $crate::polkadot_primitives::runtime_api::runtime_decl_for_parachain_host::ParachainHostV10;
+						use $crate::polkadot_primitives::runtime_api::runtime_decl_for_parachain_host::ParachainHostV15;
 
 						//TODO: mark sent count & filter out sent msg
 						for para_id in <$name>::para_ids() {

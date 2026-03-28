@@ -120,7 +120,9 @@ impl<T: Config> Pallet<T> {
 			1 => {
 				if let Some(Junction::GlobalConsensus(network)) = universal_location.first() {
 					let is_target_network = match network {
-						NetworkId::Polkadot | NetworkId::Kusama => true,
+						// THXNet uses NetworkId::Polkadot but is not subject to
+						// Asset Hub Migration — removed Polkadot from this guard.
+						NetworkId::Kusama => true,
 						NetworkId::ByGenesis(genesis_hash) => {
 							// Check if this is Westend by genesis hash
 							*genesis_hash == xcm::v5::WESTEND_GENESIS_HASH ||
@@ -142,7 +144,9 @@ impl<T: Config> Pallet<T> {
 					(universal_location.first(), universal_location.last())
 				{
 					let is_target_network = match network {
-						NetworkId::Polkadot | NetworkId::Kusama => true,
+						// THXNet uses NetworkId::Polkadot but is not subject to
+						// Asset Hub Migration — removed Polkadot from this guard.
+						NetworkId::Kusama => true,
 						NetworkId::ByGenesis(genesis_hash) => {
 							// Check if this is Westend by genesis hash
 							*genesis_hash == xcm::v5::WESTEND_GENESIS_HASH ||
