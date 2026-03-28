@@ -7,6 +7,16 @@ on:
       - master
   pull_request:
 
+env:
+  RUSTC_WRAPPER: sccache
+  CARGO_INCREMENTAL: "0"
+  SCCACHE_BUCKET: sccache
+  SCCACHE_ENDPOINT: ${{ secrets.SCCACHE_ENDPOINT }}
+  SCCACHE_S3_USE_SSL: "true"
+  SCCACHE_REGION: auto
+  AWS_ACCESS_KEY_ID: ${{ secrets.MINIO_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.MINIO_SECRET_ACCESS_KEY }}
+
 concurrency:
   group: tests-${{ github.ref }}
   cancel-in-progress: true
@@ -25,14 +35,11 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - uses: actions/cache@v4
-        with:
-          path: |
-            /root/.cargo/registry/index/
-            /root/.cargo/registry/cache/
-            /root/.cargo/git/db/
-          key: ${{ runner.os }}-cargo-test-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: ${{ runner.os }}-cargo-
+      - name: Install sccache
+        run: |
+          SCCACHE_VERSION=v0.14.0
+          curl -fsSL "https://github.com/mozilla/sccache/releases/download/${SCCACHE_VERSION}/sccache-${SCCACHE_VERSION}-x86_64-unknown-linux-musl.tar.gz" \
+            | tar xz --strip-components=1 -C /usr/local/bin/ "sccache-${SCCACHE_VERSION}-x86_64-unknown-linux-musl/sccache"
 
       - name: Run tests
         run: |
@@ -53,14 +60,11 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - uses: actions/cache@v4
-        with:
-          path: |
-            /root/.cargo/registry/index/
-            /root/.cargo/registry/cache/
-            /root/.cargo/git/db/
-          key: ${{ runner.os }}-cargo-bench-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: ${{ runner.os }}-cargo-
+      - name: Install sccache
+        run: |
+          SCCACHE_VERSION=v0.14.0
+          curl -fsSL "https://github.com/mozilla/sccache/releases/download/${SCCACHE_VERSION}/sccache-${SCCACHE_VERSION}-x86_64-unknown-linux-musl.tar.gz" \
+            | tar xz --strip-components=1 -C /usr/local/bin/ "sccache-${SCCACHE_VERSION}-x86_64-unknown-linux-musl/sccache"
 
       - name: Check benchmarks compile
         run: |
