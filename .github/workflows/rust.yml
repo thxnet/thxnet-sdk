@@ -44,3 +44,7 @@ jobs:
             --package thxnet-testnet-runtime \
             --package general-runtime \
             --package thxnet-leafchain
+
+      - name: sccache stats
+        if: always()
+        run: sccache --show-stats 2>/dev/null || true

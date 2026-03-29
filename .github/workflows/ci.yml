@@ -50,6 +50,10 @@ jobs:
       - name: Build all binaries & runtime WASMs
         run: cargo build --locked --release -p polkadot -p thxnet-testnet-runtime -p thxnet-leafchain
 
+      - name: sccache stats
+        if: always()
+        run: sccache --show-stats
+
       - name: Upload binaries
         uses: actions/upload-artifact@v5
         with:
@@ -269,6 +273,10 @@ jobs:
           cp target/release/wbuild/general-runtime/general_runtime.compact.compressed.wasm \
             /tmp/try-runtime-wasm/general-runtime-try-runtime.wasm
 
+      - name: sccache stats (try-runtime)
+        if: always()
+        run: sccache --show-stats 2>/dev/null || true
+
       - name: Build fast-runtime binary
         run: |
           cargo build --locked --release -p polkadot --features fast-runtime
@@ -391,3 +399,7 @@ jobs:
 
       - name: Run XCM integration tests
         run: cargo test -p xcm-integration-tests --release
+
+      - name: sccache stats
+        if: always()
+        run: sccache --show-stats 2>/dev/null || true
