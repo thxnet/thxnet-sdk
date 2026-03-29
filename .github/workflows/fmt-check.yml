@@ -15,7 +15,7 @@ concurrency:
 jobs:
   fmt:
     name: Rustfmt
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, hetzner-thxnet]
     container:
       image: paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
     steps:
@@ -26,7 +26,7 @@ jobs:
 
   taplo:
     name: TOML format
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, hetzner-thxnet]
     container:
       image: paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
     steps:
@@ -37,7 +37,7 @@ jobs:
 
   zepter:
     name: Feature propagation
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, hetzner-thxnet]
     container:
       image: paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
     steps:

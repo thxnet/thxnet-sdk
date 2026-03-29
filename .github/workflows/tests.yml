@@ -24,7 +24,7 @@ concurrency:
 jobs:
   nextest:
     name: Cargo nextest
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, hetzner-thxnet]
     container:
       image: docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
     env:
@@ -55,7 +55,7 @@ jobs:
 
   bench-check:
     name: Benchmark compilation check
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, hetzner-thxnet]
     container:
       image: docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
     env:
