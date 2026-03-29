@@ -8,14 +8,17 @@ on:
       - "**/*.toml"
   merge_group:
 
+permissions: {}
+
 concurrency:
-  group: links-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
   check-links:
     name: Lychee link checker
     runs-on: [self-hosted, hetzner-thxnet]
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5
 

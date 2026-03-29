@@ -9,14 +9,17 @@ on:
     types: [opened, synchronize, reopened, ready_for_review]
   merge_group:
 
+permissions: {}
+
 concurrency:
-  group: checks-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
   fmt:
     name: Rustfmt
     runs-on: [self-hosted, hetzner-thxnet]
+    timeout-minutes: 10
     container:
       image: paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
       volumes:
@@ -31,6 +34,7 @@ jobs:
   taplo:
     name: TOML format
     runs-on: [self-hosted, hetzner-thxnet]
+    timeout-minutes: 10
     container:
       image: paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
       volumes:
@@ -45,6 +49,7 @@ jobs:
   zepter:
     name: Feature propagation
     runs-on: [self-hosted, hetzner-thxnet]
+    timeout-minutes: 10
     container:
       image: paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
       volumes:

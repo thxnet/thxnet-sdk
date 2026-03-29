@@ -13,6 +13,8 @@ on:
 env:
   SUBWASM_VERSION: 0.20.0
 
+permissions: {}
+
 defaults:
   run:
     shell: bash
@@ -36,6 +38,8 @@ jobs:
             runtime_dir: thxnet/leafchain/runtime/general
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
 
       - name: Build runtime with srtool
         id: srtool_build

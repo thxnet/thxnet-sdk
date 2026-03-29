@@ -12,6 +12,8 @@ on:
         description: "Version tag for Docker images (e.g. 1.3.0)"
         required: true
 
+permissions: {}
+
 env:
   REGISTRY: ghcr.io
   ROOTCHAIN_IMAGE: ${{ github.repository_owner }}/rootchain
@@ -26,7 +28,7 @@ env:
   AWS_SECRET_ACCESS_KEY: ${{ secrets.MINIO_SECRET_ACCESS_KEY }}
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -35,6 +37,7 @@ jobs:
   build-binaries:
     name: Build binaries
     runs-on: [self-hosted, hetzner-thxnet]
+    timeout-minutes: 90
     container:
       image: docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
       volumes:
@@ -80,6 +83,7 @@ jobs:
     name: Build rootchain image
     needs: build-binaries
     runs-on: [self-hosted, hetzner-thxnet]
+    timeout-minutes: 15
     permissions:
       contents: read
       packages: write
@@ -132,6 +136,7 @@ jobs:
     name: Build leafchain image
     needs: build-binaries
     runs-on: [self-hosted, hetzner-thxnet]
+    timeout-minutes: 15
     permissions:
       contents: read
       packages: write
@@ -239,6 +244,7 @@ jobs:
 
   build-upgrade-extras:
     name: Build try-runtime & fast-runtime
+    timeout-minutes: 90
     if: >-
       startsWith(github.head_ref || github.ref_name, 'upgrade/') ||
       startsWith(github.head_ref || github.ref_name, 'experiment/') ||
@@ -300,6 +306,7 @@ jobs:
     name: try-runtime migration tests
     needs: build-upgrade-extras
     runs-on: [self-hosted, hetzner-thxnet]
+    timeout-minutes: 30
     steps:
       - name: Download try-runtime WASMs
         uses: actions/download-artifact@v5
@@ -375,6 +382,7 @@ jobs:
 
   xcm-tests:
     name: XCM integration tests
+    timeout-minutes: 60
     if: >-
       startsWith(github.head_ref || github.ref_name, 'upgrade/') ||
       startsWith(github.head_ref || github.ref_name, 'experiment/') ||

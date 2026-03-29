@@ -18,14 +18,17 @@ env:
   AWS_ACCESS_KEY_ID: ${{ secrets.MINIO_ACCESS_KEY_ID }}
   AWS_SECRET_ACCESS_KEY: ${{ secrets.MINIO_SECRET_ACCESS_KEY }}
 
+permissions: {}
+
 concurrency:
-  group: tests-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
   nextest:
     name: Cargo nextest
     runs-on: [self-hosted, hetzner-thxnet]
+    timeout-minutes: 120
     container:
       image: docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
       volumes:
@@ -55,6 +58,7 @@ jobs:
   bench-check:
     name: Benchmark compilation check
     runs-on: [self-hosted, hetzner-thxnet]
+    timeout-minutes: 60
     container:
       image: docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
       volumes:
