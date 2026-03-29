@@ -14,12 +14,8 @@ env:
   GIT_CONFIG_VALUE_0: "*"
   RUSTC_WRAPPER: sccache
   CARGO_INCREMENTAL: "0"
-  SCCACHE_BUCKET: sccache
-  SCCACHE_ENDPOINT: ${{ secrets.SCCACHE_ENDPOINT }}
-  SCCACHE_S3_USE_SSL: "true"
-  SCCACHE_REGION: auto
-  AWS_ACCESS_KEY_ID: ${{ secrets.MINIO_ACCESS_KEY_ID }}
-  AWS_SECRET_ACCESS_KEY: ${{ secrets.MINIO_SECRET_ACCESS_KEY }}
+  SCCACHE_DIR: /home/runner/.cache/sccache
+  SCCACHE_CACHE_SIZE: 300G
 
 permissions: {}
 
@@ -38,6 +34,7 @@ jobs:
         - /home/runner/.cache/cargo-registry:/usr/local/cargo/registry
         - /home/runner/.cache/cargo-git:/usr/local/cargo/git
         - /home/runner/.cache/sccache-bin/sccache:/usr/local/bin/sccache
+        - /home/runner/.cache/sccache:/home/runner/.cache/sccache
     env:
       RUSTFLAGS: "-C debug-assertions"
       WASM_BUILD_RUSTFLAGS: "-C debug-assertions"
@@ -68,6 +65,7 @@ jobs:
         - /home/runner/.cache/cargo-registry:/usr/local/cargo/registry
         - /home/runner/.cache/cargo-git:/usr/local/cargo/git
         - /home/runner/.cache/sccache-bin/sccache:/usr/local/bin/sccache
+        - /home/runner/.cache/sccache:/home/runner/.cache/sccache
     env:
       SKIP_WASM_BUILD: 1
       WASM_BUILD_WORKSPACE_HINT: ${{ github.workspace }}
