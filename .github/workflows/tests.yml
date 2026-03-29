@@ -6,6 +6,7 @@ on:
       - main
       - master
   pull_request:
+  merge_group:
 
 env:
   RUSTC_WRAPPER: sccache
@@ -27,6 +28,10 @@ jobs:
     runs-on: [self-hosted, hetzner-thxnet]
     container:
       image: docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
+      volumes:
+        - /home/runner/.cache/cargo-registry:/usr/local/cargo/registry
+        - /home/runner/.cache/cargo-git:/usr/local/cargo/git
+        - /home/runner/.cache/sccache-bin/sccache:/usr/local/bin/sccache
     env:
       RUSTFLAGS: "-C debug-assertions"
       WASM_BUILD_RUSTFLAGS: "-C debug-assertions"
@@ -34,12 +39,6 @@ jobs:
       RUST_BACKTRACE: full
     steps:
       - uses: actions/checkout@v5
-
-      - name: Install sccache
-        run: |
-          SCCACHE_VERSION=v0.14.0
-          curl -fsSL "https://github.com/mozilla/sccache/releases/download/${SCCACHE_VERSION}/sccache-${SCCACHE_VERSION}-x86_64-unknown-linux-musl.tar.gz" \
-            | tar xz --strip-components=1 -C /usr/local/bin/ "sccache-${SCCACHE_VERSION}-x86_64-unknown-linux-musl/sccache"
 
       - name: Run tests
         run: |
@@ -58,17 +57,15 @@ jobs:
     runs-on: [self-hosted, hetzner-thxnet]
     container:
       image: docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
+      volumes:
+        - /home/runner/.cache/cargo-registry:/usr/local/cargo/registry
+        - /home/runner/.cache/cargo-git:/usr/local/cargo/git
+        - /home/runner/.cache/sccache-bin/sccache:/usr/local/bin/sccache
     env:
       SKIP_WASM_BUILD: 1
       WASM_BUILD_WORKSPACE_HINT: ${{ github.workspace }}
     steps:
       - uses: actions/checkout@v5
-
-      - name: Install sccache
-        run: |
-          SCCACHE_VERSION=v0.14.0
-          curl -fsSL "https://github.com/mozilla/sccache/releases/download/${SCCACHE_VERSION}/sccache-${SCCACHE_VERSION}-x86_64-unknown-linux-musl.tar.gz" \
-            | tar xz --strip-components=1 -C /usr/local/bin/ "sccache-${SCCACHE_VERSION}-x86_64-unknown-linux-musl/sccache"
 
       - name: Check benchmarks compile
         run: |
