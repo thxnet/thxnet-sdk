@@ -17,7 +17,7 @@ concurrency:
 jobs:
   check-links:
     name: Lychee link checker
-    runs-on: [self-hosted, hetzner-thxnet]
+    runs-on: [self-hosted, hetzner-thxnet-light]
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5
