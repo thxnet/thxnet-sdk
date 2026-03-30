@@ -170,6 +170,17 @@ log_step()    { echo -e "\n${CYAN}═══════════════�
                 echo -e "${CYAN}  $*${NC}"; \
                 echo -e "${CYAN}════════════════════════════════════════════════════════════${NC}\n"; }
 
+# get_dir_size_bytes <dir>
+#   Portable directory size in bytes (approximate).
+#   Uses `du -sk` (POSIX) instead of GNU-only `du -sb` so this works on macOS.
+#   Precision is 1 KiB — sufficient for the size-guard threshold comparisons.
+get_dir_size_bytes() {
+    local dir="$1"
+    local size_kb
+    size_kb=$(du -sk "${dir}" 2>/dev/null | cut -f1 || echo 0)
+    echo $(( size_kb * 1024 ))
+}
+
 check_try_runtime_cli() {
     if ! command -v "${TRY_RUNTIME_BIN}" &>/dev/null; then
         log_error "try-runtime CLI not found at '${TRY_RUNTIME_BIN}'"
@@ -184,6 +195,51 @@ check_try_runtime_cli() {
     local version
     version="$("${TRY_RUNTIME_BIN}" --version 2>/dev/null || echo 'unknown')"
     log_success "try-runtime CLI found: ${version}"
+}
+
+# snapshot_supported
+#   Detects whether the installed try-runtime CLI supports --create-snapshot.
+#   try-runtime v0.10.1 does NOT have this flag; future versions may add it.
+#   Checks the `on-runtime-upgrade live` subcommand help where the flag lives.
+#   Returns 0 (true) if supported, 1 (false) otherwise.
+snapshot_supported() {
+    # Guard: if the binary isn't even available, snapshots are not supported
+    command -v "${TRY_RUNTIME_BIN}" &>/dev/null || return 1
+    # --help may exit non-zero on some CLIs, so tolerate that
+    "${TRY_RUNTIME_BIN}" on-runtime-upgrade live --help 2>&1 \
+        | grep -q -- '--create-snapshot'
+}
+
+# ── Snapshot capability detection ───────────────────────────────────────────
+# Detected once at script load time. Exported so CI (Turn 4) can consume it.
+# When try-runtime is upgraded to support --create-snapshot, this flips
+# automatically — no code changes needed.
+if snapshot_supported; then
+    SNAPSHOT_SUPPORTED=true
+else
+    SNAPSHOT_SUPPORTED=false
+fi
+export SNAPSHOT_SUPPORTED
+
+# Common try-runtime on-runtime-upgrade flags used by every invocation:
+#   --disable-mbm-checks:        multi-block migration checks are not applicable
+#                                 (we use single-block OnRuntimeUpgrade exclusively)
+#   --disable-spec-version-check: required because we jump multiple spec versions
+#                                 (e.g., 94_000_001 -> 112_000_001)
+#   --checks=all:                run pre_upgrade() and post_upgrade() hooks for
+#                                every migration (matches upstream polkadot-sdk CI)
+readonly COMMON_MIGRATION_FLAGS=(
+    --disable-mbm-checks
+    --disable-spec-version-check
+    --checks=all
+)
+
+# echo_migration_flags
+#   Prints COMMON_MIGRATION_FLAGS in the dry-run echo format (indented, backslash-
+#   continued). Used by DRY_RUN blocks so echo output stays in sync with the
+#   actual flags passed to try-runtime.
+echo_migration_flags() {
+    printf '    %s \\\n' "${COMMON_MIGRATION_FLAGS[@]}"
 }
 
 check_wasm_exists() {
@@ -300,18 +356,9 @@ run_try_runtime() {
 
     export RUST_LOG="${RUST_LOG:-remote-ext=debug,runtime=debug}"
 
-    # --disable-spec-version-check: required because we're jumping multiple
-    #   spec versions (e.g., 94_000_001 -> 112_000_001) and the CLI would
-    #   refuse the upgrade otherwise.
-    #
-    # --disable-mbm-checks: multi-block migration checks are not applicable
-    #   since we use single-block OnRuntimeUpgrade migrations exclusively.
-    #
+    # Common migration flags: see COMMON_MIGRATION_FLAGS definition at top.
     # --blocktime: used to calculate weight-to-time mapping for migration
     #   weight limit checks.
-    #
-    # --checks=all: run pre_upgrade() and post_upgrade() hooks for every
-    #   migration — matches upstream polkadot-sdk CI behavior.
 
     local start_time exit_code
     start_time=$(date +%s)
@@ -322,9 +369,7 @@ run_try_runtime() {
         echo "    --runtime ${wasm_path} \\"
         echo "    on-runtime-upgrade \\"
         echo "    --blocktime ${blocktime} \\"
-        echo "    --disable-mbm-checks \\"
-        echo "    --disable-spec-version-check \\"
-        echo "    --checks=all \\"
+        echo_migration_flags
         echo "    live --uri ${uri}"
         exit_code=0
     else
@@ -332,9 +377,7 @@ run_try_runtime() {
             --runtime "${wasm_path}" \
             on-runtime-upgrade \
             --blocktime "${blocktime}" \
-            --disable-mbm-checks \
-            --disable-spec-version-check \
-            --checks=all \
+            "${COMMON_MIGRATION_FLAGS[@]}" \
             live --uri "${uri}" \
             && exit_code=0 || exit_code=$?
     fi
@@ -477,6 +520,19 @@ test_idempotency() {
     local blocktime="$4"
 
     log_step "Idempotency test: ${name}"
+
+    # ── Capability gate ─────────────────────────────────────────────────
+    # Idempotency testing requires --create-snapshot to capture pre-migration
+    # state (Step 1). Without it, the entire test is non-functional.
+    # When try-runtime is upgraded, SNAPSHOT_SUPPORTED will flip to true
+    # automatically and this code path will activate without changes.
+    if [[ "${SNAPSHOT_SUPPORTED}" != "true" ]]; then
+        log_warn "Skipping idempotency test: --create-snapshot not supported by installed try-runtime"
+        log_info "  SNAPSHOT_SUPPORTED=${SNAPSHOT_SUPPORTED}"
+        log_info "  Upgrade try-runtime CLI to a version that supports --create-snapshot"
+        return 0
+    fi
+
     log_info "WASM:      ${wasm_path}"
     log_info "Endpoint:  ${uri}"
     log_info "Blocktime: ${blocktime}ms"
@@ -526,9 +582,7 @@ test_idempotency() {
         echo "    --runtime ${wasm_path} \\"
         echo "    on-runtime-upgrade \\"
         echo "    --blocktime ${blocktime} \\"
-        echo "    --disable-mbm-checks \\"
-        echo "    --disable-spec-version-check \\"
-        echo "    --checks=all \\"
+        echo_migration_flags
         echo "    live --uri ${uri} --create-snapshot ${snapshot_file}"
         exit_code_snapshot=0
     else
@@ -536,9 +590,7 @@ test_idempotency() {
             --runtime "${wasm_path}" \
             on-runtime-upgrade \
             --blocktime "${blocktime}" \
-            --disable-mbm-checks \
-            --disable-spec-version-check \
-            --checks=all \
+            "${COMMON_MIGRATION_FLAGS[@]}" \
             live --uri "${uri}" --create-snapshot "${snapshot_file}" \
             && exit_code_snapshot=0 || exit_code_snapshot=$?
     fi
@@ -578,9 +630,7 @@ test_idempotency() {
         echo "    --runtime ${wasm_path} \\"
         echo "    on-runtime-upgrade \\"
         echo "    --blocktime ${blocktime} \\"
-        echo "    --disable-mbm-checks \\"
-        echo "    --disable-spec-version-check \\"
-        echo "    --checks=all \\"
+        echo_migration_flags
         echo "    snap --path ${snapshot_file}"
         echo "  2>&1 | tee ${log_pass1}"
         touch "${log_pass1}"
@@ -591,9 +641,7 @@ test_idempotency() {
             --runtime "${wasm_path}" \
             on-runtime-upgrade \
             --blocktime "${blocktime}" \
-            --disable-mbm-checks \
-            --disable-spec-version-check \
-            --checks=all \
+            "${COMMON_MIGRATION_FLAGS[@]}" \
             snap --path "${snapshot_file}" \
             2>&1 | tee "${log_pass1}"
         exit_code_pass1=${PIPESTATUS[0]}
@@ -619,9 +667,7 @@ test_idempotency() {
         echo "    --runtime ${wasm_path} \\"
         echo "    on-runtime-upgrade \\"
         echo "    --blocktime ${blocktime} \\"
-        echo "    --disable-mbm-checks \\"
-        echo "    --disable-spec-version-check \\"
-        echo "    --checks=all \\"
+        echo_migration_flags
         echo "    snap --path ${snapshot_file}"
         echo "  2>&1 | tee ${log_pass2}"
         touch "${log_pass2}"
@@ -632,9 +678,7 @@ test_idempotency() {
             --runtime "${wasm_path}" \
             on-runtime-upgrade \
             --blocktime "${blocktime}" \
-            --disable-mbm-checks \
-            --disable-spec-version-check \
-            --checks=all \
+            "${COMMON_MIGRATION_FLAGS[@]}" \
             snap --path "${snapshot_file}" \
             2>&1 | tee "${log_pass2}"
         exit_code_pass2=${PIPESTATUS[0]}
@@ -790,6 +834,18 @@ create_snapshot() {
     local output_path="${5:-}"
 
     log_step "Create snapshot: ${name}"
+
+    # ── Capability gate ─────────────────────────────────────────────────
+    # --create-snapshot is not supported in try-runtime v0.10.1.
+    # When try-runtime is upgraded, SNAPSHOT_SUPPORTED will flip to true
+    # automatically and this code path will activate without changes.
+    if [[ "${SNAPSHOT_SUPPORTED}" != "true" ]]; then
+        log_warn "Skipping snapshot creation: --create-snapshot not supported by installed try-runtime"
+        log_info "  SNAPSHOT_SUPPORTED=${SNAPSHOT_SUPPORTED}"
+        log_info "  Upgrade try-runtime CLI to a version that supports --create-snapshot"
+        return 0
+    fi
+
     log_info "WASM:      ${wasm_path}"
     log_info "Endpoint:  ${uri}"
     log_info "Blocktime: ${blocktime}ms"
@@ -816,9 +872,10 @@ create_snapshot() {
 
     export RUST_LOG="${RUST_LOG:-remote-ext=debug,runtime=debug}"
 
-    # --checks=all: try-runtime v0.10.1 does not support --checks=none.
-    #   The migration runs as a side effect; the snapshot captures PRE-migration
-    #   state fetched from the live chain.
+    # Common migration flags: see COMMON_MIGRATION_FLAGS definition at top.
+    # NOTE: --checks=all is required because try-runtime v0.10.1 does not
+    #   support --checks=none. The migration runs as a side effect; the
+    #   snapshot captures PRE-migration state fetched from the live chain.
     #
     # --at (optional): pins the snapshot to a specific block hash for
     #   reproducibility across CI runs.
@@ -832,9 +889,7 @@ create_snapshot() {
         echo "    --runtime ${wasm_path} \\"
         echo "    on-runtime-upgrade \\"
         echo "    --blocktime ${blocktime} \\"
-        echo "    --disable-mbm-checks \\"
-        echo "    --disable-spec-version-check \\"
-        echo "    --checks=all \\"
+        echo_migration_flags
         echo "    live --uri ${uri} ${at_flag[*]+"${at_flag[*]}"} --create-snapshot ${output_path}"
         touch "${output_path}"
         exit_code=0
@@ -843,9 +898,7 @@ create_snapshot() {
             --runtime "${wasm_path}" \
             on-runtime-upgrade \
             --blocktime "${blocktime}" \
-            --disable-mbm-checks \
-            --disable-spec-version-check \
-            --checks=all \
+            "${COMMON_MIGRATION_FLAGS[@]}" \
             live --uri "${uri}" "${at_flag[@]+"${at_flag[@]}"}" --create-snapshot "${output_path}" \
             && exit_code=0 || exit_code=$?
     fi
@@ -1032,7 +1085,7 @@ clean_snapshots() {
     # is insufficient (e.g., many fresh snapshots from parallel runs).
     local max_size_bytes=$(( SNAPSHOT_MAX_SIZE_GB * 1073741824 ))  # GB → bytes
     local dir_size_bytes
-    dir_size_bytes=$(du -sb "${SNAPSHOT_DIR}" 2>/dev/null | cut -f1 || echo 0)
+    dir_size_bytes=$(get_dir_size_bytes "${SNAPSHOT_DIR}")
     local dir_size_gb=$(( dir_size_bytes / 1073741824 ))
 
     if [[ "${dir_size_bytes}" -gt "${max_size_bytes}" ]]; then
@@ -1054,7 +1107,7 @@ clean_snapshots() {
         fi
 
         local after_size_bytes
-        after_size_bytes=$(du -sb "${SNAPSHOT_DIR}" 2>/dev/null | cut -f1 || echo 0)
+        after_size_bytes=$(get_dir_size_bytes "${SNAPSHOT_DIR}")
         local after_size_gb=$(( after_size_bytes / 1073741824 ))
         log_info "Snapshot directory now: ${after_size_gb}GB"
     else
@@ -1148,11 +1201,7 @@ test_from_snapshot() {
     export RUST_LOG="${RUST_LOG:-remote-ext=debug,runtime=debug}"
 
     # Run migration against the snapshot file (offline — no network required).
-    # Uses the same flags as run_try_runtime:
-    #   --disable-spec-version-check: jumping multiple spec versions
-    #   --disable-mbm-checks: single-block migrations only
-    #   --checks=all: run pre_upgrade() and post_upgrade() hooks
-    #
+    # Common migration flags: see COMMON_MIGRATION_FLAGS definition at top.
     # Non-pipe command → use && exit_code=0 || exit_code=$? pattern.
 
     local start_time exit_code
@@ -1164,9 +1213,7 @@ test_from_snapshot() {
         echo "    --runtime ${wasm_path} \\"
         echo "    on-runtime-upgrade \\"
         echo "    --blocktime ${blocktime} \\"
-        echo "    --disable-mbm-checks \\"
-        echo "    --disable-spec-version-check \\"
-        echo "    --checks=all \\"
+        echo_migration_flags
         echo "    snap --path ${snapshot_path}"
         exit_code=0
     else
@@ -1174,9 +1221,7 @@ test_from_snapshot() {
             --runtime "${wasm_path}" \
             on-runtime-upgrade \
             --blocktime "${blocktime}" \
-            --disable-mbm-checks \
-            --disable-spec-version-check \
-            --checks=all \
+            "${COMMON_MIGRATION_FLAGS[@]}" \
             snap --path "${snapshot_path}" \
             && exit_code=0 || exit_code=$?
     fi
@@ -1354,9 +1399,7 @@ run_try_runtime_captured() {
         echo "    --runtime ${wasm_path} \\"
         echo "    on-runtime-upgrade \\"
         echo "    --blocktime ${blocktime} \\"
-        echo "    --disable-mbm-checks \\"
-        echo "    --disable-spec-version-check \\"
-        echo "    --checks=all \\"
+        echo_migration_flags
         echo "    ${source_args[*]}"
         echo "  2>&1 | tee ${logfile}"
         touch "${logfile}"
@@ -1367,9 +1410,7 @@ run_try_runtime_captured() {
             --runtime "${wasm_path}" \
             on-runtime-upgrade \
             --blocktime "${blocktime}" \
-            --disable-mbm-checks \
-            --disable-spec-version-check \
-            --checks=all \
+            "${COMMON_MIGRATION_FLAGS[@]}" \
             "${source_args[@]}" \
             2>&1 | tee "${logfile}"
         exit_code=${PIPESTATUS[0]}
@@ -2190,6 +2231,7 @@ verify_ci_readiness() {
     printf "  ║  %-25s  %-38s ║\n" "DRY_RUN" "${DRY_RUN}"
     printf "  ║  %-25s  %-38s ║\n" "KEEP_SNAPSHOTS" "${KEEP_SNAPSHOTS}"
     printf "  ║  %-25s  %-38s ║\n" "SNAPSHOT_MAX_AGE_HOURS" "${SNAPSHOT_MAX_AGE_HOURS}"
+    printf "  ║  %-25s  %-38s ║\n" "SNAPSHOT_SUPPORTED" "${SNAPSHOT_SUPPORTED}"
     printf "  ║  %-25s  %-38s ║\n" "SNAPSHOT_MAX_SIZE_GB" "${SNAPSHOT_MAX_SIZE_GB}GB"
     printf "  ║  %-25s  %-38s ║\n" "BLOCKTIME_ROOT" "${BLOCKTIME_ROOT}ms"
     printf "  ║  %-25s  %-38s ║\n" "BLOCKTIME_LEAF" "${BLOCKTIME_LEAF}ms"
@@ -2375,6 +2417,11 @@ show_version() {
     echo "  - Snapshot management (create, list, clean, auto-discover)"
     echo "  - Pallet-level analysis (single, batch, matrix)"
     echo "  - CI integration (DRY_RUN, verify-ci-readiness)"
+    echo ""
+    echo "Snapshot support: SNAPSHOT_SUPPORTED=${SNAPSHOT_SUPPORTED}"
+    if [[ "${SNAPSHOT_SUPPORTED}" != "true" ]]; then
+        echo "  (--create-snapshot not available in installed try-runtime)"
+    fi
 }
 
 # ─── Help ────────────────────────────────────────────────────────────────────
@@ -2460,6 +2507,27 @@ show_help() {
     print_verification_checklist
 }
 
+# ─── Snapshot Capability Gate (dispatch helper) ─────────────────────────────
+# Called at dispatch entry points for snapshot-dependent commands.
+# Provides immediate, clear feedback before any setup or function-level work.
+# The function-level gates in create_snapshot() and test_idempotency() are
+# defense-in-depth — this gate is the user-facing early exit.
+
+# require_snapshot_support <command-name>
+#   Returns 0 if --create-snapshot is available (caller should proceed).
+#   Returns 1 if not available (caller should skip). Prints a warning.
+#   Safe under set -e when used as: require_snapshot_support "cmd" || return 0
+require_snapshot_support() {
+    local cmd_name="$1"
+    if [[ "${SNAPSHOT_SUPPORTED}" != "true" ]]; then
+        log_warn "Command '${cmd_name}' requires --create-snapshot support"
+        log_warn "The installed try-runtime CLI does not support --create-snapshot"
+        log_info "  SNAPSHOT_SUPPORTED=${SNAPSHOT_SUPPORTED}"
+        log_info "  Upgrade try-runtime CLI to enable this command"
+        return 1
+    fi
+}
+
 # ─── Main ────────────────────────────────────────────────────────────────────
 
 main() {
@@ -2477,18 +2545,46 @@ main() {
         test-leafchain-avatect)   test_leafchain_avatect ;;
         test-all-testnet)         test_all_testnet ;;
         test-all)                 test_all ;;
-        test-idempotency-rootchain-testnet)   test_idempotency_rootchain_testnet ;;
-        test-idempotency-rootchain-mainnet)   test_idempotency_rootchain_mainnet ;;
-        test-idempotency-leafchain-sand)      test_idempotency_leafchain_sand ;;
-        test-idempotency-leafchain-avatect)   test_idempotency_leafchain_avatect ;;
-        test-idempotency-all-testnet)         test_idempotency_all_testnet ;;
-        test-idempotency-all)                 test_idempotency_all ;;
-        create-snapshot-rootchain-testnet)    create_snapshot_rootchain_testnet ;;
-        create-snapshot-rootchain-mainnet)    create_snapshot_rootchain_mainnet ;;
-        create-snapshot-leafchain-sand)       create_snapshot_leafchain_sand ;;
-        create-snapshot-leafchain-avatect)    create_snapshot_leafchain_avatect ;;
-        create-snapshot-all-testnet)          create_snapshot_all_testnet ;;
-        create-snapshot-all)                  create_snapshot_all ;;
+        # ── Snapshot-dependent commands (gated by SNAPSHOT_SUPPORTED) ──────
+        # These commands require --create-snapshot, which is not available in
+        # try-runtime v0.10.1. The dispatch-level gate exits early with a clear
+        # warning; the function-level gates are defense-in-depth.
+        test-idempotency-rootchain-testnet)
+            require_snapshot_support "${cmd}" || exit 0
+            test_idempotency_rootchain_testnet ;;
+        test-idempotency-rootchain-mainnet)
+            require_snapshot_support "${cmd}" || exit 0
+            test_idempotency_rootchain_mainnet ;;
+        test-idempotency-leafchain-sand)
+            require_snapshot_support "${cmd}" || exit 0
+            test_idempotency_leafchain_sand ;;
+        test-idempotency-leafchain-avatect)
+            require_snapshot_support "${cmd}" || exit 0
+            test_idempotency_leafchain_avatect ;;
+        test-idempotency-all-testnet)
+            require_snapshot_support "${cmd}" || exit 0
+            test_idempotency_all_testnet ;;
+        test-idempotency-all)
+            require_snapshot_support "${cmd}" || exit 0
+            test_idempotency_all ;;
+        create-snapshot-rootchain-testnet)
+            require_snapshot_support "${cmd}" || exit 0
+            create_snapshot_rootchain_testnet ;;
+        create-snapshot-rootchain-mainnet)
+            require_snapshot_support "${cmd}" || exit 0
+            create_snapshot_rootchain_mainnet ;;
+        create-snapshot-leafchain-sand)
+            require_snapshot_support "${cmd}" || exit 0
+            create_snapshot_leafchain_sand ;;
+        create-snapshot-leafchain-avatect)
+            require_snapshot_support "${cmd}" || exit 0
+            create_snapshot_leafchain_avatect ;;
+        create-snapshot-all-testnet)
+            require_snapshot_support "${cmd}" || exit 0
+            create_snapshot_all_testnet ;;
+        create-snapshot-all)
+            require_snapshot_support "${cmd}" || exit 0
+            create_snapshot_all ;;
         list-snapshots)                       list_snapshots ;;
         clean-snapshots)                      clean_snapshots ;;
         test-from-snapshot-rootchain-testnet)  test_from_snapshot_rootchain_testnet "${2:-}" ;;

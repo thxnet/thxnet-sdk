@@ -433,25 +433,39 @@ jobs:
       # ── Basic migration tests (live or from snapshot) ──────────────────
       # On the persistent Hetzner runner, snapshots survive between runs.
       # If fresh snapshots exist (<24h), use the fast path; otherwise fetch live state.
+      - name: Detect snapshot capability
+        id: snapshot-cap
+        run: |
+          chmod +x scripts/try-runtime-test.sh
+          # Same logic as snapshot_supported() in scripts/try-runtime-test.sh:
+          # check whether try-runtime's `on-runtime-upgrade live` subcommand
+          # advertises the --create-snapshot flag.
+          TRY_RUNTIME_BIN="${TRY_RUNTIME_BIN:-try-runtime}"
+          if command -v "${TRY_RUNTIME_BIN}" &>/dev/null \
+             && "${TRY_RUNTIME_BIN}" on-runtime-upgrade live --help 2>&1 | grep -q -- '--create-snapshot'; then
+            echo "supported=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "supported=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Check for existing snapshots
         id: snapshots
         run: |
-          chmod +x scripts/try-runtime-test.sh
-          FRESH_COUNT=$(find "${SNAPSHOT_DIR}" -name '*.snap' -mmin -$((SNAPSHOT_MAX_AGE_HOURS * 60)) 2>/dev/null | wc -l || echo 0)
+          FRESH_COUNT=$( { find "${SNAPSHOT_DIR}" -name '*.snap' -mmin -$((SNAPSHOT_MAX_AGE_HOURS * 60)) 2>/dev/null || true; } | wc -l | tr -d ' ' )
           echo "fresh_count=${FRESH_COUNT}" >> "$GITHUB_OUTPUT"
           scripts/try-runtime-test.sh list-snapshots || true
 
       - name: "Migration test (fast path: from snapshots)"
-        if: steps.snapshots.outputs.fresh_count != '0'
+        if: steps.snapshot-cap.outputs.supported == 'true' && steps.snapshots.outputs.fresh_count != '0'
         run: scripts/try-runtime-test.sh test-from-snapshot-all
 
       - name: "Migration test (full: live state)"
-        if: steps.snapshots.outputs.fresh_count == '0'
+        if: steps.snapshot-cap.outputs.supported != 'true' || steps.snapshots.outputs.fresh_count == '0'
         run: scripts/try-runtime-test.sh test-all
 
       # Create/refresh snapshots for next run (after tests pass)
       - name: Create snapshots for caching
-        if: steps.snapshots.outputs.fresh_count == '0'
+        if: steps.snapshot-cap.outputs.supported == 'true' && steps.snapshots.outputs.fresh_count == '0'
         run: scripts/try-runtime-test.sh create-snapshot-all
 
       # ── Idempotency tests ─────────────────────────────────────────────
@@ -593,7 +607,7 @@ jobs:
             fi
 
             # Count root-owned files (UID 0) to decide if chown is needed
-            root_count=$(find "${dir}" -user 0 2>/dev/null | head -100 | wc -l || echo 0)
+            root_count=$( { find "${dir}" -user 0 2>/dev/null || true; } | head -100 | wc -l | tr -d ' ' )
             if [[ "${root_count}" -eq 0 ]]; then
               echo "  [ok]   ${dir} — no root-owned files"
               continue
