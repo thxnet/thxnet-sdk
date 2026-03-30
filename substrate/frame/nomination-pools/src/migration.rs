@@ -229,7 +229,21 @@ pub(crate) mod v7 {
 			let migrated = BondedPools::<T>::count();
 			// The TVL should be the sum of all the funds that are actively staked and in the
 			// unbonding process of the account of each pool.
-			let tvl: BalanceOf<T> = helpers::calculate_tvl_by_total_stake::<T>();
+			//
+			// NOTE: We use the v7-local `BondedPools` storage alias (which decodes
+			// `V7BondedPoolInner`) instead of `helpers::calculate_tvl_by_total_stake` because
+			// in a multi-version jump (e.g. v4→v8) the current runtime's `BondedPoolInner`
+			// includes `Commission.claim_permission` (added in v8) which does not yet exist in
+			// storage at this point. Using the top-level type would silently fail to decode
+			// every entry, yielding TVL = 0.
+			let tvl: BalanceOf<T> = BondedPools::<T>::iter()
+				.map(|(id, inner)| {
+					let bonded_account =
+						V7BondedPool { id, inner }.bonded_account();
+					T::Staking::total_stake(&bonded_account).unwrap_or_default()
+				})
+				.reduce(|acc, balance| acc + balance)
+				.unwrap_or_default();
 
 			TotalValueLocked::<T>::set(tvl);
 
@@ -249,18 +263,66 @@ pub(crate) mod v7 {
 
 		#[cfg(feature = "try-runtime")]
 		fn post_upgrade(_data: Vec<u8>) -> Result<(), TryRuntimeError> {
-			// check that the `TotalValueLocked` written is actually the sum of `total_stake` of the
-			// `BondedPools``
-			let tvl: BalanceOf<T> = helpers::calculate_tvl_by_total_stake::<T>();
+			// NOTE: We must use the v7-local `BondedPools` storage alias here. In a
+			// multi-version jump (e.g. v4→v8), storage has been migrated to v7 layout at this
+			// point, but the current runtime's `BondedPoolInner` is v8 (with
+			// `Commission.claim_permission`). Using the top-level type would silently fail to
+			// decode every entry.
+
+			// check that the `TotalValueLocked` written is actually the sum of `total_stake`
+			// of the `BondedPools`
+			let tvl: BalanceOf<T> = BondedPools::<T>::iter()
+				.map(|(id, inner)| {
+					let bonded_account =
+						V7BondedPool { id, inner }.bonded_account();
+					T::Staking::total_stake(&bonded_account).unwrap_or_default()
+				})
+				.reduce(|acc, balance| acc + balance)
+				.unwrap_or_default();
 			ensure!(
 				TotalValueLocked::<T>::get() == tvl,
 				"TVL written is not equal to `Staking::total_stake` of all `BondedPools`."
 			);
 
-			// calculate the sum of `total_balance` of all `PoolMember` as the upper bound for the
-			// `TotalValueLocked`.
+			// calculate the sum of `total_balance` of all `PoolMember` as the upper bound
+			// for the `TotalValueLocked`.
+			//
+			// NOTE: `PoolMember::total_balance()` internally calls
+			// `BondedPool::<T>::get()` which uses the current v8 type and would panic on
+			// unwrap. We inline the logic here using the v7 storage alias instead.
 			let total_balance_members: BalanceOf<T> = PoolMembers::<T>::iter()
-				.map(|(_, member)| member.total_balance())
+				.map(|(_, member)| {
+					// active balance: replicate BondedPool::points_to_balance using v7 type
+					let active_balance = match BondedPools::<T>::get(member.pool_id) {
+						Some(pool_inner) => {
+							let bonded_account = Pallet::<T>::create_bonded_account(member.pool_id);
+							let active_stake =
+								T::Staking::active_stake(&bonded_account).unwrap_or(Zero::zero());
+							Pallet::<T>::point_to_balance(
+								active_stake,
+								pool_inner.points,
+								member.points, // active_points() == member.points
+							)
+						},
+						None => Zero::zero(),
+					};
+
+					// unbonding balance from SubPools (layout unchanged between v7/v8)
+					let sub_pools = match SubPoolsStorage::<T>::get(member.pool_id) {
+						Some(sub_pools) => sub_pools,
+						None => return active_balance,
+					};
+					let unbonding_balance = member.unbonding_eras.iter().fold(
+						BalanceOf::<T>::zero(),
+						|acc, (era, unlocked_points)| {
+							let era_pool =
+								sub_pools.with_era.get(era).unwrap_or(&sub_pools.no_era);
+							acc + era_pool.point_to_balance(*unlocked_points)
+						},
+					);
+
+					active_balance + unbonding_balance
+				})
 				.reduce(|acc, total_balance| acc + total_balance)
 				.unwrap_or_default();
 
