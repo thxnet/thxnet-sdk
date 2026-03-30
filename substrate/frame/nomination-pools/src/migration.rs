@@ -238,8 +238,7 @@ pub(crate) mod v7 {
 			// every entry, yielding TVL = 0.
 			let tvl: BalanceOf<T> = BondedPools::<T>::iter()
 				.map(|(id, inner)| {
-					let bonded_account =
-						V7BondedPool { id, inner }.bonded_account();
+					let bonded_account = V7BondedPool { id, inner }.bonded_account();
 					T::Staking::total_stake(&bonded_account).unwrap_or_default()
 				})
 				.reduce(|acc, balance| acc + balance)
@@ -273,8 +272,7 @@ pub(crate) mod v7 {
 			// of the `BondedPools`
 			let tvl: BalanceOf<T> = BondedPools::<T>::iter()
 				.map(|(id, inner)| {
-					let bonded_account =
-						V7BondedPool { id, inner }.bonded_account();
+					let bonded_account = V7BondedPool { id, inner }.bonded_account();
 					T::Staking::total_stake(&bonded_account).unwrap_or_default()
 				})
 				.reduce(|acc, balance| acc + balance)
@@ -315,8 +313,7 @@ pub(crate) mod v7 {
 					let unbonding_balance = member.unbonding_eras.iter().fold(
 						BalanceOf::<T>::zero(),
 						|acc, (era, unlocked_points)| {
-							let era_pool =
-								sub_pools.with_era.get(era).unwrap_or(&sub_pools.no_era);
+							let era_pool = sub_pools.with_era.get(era).unwrap_or(&sub_pools.no_era);
 							acc + era_pool.point_to_balance(*unlocked_points)
 						},
 					);

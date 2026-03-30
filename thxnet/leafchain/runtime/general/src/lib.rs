@@ -242,6 +242,8 @@ pub type Migrations = (
 	pallet_collator_selection::migration::v2::MigrationToV2<Runtime>,
 	// DmpQueue: force-stamp StorageVersion to v2 (all chains have 0 DmpQueue data)
 	InitDmpQueueStorageVersion,
+	// Identity: username/authority feature migration (v0→v1)
+	pallet_identity::migration::versioned::V0ToV1<Runtime, { u64::MAX }>,
 	// ── Custom pallet migrations ──
 	// RWA: stamp on-chain version to v5 (noop if already ≥5, no data change)
 	pallet_rwa::migrations::v5::MigrateToV5<Runtime>,
