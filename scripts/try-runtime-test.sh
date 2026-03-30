@@ -75,6 +75,7 @@
 #   KEEP_SNAPSHOTS         Set to 1 to preserve snapshot files after tests
 #   SNAPSHOT_AT_BLOCK      Pin snapshot to a specific block hash (reproducible)
 #   SNAPSHOT_MAX_AGE_HOURS Max age (hours) for clean-snapshots (default: 24)
+#   SNAPSHOT_MAX_SIZE_GB  Max total snapshot dir size in GB; force-deletes all if exceeded (default: 50)
 #   MATRIX_CHAINS          Space-separated chain list for test-pallet-matrix
 #   MATRIX_PALLETS         Space-separated pallet list for test-pallet-matrix (default: KNOWN_PALLETS)
 #
@@ -128,6 +129,11 @@ SNAPSHOT_AT_BLOCK="${SNAPSHOT_AT_BLOCK:-}"
 
 # Maximum age (hours) for snapshot cleanup (default: 24)
 SNAPSHOT_MAX_AGE_HOURS="${SNAPSHOT_MAX_AGE_HOURS:-24}"
+
+# Maximum total size (GB) for snapshot directory (default: 50)
+# After age-based cleanup, if the directory still exceeds this size,
+# ALL snapshots are force-deleted as a safety valve against disk fill.
+SNAPSHOT_MAX_SIZE_GB="${SNAPSHOT_MAX_SIZE_GB:-50}"
 
 # Critical pallets to test with test-pallet-critical
 # These are the pallets with known migration gaps in v1.12.0.
@@ -1019,6 +1025,40 @@ clean_snapshots() {
         log_info "No snapshots older than ${SNAPSHOT_MAX_AGE_HOURS}h found"
     else
         log_success "Removed ${count} snapshot(s)"
+    fi
+
+    # ── Size guard: force-delete all snapshots if directory exceeds threshold ──
+    # This is a safety valve against disk accumulation when age-based cleanup
+    # is insufficient (e.g., many fresh snapshots from parallel runs).
+    local max_size_bytes=$(( SNAPSHOT_MAX_SIZE_GB * 1073741824 ))  # GB → bytes
+    local dir_size_bytes
+    dir_size_bytes=$(du -sb "${SNAPSHOT_DIR}" 2>/dev/null | cut -f1 || echo 0)
+    local dir_size_gb=$(( dir_size_bytes / 1073741824 ))
+
+    if [[ "${dir_size_bytes}" -gt "${max_size_bytes}" ]]; then
+        log_warn "Snapshot directory is ${dir_size_gb}GB (exceeds ${SNAPSHOT_MAX_SIZE_GB}GB threshold)"
+        log_warn "Force-deleting ALL snapshots to reclaim disk space"
+
+        local force_count=0
+        while IFS= read -r -d '' snap_file; do
+            local snap_name snap_size
+            snap_name=$(basename "${snap_file}")
+            snap_size=$(du -h "${snap_file}" | cut -f1)
+            log_info "Force-removing: ${snap_name} (${snap_size})"
+            rm -f "${snap_file}"
+            force_count=$((force_count + 1))
+        done < <(find "${SNAPSHOT_DIR}" -maxdepth 1 -name '*.snap' -print0)
+
+        if [[ ${force_count} -gt 0 ]]; then
+            log_warn "Force-removed ${force_count} snapshot(s) due to size threshold"
+        fi
+
+        local after_size_bytes
+        after_size_bytes=$(du -sb "${SNAPSHOT_DIR}" 2>/dev/null | cut -f1 || echo 0)
+        local after_size_gb=$(( after_size_bytes / 1073741824 ))
+        log_info "Snapshot directory now: ${after_size_gb}GB"
+    else
+        log_info "Snapshot directory size: ${dir_size_gb}GB (threshold: ${SNAPSHOT_MAX_SIZE_GB}GB)"
     fi
 }
 
@@ -2104,7 +2144,7 @@ verify_ci_readiness() {
         test-from-snapshot-all-testnet test-from-snapshot-all
         test-pallet test-pallet-critical test-pallet-matrix
         check checklist verify-ci-readiness
-        help
+        version help
     )
 
     local dispatch_ok=1
@@ -2150,6 +2190,7 @@ verify_ci_readiness() {
     printf "  ║  %-25s  %-38s ║\n" "DRY_RUN" "${DRY_RUN}"
     printf "  ║  %-25s  %-38s ║\n" "KEEP_SNAPSHOTS" "${KEEP_SNAPSHOTS}"
     printf "  ║  %-25s  %-38s ║\n" "SNAPSHOT_MAX_AGE_HOURS" "${SNAPSHOT_MAX_AGE_HOURS}"
+    printf "  ║  %-25s  %-38s ║\n" "SNAPSHOT_MAX_SIZE_GB" "${SNAPSHOT_MAX_SIZE_GB}GB"
     printf "  ║  %-25s  %-38s ║\n" "BLOCKTIME_ROOT" "${BLOCKTIME_ROOT}ms"
     printf "  ║  %-25s  %-38s ║\n" "BLOCKTIME_LEAF" "${BLOCKTIME_LEAF}ms"
     printf "  ╟──────────────────────────────────────────────────────────────────╢\n"
@@ -2411,6 +2452,7 @@ show_help() {
     echo "  KEEP_SNAPSHOTS             Set to 1 to preserve snapshot files after tests"
     echo "  SNAPSHOT_AT_BLOCK          Pin snapshot to a specific block hash (reproducible)"
     echo "  SNAPSHOT_MAX_AGE_HOURS     Max snapshot age in hours for clean-snapshots (default: 24)"
+    echo "  SNAPSHOT_MAX_SIZE_GB       Max total snapshot dir size in GB; force-deletes all if exceeded (default: 50)"
     echo "  MATRIX_CHAINS              Space-separated chain list for test-pallet-matrix"
     echo "  MATRIX_PALLETS             Space-separated pallet list for test-pallet-matrix"
     echo "                             (default: KNOWN_PALLETS)"

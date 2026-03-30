@@ -31,13 +31,91 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # ─── Pre-flight ──────────────────────────────────────────────────────
+
+  preflight:
+    name: Runner pre-flight checks
+    runs-on: [self-hosted, hetzner-thxnet]
+    timeout-minutes: 2
+    steps:
+      - name: Verify runner environment
+        run: |
+          set +e
+          errors=0
+          warnings=0
+
+          echo "::group::sccache binary"
+          if [ -x /home/runner/.cache/sccache-bin/sccache ]; then
+            echo "OK: sccache found"
+            /home/runner/.cache/sccache-bin/sccache --version
+          else
+            echo "::error::sccache binary missing or not executable at /home/runner/.cache/sccache-bin/sccache"
+            errors=$((errors + 1))
+          fi
+          echo "::endgroup::"
+
+          echo "::group::try-runtime binary"
+          if [ -x /home/runner/.cargo/bin/try-runtime ]; then
+            echo "OK: try-runtime found"
+            /home/runner/.cargo/bin/try-runtime --version 2>/dev/null || true
+          else
+            echo "::warning::try-runtime binary missing at /home/runner/.cargo/bin/try-runtime (only needed for upgrade branches)"
+          fi
+          echo "::endgroup::"
+
+          echo "::group::Docker daemon"
+          if docker info >/dev/null 2>&1; then
+            echo "OK: Docker is running"
+          else
+            echo "::error::Docker daemon is not running or not accessible"
+            errors=$((errors + 1))
+          fi
+          echo "::endgroup::"
+
+          echo "::group::Bash version"
+          bash_major="${BASH_VERSINFO[0]}"
+          echo "Bash version: ${BASH_VERSION}"
+          if [ "${bash_major}" -ge 4 ] 2>/dev/null; then
+            echo "OK: Bash >= 4 (associative array support)"
+          else
+            echo "::error::Bash >= 4 required for try-runtime-test.sh (found: ${BASH_VERSION})"
+            errors=$((errors + 1))
+          fi
+          echo "::endgroup::"
+
+          echo "::group::Disk space"
+          avail_gb=$(df --output=avail / 2>/dev/null | tail -1 | awk '{printf "%.0f", $1/1048576}')
+          echo "Available disk space: ${avail_gb}GB"
+          if [ "${avail_gb}" -lt 100 ] 2>/dev/null; then
+            echo "::warning::Low disk space: ${avail_gb}GB available (< 100GB threshold)"
+            warnings=$((warnings + 1))
+          else
+            echo "OK: ${avail_gb}GB available"
+          fi
+          echo "::endgroup::"
+
+          echo ""
+          echo "=== Pre-flight Summary ==="
+          echo "Errors:   ${errors}"
+          echo "Warnings: ${warnings}"
+          if [ "${errors}" -gt 0 ]; then
+            echo "::error::Pre-flight failed with ${errors} error(s). Fix runner environment before CI can proceed."
+            exit 1
+          fi
+          echo "Pre-flight passed."
+
   # ─── Build ────────────────────────────────────────────────────────────
 
   build-binaries:
     name: Build binaries
+    needs: preflight
     runs-on: [self-hosted, hetzner-thxnet]
     timeout-minutes: 90
     container:
+      # Container bundles stable 1.77.0 + nightly-2024-04-10.
+      # The workspace rust-toolchain.toml selects nightly-2024-04-10, which
+      # the container provides.  The "1.77.0" in the tag is the co-installed
+      # stable toolchain — the nightly date suffix is what matters for us.
       image: docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
       volumes:
         - /home/runner/.cache/cargo-registry:/usr/local/cargo/registry
@@ -81,7 +159,7 @@ jobs:
 
   rootchain-image:
     name: Build rootchain image
-    needs: build-binaries
+    needs: [preflight, build-binaries]
     runs-on: [self-hosted, hetzner-thxnet]
     timeout-minutes: 15
     permissions:
@@ -134,7 +212,7 @@ jobs:
 
   leafchain-image:
     name: Build leafchain image
-    needs: build-binaries
+    needs: [preflight, build-binaries]
     runs-on: [self-hosted, hetzner-thxnet]
     timeout-minutes: 15
     permissions:
@@ -187,7 +265,7 @@ jobs:
 
   wasm-oci:
     name: Push WASM runtimes to ghcr.io
-    needs: build-binaries
+    needs: [preflight, build-binaries]
     if: github.event_name != 'pull_request'
     runs-on: [self-hosted, hetzner-thxnet]
     permissions:
@@ -218,9 +296,11 @@ jobs:
 
       - name: Install oras
         run: |
+          mkdir -p "$HOME/.local/bin"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           ORAS_VERSION=1.2.2
           curl -fsSL "https://github.com/oras-project/oras/releases/download/v${ORAS_VERSION}/oras_${ORAS_VERSION}_linux_amd64.tar.gz" \
-            | tar xz -C /usr/local/bin/ oras
+            | tar xz -C "$HOME/.local/bin/" oras
 
       - name: Determine tag
         id: tag
@@ -244,6 +324,7 @@ jobs:
 
   build-upgrade-extras:
     name: Build try-runtime & fast-runtime
+    needs: preflight
     timeout-minutes: 90
     if: >-
       startsWith(github.head_ref || github.ref_name, 'upgrade/') ||
@@ -305,7 +386,7 @@ jobs:
 
   try-runtime:
     name: try-runtime migration tests
-    needs: build-upgrade-extras
+    needs: [preflight, build-upgrade-extras]
     runs-on: [self-hosted, hetzner-thxnet]
     permissions:
       contents: read
@@ -313,6 +394,7 @@ jobs:
     env:
       SNAPSHOT_DIR: /home/runner/.cache/try-runtime-snapshots
       SNAPSHOT_MAX_AGE_HOURS: "24"
+      SNAPSHOT_MAX_SIZE_GB: "50"
       KEEP_SNAPSHOTS: "1"
       SKIP_BUILD: "1"
       TRY_RUNTIME_BIN: /home/runner/.cargo/bin/try-runtime
@@ -411,17 +493,19 @@ jobs:
 
   zombienet:
     name: Zombienet smoke test
-    needs: [build-upgrade-extras, build-binaries]
+    needs: [preflight, build-upgrade-extras, build-binaries]
     runs-on: [self-hosted, hetzner-thxnet]
     steps:
       - uses: actions/checkout@v5
 
       - name: Install zombienet
         run: |
+          mkdir -p "$HOME/.local/bin"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           ZOMBIENET_VERSION=v1.3.138
           curl -L "https://github.com/paritytech/zombienet/releases/download/${ZOMBIENET_VERSION}/zombienet-linux-x64" \
-            -o /usr/local/bin/zombienet
-          chmod +x /usr/local/bin/zombienet
+            -o "$HOME/.local/bin/zombienet"
+          chmod +x "$HOME/.local/bin/zombienet"
 
       - name: Download fast-runtime binaries
         uses: actions/download-artifact@v5
@@ -449,6 +533,7 @@ jobs:
 
   xcm-tests:
     name: XCM integration tests
+    needs: preflight
     timeout-minutes: 60
     if: >-
       startsWith(github.head_ref || github.ref_name, 'upgrade/') ||
@@ -473,3 +558,54 @@ jobs:
       - name: sccache stats
         if: always()
         run: sccache --show-stats 2>/dev/null || true
+
+  # ─── Cache ownership cleanup ──────────────────────────────────────────
+  # Container jobs run as root (UID 0) inside the container, writing
+  # root-owned files to mounted host volumes. Bare-metal jobs run as the
+  # runner user (UID 1001) and cannot read/write those files. This job
+  # runs bare-metal AFTER all container jobs and fixes file ownership so
+  # caches remain usable across both execution modes.
+
+  cache-cleanup:
+    name: Fix cache file ownership
+    needs: [build-binaries, build-upgrade-extras, xcm-tests]
+    if: always()
+    runs-on: [self-hosted, hetzner-thxnet]
+    timeout-minutes: 5
+    steps:
+      - name: Fix ownership of shared cache directories
+        run: |
+          set -euo pipefail
+          TARGET_UID=$(id -u)
+          TARGET_GID=$(id -g)
+          echo "Fixing cache ownership to ${TARGET_UID}:${TARGET_GID}"
+
+          CACHE_DIRS=(
+            /home/runner/.cache/cargo-registry
+            /home/runner/.cache/cargo-git
+            /home/runner/.cache/sccache
+          )
+
+          for dir in "${CACHE_DIRS[@]}"; do
+            if [[ ! -d "${dir}" ]]; then
+              echo "  [skip] ${dir} does not exist"
+              continue
+            fi
+
+            # Count root-owned files (UID 0) to decide if chown is needed
+            root_count=$(find "${dir}" -user 0 2>/dev/null | head -100 | wc -l || echo 0)
+            if [[ "${root_count}" -eq 0 ]]; then
+              echo "  [ok]   ${dir} — no root-owned files"
+              continue
+            fi
+
+            echo "  [fix]  ${dir} — found root-owned files, fixing..."
+            if command -v sudo &>/dev/null; then
+              sudo chown -R "${TARGET_UID}:${TARGET_GID}" "${dir}"
+            else
+              # Fallback: fix only files we can access (best-effort)
+              find "${dir}" -user 0 -exec chown "${TARGET_UID}:${TARGET_GID}" {} + 2>/dev/null || true
+            fi
+            echo "         done"
+          done
+          echo "Cache ownership check complete."

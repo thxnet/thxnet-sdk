@@ -12,6 +12,9 @@ on:
 
 env:
   SUBWASM_VERSION: 0.20.0
+  GIT_CONFIG_COUNT: "1"
+  GIT_CONFIG_KEY_0: safe.directory
+  GIT_CONFIG_VALUE_0: "*"
 
 permissions: {}
 
@@ -23,6 +26,7 @@ jobs:
   srtool:
     name: Build runtime (${{ matrix.chain }})
     runs-on: [self-hosted, hetzner-thxnet]
+    timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
@@ -40,6 +44,14 @@ jobs:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
+
+      - name: Pre-flight — verify jq is available
+        run: |
+          if ! command -v jq &>/dev/null; then
+            echo "::error::jq is not installed on this runner"
+            exit 1
+          fi
+          jq --version
 
       - name: Build runtime with srtool
         id: srtool_build
@@ -60,10 +72,12 @@ jobs:
 
       - name: Install subwasm
         run: |
+          mkdir -p "$HOME/.local/bin"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           curl -L "https://github.com/chevdor/subwasm/releases/download/v${SUBWASM_VERSION}/subwasm_linux_amd64_v${SUBWASM_VERSION}.gz" \
-            | gunzip > /usr/local/bin/subwasm
-          chmod +x /usr/local/bin/subwasm
-          subwasm --version
+            | gunzip > "$HOME/.local/bin/subwasm"
+          chmod +x "$HOME/.local/bin/subwasm"
+          "$HOME/.local/bin/subwasm" --version
 
       - name: Show runtime information
         run: |
@@ -94,6 +108,7 @@ jobs:
     needs: srtool
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: [self-hosted, hetzner-thxnet]
+    timeout-minutes: 30
     permissions:
       contents: write
     steps:
