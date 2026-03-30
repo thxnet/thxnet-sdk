@@ -160,7 +160,7 @@ jobs:
   rootchain-image:
     name: Build rootchain image
     needs: [preflight, build-binaries]
-    runs-on: [self-hosted, hetzner-thxnet]
+    runs-on: [self-hosted, hetzner-thxnet-light]
     timeout-minutes: 15
     permissions:
       contents: read
@@ -213,7 +213,7 @@ jobs:
   leafchain-image:
     name: Build leafchain image
     needs: [preflight, build-binaries]
-    runs-on: [self-hosted, hetzner-thxnet]
+    runs-on: [self-hosted, hetzner-thxnet-light]
     timeout-minutes: 15
     permissions:
       contents: read
@@ -267,7 +267,7 @@ jobs:
     name: Push WASM runtimes to ghcr.io
     needs: [preflight, build-binaries]
     if: github.event_name != 'pull_request'
-    runs-on: [self-hosted, hetzner-thxnet]
+    runs-on: [self-hosted, hetzner-thxnet-light]
     permissions:
       contents: read
       packages: write
