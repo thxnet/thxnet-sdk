@@ -566,7 +566,7 @@ jobs:
       - name: Setup WASM paths
         run: |
           mkdir -p target/release/wbuild/general-runtime
-          cp wasm/general_runtime.compact.compressed.wasm \
+          cp wasm/target/release/wbuild/general-runtime/general_runtime.compact.compressed.wasm \
             target/release/wbuild/general-runtime/
           ls -la target/release/wbuild/general-runtime/
 
