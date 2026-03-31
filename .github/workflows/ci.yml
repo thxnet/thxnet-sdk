@@ -571,18 +571,13 @@ jobs:
             target/release/wbuild/general-runtime/ \;
           ls -la target/release/wbuild/general-runtime/general_runtime.compact.compressed.wasm
 
-      - name: Install bun and dependencies
+      - name: Run Chopsticks upgrade test (leafchain-sand)
         run: |
           curl -fsSL https://bun.sh/install | bash
-          echo "$HOME/.bun/bin" >> "$GITHUB_PATH"
-        env:
-          BUN_INSTALL: ${{ runner.temp }}/bun
-
-      - name: Install JS dependencies
-        run: bun install @polkadot/api @acala-network/chopsticks
-
-      - name: Run Chopsticks upgrade test (leafchain-sand)
-        run: ./scripts/chopsticks/chopsticks-test.sh leafchain-sand
+          export PATH="$HOME/.bun/bin:$PATH"
+          bun --version
+          bun install @polkadot/api @acala-network/chopsticks
+          ./scripts/chopsticks/chopsticks-test.sh leafchain-sand
         timeout-minutes: 10
 
   xcm-tests:
