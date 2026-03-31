@@ -40,6 +40,7 @@ use impls::CreditToBlockAuthor;
 
 use runtime_parachains::{
 	assigner_coretime as parachains_assigner_coretime, configuration as parachains_configuration,
+	coretime,
 	disputes as parachains_disputes,
 	disputes::slashing as parachains_slashing,
 	dmp as parachains_dmp, hrmp as parachains_hrmp, inclusion as parachains_inclusion,
@@ -102,7 +103,7 @@ use sp_staking::SessionIndex;
 #[cfg(any(feature = "std", test))]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
-use xcm::latest::Junction;
+use xcm::latest::{InteriorLocation, Junction};
 
 pub use frame_system::Call as SystemCall;
 pub use pallet_balances::Call as BalancesCall;
@@ -155,7 +156,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("thxnet"),
 	impl_name: create_runtime_str!("thxnet"),
 	authoring_version: 0,
-	spec_version: 125_120_003,
+	spec_version: 125_120_004,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 25,
@@ -1319,11 +1320,40 @@ impl parachains_on_demand::Config for Runtime {
 
 impl parachains_assigner_coretime::Config for Runtime {}
 
+parameter_types! {
+	pub const BrokerId: u32 = 1005;
+	pub const BrokerPalletId: PalletId = PalletId(*b"py/broke");
+	pub MaxXcmTransactWeight: Weight = Weight::from_parts(200_000_000, 20_000);
+}
+
+pub struct BrokerPot;
+impl Get<InteriorLocation> for BrokerPot {
+	fn get() -> InteriorLocation {
+		Junction::AccountId32 { network: None, id: BrokerPalletId::get().into_account_truncating() }
+			.into()
+	}
+}
+
+impl coretime::Config for Runtime {
+	type RuntimeOrigin = RuntimeOrigin;
+	type RuntimeEvent = RuntimeEvent;
+	type BrokerId = BrokerId;
+	type BrokerPotLocation = BrokerPot;
+	type WeightInfo = coretime::TestWeightInfo;
+	type SendXcm = xcm_config::XcmRouter;
+	type AssetTransactor = xcm_config::LocalAssetTransactor;
+	type AccountToLocation = xcm_builder::AliasesIntoAccountId32<
+		xcm_config::ThisNetwork,
+		AccountId,
+	>;
+	type MaxXcmTransactWeight = MaxXcmTransactWeight;
+}
+
 impl parachains_initializer::Config for Runtime {
 	type Randomness = pallet_babe::RandomnessFromOneEpochAgo<Runtime>;
 	type ForceOrigin = EnsureRoot<AccountId>;
 	type WeightInfo = weights::runtime_parachains_initializer::WeightInfo<Runtime>;
-	type CoretimeOnNewSession = ();
+	type CoretimeOnNewSession = Coretime;
 }
 
 impl parachains_disputes::Config for Runtime {
@@ -1915,6 +1945,8 @@ mod runtime {
 	pub type Auctions = auctions;
 	#[runtime::pallet_index(73)]
 	pub type Crowdloan = crowdloan;
+	#[runtime::pallet_index(74)]
+	pub type Coretime = coretime;
 
 	// Pallet for sending XCM.
 	#[runtime::pallet_index(99)]
