@@ -565,10 +565,11 @@ jobs:
 
       - name: Setup WASM paths
         run: |
+          echo "Artifact contents:" && find wasm -type f
           mkdir -p target/release/wbuild/general-runtime
-          cp wasm/target/release/wbuild/general-runtime/general_runtime.compact.compressed.wasm \
-            target/release/wbuild/general-runtime/
-          ls -la target/release/wbuild/general-runtime/
+          find wasm -name "general_runtime.compact.compressed.wasm" -exec cp {} \
+            target/release/wbuild/general-runtime/ \;
+          ls -la target/release/wbuild/general-runtime/general_runtime.compact.compressed.wasm
 
       - name: Install bun
         uses: oven-sh/setup-bun@v2
