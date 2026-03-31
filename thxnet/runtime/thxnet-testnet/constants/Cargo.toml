@@ -18,6 +18,7 @@ sp-core = { path = "../../../../substrate/primitives/core", default-features = f
 
 [features]
 default = ["std"]
+fast-runtime = []
 std = [
 	"frame-support/std",
 	"primitives/std",

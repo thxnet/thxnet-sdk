@@ -2,6 +2,7 @@
 .cargo-remote.toml
 .direnv/
 .DS_Store
+chopsticks-db/
 .env*
 .idea
 .local

@@ -545,6 +545,41 @@ jobs:
           zombienet -p native -f test scripts/zombienet-smoke.zndsl
         timeout-minutes: 15
 
+  chopsticks:
+    name: Chopsticks upgrade test
+    needs: [preflight, build-binaries]
+    runs-on: [self-hosted, hetzner-thxnet]
+    timeout-minutes: 15
+    if: >-
+      startsWith(github.head_ref || github.ref_name, 'upgrade/') ||
+      startsWith(github.head_ref || github.ref_name, 'experiment/') ||
+      startsWith(github.head_ref || github.ref_name, 'feat/endgame')
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Download WASM runtimes
+        uses: actions/download-artifact@v5
+        with:
+          name: wasm-runtimes
+          path: wasm
+
+      - name: Setup WASM paths
+        run: |
+          mkdir -p target/release/wbuild/general-runtime
+          cp wasm/general_runtime.compact.compressed.wasm \
+            target/release/wbuild/general-runtime/
+          ls -la target/release/wbuild/general-runtime/
+
+      - name: Install bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: bun install @polkadot/api @acala-network/chopsticks
+
+      - name: Run Chopsticks upgrade test (leafchain-sand)
+        run: ./scripts/chopsticks/chopsticks-test.sh leafchain-sand
+        timeout-minutes: 10
+
   xcm-tests:
     name: XCM integration tests
     needs: preflight
