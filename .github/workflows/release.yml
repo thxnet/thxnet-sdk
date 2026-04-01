@@ -49,9 +49,6 @@ jobs:
         if: always()
         run: sccache --show-stats
 
-      - name: Install subwasm
-        run: cargo install --git https://github.com/chevdor/subwasm --tag v0.20.0 --locked
-
       - name: Prepare release artifacts
         run: |
           mkdir -p release-artifacts
@@ -64,9 +61,7 @@ jobs:
             NAME="${rt%%:*}"
             WASM="${rt#*:}"
             echo "=== ${NAME} ==="
-            subwasm info "${WASM}"
-            subwasm --json info "${WASM}" > "release-artifacts/${NAME}-info.json"
-            subwasm --json meta "${WASM}" > "release-artifacts/${NAME}-metadata.json"
+            ls -la "${WASM}"
             sha256sum "${WASM}" | tee "release-artifacts/${NAME}-runtime.sha256"
             cp "${WASM}" "release-artifacts/${NAME}-runtime.compact.compressed.wasm"
           done
@@ -103,7 +98,5 @@ jobs:
           files: |
             runtimes/*.wasm
             runtimes/*.sha256
-            runtimes/*-info.json
-            runtimes/*-metadata.json
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
