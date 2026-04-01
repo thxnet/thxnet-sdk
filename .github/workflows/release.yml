@@ -55,9 +55,17 @@ jobs:
 
       - name: Fix workspace permissions for srtool
         run: |
-          # srtool Docker runs as UID 1000; host runner is UID 1001.
-          # Make workspace writable by any UID inside Docker volume mount.
+          # srtool Docker container runs as UID 1001 (builder), but host
+          # runner is UID 1000. Make workspace writable by any UID.
+          sudo rm -rf "${{ github.workspace }}/${{ matrix.runtime_dir }}/target"
           sudo chmod -R a+rwX "${{ github.workspace }}"
+
+      - name: Strip host-only linker flags for srtool
+        run: |
+          # .cargo/config.toml has -fuse-ld=lld for host CI builds, but the
+          # srtool Docker image's ld.lld wrapper causes spurious Permission
+          # Denied on bind-mounted volumes. Strip the flag for srtool builds.
+          sed -i 's/, "-C", "link-arg=-fuse-ld=lld"//' "${{ github.workspace }}/.cargo/config.toml"
 
       - name: Build runtime with srtool
         id: srtool_build
