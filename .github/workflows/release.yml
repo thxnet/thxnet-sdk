@@ -55,10 +55,10 @@ jobs:
       - name: Resolve srtool tag
         id: srtool_tag
         run: |
-          # srtool tags use stable rustc versions (e.g. 1.93.0), not our nightly channel.
-          # Fetch the latest supported version from the srtool repo.
-          RUSTC_VERSION=$(curl -sL https://raw.githubusercontent.com/paritytech/srtool/master/RUSTC_VERSION)
-          echo "Resolved srtool rustc: ${RUSTC_VERSION}"
+          # Pin to 1.77.0 — matches our nightly-2024-04-10 toolchain era.
+          # srtool:1.93.0 has wasm-opt-sys Permission Denied bug in Docker.
+          RUSTC_VERSION="1.77.0"
+          echo "Using srtool rustc: ${RUSTC_VERSION}"
           echo "tag=${RUSTC_VERSION}" >> "$GITHUB_OUTPUT"
           echo "image=${{ env.SRTOOL_IMAGE }}:${RUSTC_VERSION}" >> "$GITHUB_OUTPUT"
 
