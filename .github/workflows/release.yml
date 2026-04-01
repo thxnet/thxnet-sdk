@@ -12,10 +12,13 @@ on:
 
 env:
   SUBWASM_VERSION: 0.21.3
-  SRTOOL_IMAGE: paritytech/srtool
   GIT_CONFIG_COUNT: "1"
   GIT_CONFIG_KEY_0: safe.directory
   GIT_CONFIG_VALUE_0: "*"
+  RUSTC_WRAPPER: sccache
+  CARGO_INCREMENTAL: "0"
+  SCCACHE_DIR: /home/runner/.cache/sccache
+  SCCACHE_CACHE_SIZE: 300G
 
 permissions: {}
 
@@ -24,158 +27,89 @@ defaults:
     shell: bash
 
 jobs:
-  srtool:
-    name: Build runtime (${{ matrix.chain }})
+  build-runtimes:
+    name: Build runtime WASMs
     runs-on: [self-hosted, hetzner-thxnet]
-    timeout-minutes: 180
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - chain: thxnet
-            package: thxnet-runtime
-            runtime_dir: thxnet/runtime/thxnet
-          - chain: thxnet-testnet
-            package: thxnet-testnet-runtime
-            runtime_dir: thxnet/runtime/thxnet-testnet
-          - chain: thxnet-general
-            package: general-runtime
-            runtime_dir: thxnet/leafchain/runtime/general
+    timeout-minutes: 90
+    container:
+      image: docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
+      volumes:
+        - /home/runner/.cache/cargo-registry:/usr/local/cargo/registry
+        - /home/runner/.cache/cargo-git:/usr/local/cargo/git
+        - /home/runner/.cache/sccache-bin/sccache:/usr/local/bin/sccache
+        - /home/runner/.cache/sccache:/home/runner/.cache/sccache
+    env:
+      WASM_BUILD_WORKSPACE_HINT: ${{ github.workspace }}
     steps:
-      - name: Clean stale workspace (srtool Docker leaves root-owned files)
-        run: sudo rm -rf "${{ github.workspace }}" && mkdir -p "${{ github.workspace }}"
-
       - uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
 
-      - name: Pre-flight
-        run: jq --version
+      - name: Build all runtime WASMs
+        run: cargo build --locked --release -p polkadot -p thxnet-testnet-runtime -p thxnet-leafchain
 
-      - name: Resolve srtool tag
-        id: srtool_tag
-        run: |
-          # Pin to 1.77.0 — matches our nightly-2024-04-10 toolchain era.
-          # srtool:1.93.0 has wasm-opt-sys Permission Denied bug in Docker.
-          RUSTC_VERSION="1.77.0"
-          echo "Using srtool rustc: ${RUSTC_VERSION}"
-          echo "tag=${RUSTC_VERSION}" >> "$GITHUB_OUTPUT"
-          echo "image=${{ env.SRTOOL_IMAGE }}:${RUSTC_VERSION}" >> "$GITHUB_OUTPUT"
-
-      - name: Pull srtool image
-        run: docker pull ${{ steps.srtool_tag.outputs.image }}
-
-      - name: Strip host-only linker flags
-        run: |
-          # .cargo/config.toml has -fuse-ld=lld for host CI, but srtool
-          # container may not have lld. Strip it for deterministic build.
-          if [ -f .cargo/config.toml ]; then
-            sed -i '/-fuse-ld=lld/d' .cargo/config.toml
-          fi
-
-      - name: Make workspace writable for srtool container
-        run: sudo chmod -R a+rwX "${{ github.workspace }}"
-
-      - name: Build runtime with srtool
-        id: srtool_build
-        run: |
-          CMD="docker run -i --rm \
-            --security-opt no-new-privileges=false \
-            -e PACKAGE=${{ matrix.package }} \
-            -e RUNTIME_DIR=${{ matrix.runtime_dir }} \
-            -v ${{ github.workspace }}:/build \
-            ${{ steps.srtool_tag.outputs.image }} \
-            build --app --json -cM"
-
-          echo "::group::srtool build"
-          echo "Running: $CMD"
-
-          # Stream output, capture last line as JSON result
-          stdbuf -oL $CMD | {
-            while IFS= read -r line; do
-              echo "║ $line"
-              JSON="$line"
-            done
-            echo "json=$JSON" >> "$GITHUB_OUTPUT"
-          }
-          echo "::endgroup::"
-
-      - name: Parse srtool output
-        id: parse
-        run: |
-          echo '${{ steps.srtool_build.outputs.json }}' | jq . > ${{ matrix.chain }}-srtool-digest.json
-          cat ${{ matrix.chain }}-srtool-digest.json
-
-          WASM=$(echo '${{ steps.srtool_build.outputs.json }}' | jq -r .runtimes.compact.wasm)
-          WASM_COMPRESSED=$(echo '${{ steps.srtool_build.outputs.json }}' | jq -r .runtimes.compressed.wasm)
-
-          echo "wasm=$WASM" >> "$GITHUB_OUTPUT"
-          echo "wasm_compressed=$WASM_COMPRESSED" >> "$GITHUB_OUTPUT"
-
-          echo "Compact Runtime: $WASM"
-          echo "Compressed Runtime: $WASM_COMPRESSED"
-
-          cp "$WASM" ${{ matrix.chain }}-runtime.wasm
-          cp "$WASM_COMPRESSED" ${{ matrix.chain }}-runtime.compact.compressed.wasm
+      - name: sccache stats
+        if: always()
+        run: sccache --show-stats
 
       - name: Install subwasm
         run: |
           mkdir -p "$HOME/.local/bin"
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           curl -L "https://github.com/chevdor/subwasm/releases/download/v${SUBWASM_VERSION}/subwasm_linux_amd64_v${SUBWASM_VERSION}.gz" \
             | gunzip > "$HOME/.local/bin/subwasm"
           chmod +x "$HOME/.local/bin/subwasm"
           "$HOME/.local/bin/subwasm" --version
 
-      - name: Show runtime information
+      - name: Prepare release artifacts
+        id: prepare
         run: |
-          subwasm info ${{ steps.parse.outputs.wasm }}
-          subwasm info ${{ steps.parse.outputs.wasm_compressed }}
-          subwasm --json info ${{ steps.parse.outputs.wasm }} > ${{ matrix.chain }}-info.json
-          subwasm --json info ${{ steps.parse.outputs.wasm_compressed }} > ${{ matrix.chain }}-compressed-info.json
+          mkdir -p release-artifacts
 
-      - name: Extract the metadata
-        run: |
-          subwasm meta ${{ steps.parse.outputs.wasm }}
-          subwasm --json meta ${{ steps.parse.outputs.wasm }} > ${{ matrix.chain }}-metadata.json
+          for rt in \
+            "thxnet:target/release/wbuild/thxnet-runtime/thxnet_runtime.compact.compressed.wasm" \
+            "thxnet-testnet:target/release/wbuild/thxnet-testnet-runtime/thxnet_testnet_runtime.compact.compressed.wasm" \
+            "thxnet-general:target/release/wbuild/general-runtime/general_runtime.compact.compressed.wasm"
+          do
+            NAME="${rt%%:*}"
+            WASM="${rt#*:}"
 
-      - name: Upload runtime artifacts
+            echo "=== ${NAME} ==="
+            "$HOME/.local/bin/subwasm" info "${WASM}"
+            "$HOME/.local/bin/subwasm" --json info "${WASM}" > "release-artifacts/${NAME}-info.json"
+            "$HOME/.local/bin/subwasm" --json meta "${WASM}" > "release-artifacts/${NAME}-metadata.json"
+            cp "${WASM}" "release-artifacts/${NAME}-runtime.compact.compressed.wasm"
+          done
+
+          ls -la release-artifacts/
+
+      - name: Upload release artifacts
         uses: actions/upload-artifact@v5
         with:
-          name: ${{ matrix.chain }}-runtime
-          path: |
-            ${{ matrix.chain }}-runtime.wasm
-            ${{ matrix.chain }}-runtime.compact.compressed.wasm
-            ${{ matrix.chain }}-srtool-digest.json
-            ${{ matrix.chain }}-info.json
-            ${{ matrix.chain }}-compressed-info.json
-            ${{ matrix.chain }}-metadata.json
-
-      - name: Fix workspace ownership (cleanup for next matrix job)
-        if: always()
-        run: sudo chown -R "$(id -u):$(id -g)" "${{ github.workspace }}" || true
+          name: release-runtimes
+          retention-days: 7
+          path: release-artifacts/
 
   publish:
     name: Publish release
-    needs: srtool
+    needs: build-runtimes
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: [self-hosted, hetzner-thxnet]
-    timeout-minutes: 30
+    timeout-minutes: 15
     permissions:
       contents: write
     steps:
-      - name: Download all runtime artifacts
+      - name: Download release artifacts
         uses: actions/download-artifact@v5
         with:
+          name: release-runtimes
           path: runtimes/
 
-      - name: Publish WASM runtimes
+      - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           draft: false
           prerelease: false
           files: |
-            runtimes/**/*.wasm
-            runtimes/**/*-srtool-digest.json
+            runtimes/*.wasm
+            runtimes/*-info.json
+            runtimes/*-metadata.json
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
