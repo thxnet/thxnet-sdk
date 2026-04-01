@@ -22,7 +22,10 @@ defaults:
 jobs:
   srtool:
     name: Build runtime (${{ matrix.chain }})
-    runs-on: [self-hosted, hetzner-thxnet]
+    # srtool needs ephemeral runner — self-hosted has Docker no-new-privileges
+    # and persistent state that causes Permission Denied inside srtool container.
+    # Upstream polkadot-sdk also uses ubuntu-latest for srtool.
+    runs-on: ubuntu-latest
     timeout-minutes: 180
     strategy:
       fail-fast: false
@@ -38,34 +41,9 @@ jobs:
             package: general-runtime
             runtime_dir: thxnet/leafchain/runtime/general
     steps:
-      - name: Clean workspace (srtool leaves root-owned files)
-        run: sudo rm -rf "${{ github.workspace }}"/* || true
-
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-
-      - name: Pre-flight — verify jq is available
-        run: |
-          if ! command -v jq &>/dev/null; then
-            echo "::error::jq is not installed on this runner"
-            exit 1
-          fi
-          jq --version
-
-      - name: Fix workspace permissions for srtool
-        run: |
-          # srtool Docker container runs as UID 1001 (builder), but host
-          # runner is UID 1000. Make workspace writable by any UID.
-          sudo rm -rf "${{ github.workspace }}/${{ matrix.runtime_dir }}/target"
-          sudo chmod -R a+rwX "${{ github.workspace }}"
-
-      - name: Strip host-only linker flags for srtool
-        run: |
-          # .cargo/config.toml has -fuse-ld=lld for host CI builds, but the
-          # srtool Docker image's ld.lld wrapper causes spurious Permission
-          # Denied on bind-mounted volumes. Strip the flag for srtool builds.
-          sed -i 's/, "-C", "link-arg=-fuse-ld=lld"//' "${{ github.workspace }}/.cargo/config.toml"
 
       - name: Build runtime with srtool
         id: srtool_build
@@ -86,24 +64,21 @@ jobs:
 
       - name: Install subwasm
         run: |
-          mkdir -p "$HOME/.local/bin"
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-          curl -L "https://github.com/chevdor/subwasm/releases/download/v${SUBWASM_VERSION}/subwasm_linux_amd64_v${SUBWASM_VERSION}.gz" \
-            | gunzip > "$HOME/.local/bin/subwasm"
-          chmod +x "$HOME/.local/bin/subwasm"
-          "$HOME/.local/bin/subwasm" --version
+          wget -q https://github.com/chevdor/subwasm/releases/download/v${SUBWASM_VERSION}/subwasm_linux_amd64_v${SUBWASM_VERSION}.deb
+          sudo dpkg -i subwasm_linux_amd64_v${SUBWASM_VERSION}.deb
+          subwasm --version
 
       - name: Show runtime information
         run: |
           subwasm info ${{ steps.srtool_build.outputs.wasm }}
           subwasm info ${{ steps.srtool_build.outputs.wasm_compressed }}
-          subwasm info ${{ steps.srtool_build.outputs.wasm }} --json > ${{ matrix.chain }}-info.json
-          subwasm info ${{ steps.srtool_build.outputs.wasm_compressed }} --json > ${{ matrix.chain }}-compressed-info.json
+          subwasm --json info ${{ steps.srtool_build.outputs.wasm }} > ${{ matrix.chain }}-info.json
+          subwasm --json info ${{ steps.srtool_build.outputs.wasm_compressed }} > ${{ matrix.chain }}-compressed-info.json
 
       - name: Extract the metadata
         run: |
           subwasm meta ${{ steps.srtool_build.outputs.wasm }}
-          subwasm meta ${{ steps.srtool_build.outputs.wasm }} --json > ${{ matrix.chain }}-metadata.json
+          subwasm --json meta ${{ steps.srtool_build.outputs.wasm }} > ${{ matrix.chain }}-metadata.json
 
       - name: Upload runtime artifacts
         uses: actions/upload-artifact@v5
@@ -121,7 +96,7 @@ jobs:
     name: Publish release
     needs: srtool
     if: startsWith(github.ref, 'refs/tags/')
-    runs-on: [self-hosted, hetzner-thxnet]
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
       contents: write
