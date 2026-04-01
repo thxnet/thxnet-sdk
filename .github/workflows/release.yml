@@ -57,12 +57,14 @@ jobs:
           fi
           jq --version
 
-      - name: Fix workspace ownership for srtool
+      - name: Fix workspace permissions for srtool
         run: |
-          # Previous CI container jobs may leave root-owned files (E-51).
-          # srtool mounts the workspace into Docker — it needs write access.
+          # srtool Docker container runs as UID 1000 (builder), but host
+          # runner is UID 1001. Volume-mounted dirs must be writable by
+          # the container user. Fix: world-writable on workspace.
           sudo chown -R "$(id -u):$(id -g)" "${{ github.workspace }}" || true
-          # Remove any stale target dirs that would conflict with srtool's internal build
+          sudo chmod -R a+w "${{ github.workspace }}" || true
+          # Remove stale target dirs from previous CI container jobs (E-51)
           rm -rf "${{ github.workspace }}/${{ matrix.runtime_dir }}/target" || true
 
       - name: Build runtime with srtool
