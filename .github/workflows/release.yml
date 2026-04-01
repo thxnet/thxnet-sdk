@@ -12,6 +12,10 @@ on:
 
 env:
   SUBWASM_VERSION: 0.21.3
+  SRTOOL_IMAGE: paritytech/srtool
+  GIT_CONFIG_COUNT: "1"
+  GIT_CONFIG_KEY_0: safe.directory
+  GIT_CONFIG_VALUE_0: "*"
 
 permissions: {}
 
@@ -22,10 +26,7 @@ defaults:
 jobs:
   srtool:
     name: Build runtime (${{ matrix.chain }})
-    # srtool needs ephemeral runner — self-hosted has Docker no-new-privileges
-    # and persistent state that causes Permission Denied inside srtool container.
-    # Upstream polkadot-sdk also uses ubuntu-latest for srtool.
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, hetzner-thxnet]
     timeout-minutes: 180
     strategy:
       fail-fast: false
@@ -41,44 +42,100 @@ jobs:
             package: general-runtime
             runtime_dir: thxnet/leafchain/runtime/general
     steps:
+      - name: Clean stale workspace (srtool Docker leaves root-owned files)
+        run: sudo rm -rf "${{ github.workspace }}" && mkdir -p "${{ github.workspace }}"
+
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
+      - name: Pre-flight
+        run: jq --version
+
+      - name: Resolve srtool tag from rust-toolchain
+        id: srtool_tag
+        run: |
+          RUSTC_VERSION=$(grep -oP 'channel\s*=\s*"\K[^"]+' rust-toolchain.toml || echo "nightly-2024-04-10")
+          echo "tag=${RUSTC_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "image=${{ env.SRTOOL_IMAGE }}:${RUSTC_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Resolved srtool image: ${{ env.SRTOOL_IMAGE }}:${RUSTC_VERSION}"
+
+      - name: Pull srtool image
+        run: docker pull ${{ steps.srtool_tag.outputs.image }}
+
+      - name: Strip host-only linker flags
+        run: |
+          # .cargo/config.toml has -fuse-ld=lld for host CI, but srtool
+          # container may not have lld. Strip it for deterministic build.
+          if [ -f .cargo/config.toml ]; then
+            sed -i '/-fuse-ld=lld/d' .cargo/config.toml
+          fi
+
+      - name: Make workspace writable for srtool container
+        run: sudo chmod -R a+rwX "${{ github.workspace }}"
+
       - name: Build runtime with srtool
         id: srtool_build
-        uses: chevdor/srtool-actions@v0.9.2
-        with:
-          chain: ${{ matrix.chain }}
-          package: ${{ matrix.package }}
-          runtime_dir: ${{ matrix.runtime_dir }}
+        run: |
+          CMD="docker run -i --rm \
+            --security-opt no-new-privileges=false \
+            -e PACKAGE=${{ matrix.package }} \
+            -e RUNTIME_DIR=${{ matrix.runtime_dir }} \
+            -v ${{ github.workspace }}:/build \
+            ${{ steps.srtool_tag.outputs.image }} \
+            build --app --json -cM"
 
-      - name: Summary
+          echo "::group::srtool build"
+          echo "Running: $CMD"
+
+          # Stream output, capture last line as JSON result
+          stdbuf -oL $CMD | {
+            while IFS= read -r line; do
+              echo "║ $line"
+              JSON="$line"
+            done
+            echo "json=$JSON" >> "$GITHUB_OUTPUT"
+          }
+          echo "::endgroup::"
+
+      - name: Parse srtool output
+        id: parse
         run: |
           echo '${{ steps.srtool_build.outputs.json }}' | jq . > ${{ matrix.chain }}-srtool-digest.json
           cat ${{ matrix.chain }}-srtool-digest.json
-          echo "Compact Runtime: ${{ steps.srtool_build.outputs.wasm }}"
-          echo "Compressed Runtime: ${{ steps.srtool_build.outputs.wasm_compressed }}"
-          cp ${{ steps.srtool_build.outputs.wasm }} ${{ matrix.chain }}-runtime.wasm
-          cp ${{ steps.srtool_build.outputs.wasm_compressed }} ${{ matrix.chain }}-runtime.compact.compressed.wasm
+
+          WASM=$(echo '${{ steps.srtool_build.outputs.json }}' | jq -r .runtimes.compact.wasm)
+          WASM_COMPRESSED=$(echo '${{ steps.srtool_build.outputs.json }}' | jq -r .runtimes.compressed.wasm)
+
+          echo "wasm=$WASM" >> "$GITHUB_OUTPUT"
+          echo "wasm_compressed=$WASM_COMPRESSED" >> "$GITHUB_OUTPUT"
+
+          echo "Compact Runtime: $WASM"
+          echo "Compressed Runtime: $WASM_COMPRESSED"
+
+          cp "$WASM" ${{ matrix.chain }}-runtime.wasm
+          cp "$WASM_COMPRESSED" ${{ matrix.chain }}-runtime.compact.compressed.wasm
 
       - name: Install subwasm
         run: |
-          wget -q https://github.com/chevdor/subwasm/releases/download/v${SUBWASM_VERSION}/subwasm_linux_amd64_v${SUBWASM_VERSION}.deb
-          sudo dpkg -i subwasm_linux_amd64_v${SUBWASM_VERSION}.deb
-          subwasm --version
+          mkdir -p "$HOME/.local/bin"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          curl -L "https://github.com/chevdor/subwasm/releases/download/v${SUBWASM_VERSION}/subwasm_linux_amd64_v${SUBWASM_VERSION}.gz" \
+            | gunzip > "$HOME/.local/bin/subwasm"
+          chmod +x "$HOME/.local/bin/subwasm"
+          "$HOME/.local/bin/subwasm" --version
 
       - name: Show runtime information
         run: |
-          subwasm info ${{ steps.srtool_build.outputs.wasm }}
-          subwasm info ${{ steps.srtool_build.outputs.wasm_compressed }}
-          subwasm --json info ${{ steps.srtool_build.outputs.wasm }} > ${{ matrix.chain }}-info.json
-          subwasm --json info ${{ steps.srtool_build.outputs.wasm_compressed }} > ${{ matrix.chain }}-compressed-info.json
+          subwasm info ${{ steps.parse.outputs.wasm }}
+          subwasm info ${{ steps.parse.outputs.wasm_compressed }}
+          subwasm --json info ${{ steps.parse.outputs.wasm }} > ${{ matrix.chain }}-info.json
+          subwasm --json info ${{ steps.parse.outputs.wasm_compressed }} > ${{ matrix.chain }}-compressed-info.json
 
       - name: Extract the metadata
         run: |
-          subwasm meta ${{ steps.srtool_build.outputs.wasm }}
-          subwasm --json meta ${{ steps.srtool_build.outputs.wasm }} > ${{ matrix.chain }}-metadata.json
+          subwasm meta ${{ steps.parse.outputs.wasm }}
+          subwasm --json meta ${{ steps.parse.outputs.wasm }} > ${{ matrix.chain }}-metadata.json
 
       - name: Upload runtime artifacts
         uses: actions/upload-artifact@v5
@@ -92,11 +149,15 @@ jobs:
             ${{ matrix.chain }}-compressed-info.json
             ${{ matrix.chain }}-metadata.json
 
+      - name: Fix workspace ownership (cleanup for next matrix job)
+        if: always()
+        run: sudo chown -R "$(id -u):$(id -g)" "${{ github.workspace }}" || true
+
   publish:
     name: Publish release
     needs: srtool
     if: startsWith(github.ref, 'refs/tags/')
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, hetzner-thxnet]
     timeout-minutes: 30
     permissions:
       contents: write
