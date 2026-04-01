@@ -11,10 +11,14 @@ on:
         required: true
 
 env:
-  SUBWASM_VERSION: 0.20.0
+  SUBWASM_VERSION: 0.21.3
   GIT_CONFIG_COUNT: "1"
   GIT_CONFIG_KEY_0: safe.directory
   GIT_CONFIG_VALUE_0: "*"
+  RUSTC_WRAPPER: sccache
+  CARGO_INCREMENTAL: "0"
+  SCCACHE_DIR: /home/runner/.cache/sccache
+  SCCACHE_CACHE_SIZE: 300G
 
 permissions: {}
 
@@ -26,7 +30,7 @@ jobs:
   srtool:
     name: Build runtime (${{ matrix.chain }})
     runs-on: [self-hosted, hetzner-thxnet]
-    timeout-minutes: 120
+    timeout-minutes: 180
     strategy:
       fail-fast: false
       matrix:
@@ -52,6 +56,14 @@ jobs:
             exit 1
           fi
           jq --version
+
+      - name: Fix workspace ownership for srtool
+        run: |
+          # Previous CI container jobs may leave root-owned files (E-51).
+          # srtool mounts the workspace into Docker — it needs write access.
+          sudo chown -R "$(id -u):$(id -g)" "${{ github.workspace }}" || true
+          # Remove any stale target dirs that would conflict with srtool's internal build
+          rm -rf "${{ github.workspace }}/${{ matrix.runtime_dir }}/target" || true
 
       - name: Build runtime with srtool
         id: srtool_build
