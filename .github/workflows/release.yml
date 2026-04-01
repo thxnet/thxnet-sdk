@@ -50,7 +50,7 @@ jobs:
         run: sccache --show-stats
 
       - name: Install subwasm
-        run: cargo install subwasm --version 0.20.0 --locked
+        run: cargo install --git https://github.com/chevdor/subwasm --tag v0.20.0 --locked
 
       - name: Prepare release artifacts
         run: |
