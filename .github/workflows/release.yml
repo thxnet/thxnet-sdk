@@ -52,13 +52,15 @@ jobs:
       - name: Pre-flight
         run: jq --version
 
-      - name: Resolve srtool tag from rust-toolchain
+      - name: Resolve srtool tag
         id: srtool_tag
         run: |
-          RUSTC_VERSION=$(grep -oP 'channel\s*=\s*"\K[^"]+' rust-toolchain.toml || echo "nightly-2024-04-10")
+          # srtool tags use stable rustc versions (e.g. 1.93.0), not our nightly channel.
+          # Fetch the latest supported version from the srtool repo.
+          RUSTC_VERSION=$(curl -sL https://raw.githubusercontent.com/paritytech/srtool/master/RUSTC_VERSION)
+          echo "Resolved srtool rustc: ${RUSTC_VERSION}"
           echo "tag=${RUSTC_VERSION}" >> "$GITHUB_OUTPUT"
           echo "image=${{ env.SRTOOL_IMAGE }}:${RUSTC_VERSION}" >> "$GITHUB_OUTPUT"
-          echo "Resolved srtool image: ${{ env.SRTOOL_IMAGE }}:${RUSTC_VERSION}"
 
       - name: Pull srtool image
         run: docker pull ${{ steps.srtool_tag.outputs.image }}
