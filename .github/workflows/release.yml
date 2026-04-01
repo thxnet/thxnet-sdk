@@ -38,6 +38,9 @@ jobs:
             package: general-runtime
             runtime_dir: thxnet/leafchain/runtime/general
     steps:
+      - name: Clean workspace (srtool leaves root-owned files)
+        run: sudo rm -rf "${{ github.workspace }}"/* || true
+
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
@@ -52,12 +55,8 @@ jobs:
 
       - name: Fix workspace permissions for srtool
         run: |
-          # srtool Docker container runs as UID 1000 (builder), but host
-          # runner is UID 1001. Stale target dirs from previous Docker runs
-          # are owned by UID 1000 and cannot be removed without sudo.
-          sudo rm -rf "${{ github.workspace }}/${{ matrix.runtime_dir }}/target"
-          # Ensure the container user can read, write, and traverse the workspace.
-          # a+rwX = read+write for all, execute on directories only (capital X).
+          # srtool Docker runs as UID 1000; host runner is UID 1001.
+          # Make workspace writable by any UID inside Docker volume mount.
           sudo chmod -R a+rwX "${{ github.workspace }}"
 
       - name: Build runtime with srtool
