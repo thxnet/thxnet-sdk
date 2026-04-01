@@ -11,6 +11,7 @@ on:
         required: true
 
 env:
+  SUBWASM_VERSION: 0.20.0
   GIT_CONFIG_COUNT: "1"
   GIT_CONFIG_KEY_0: safe.directory
   GIT_CONFIG_VALUE_0: "*"
@@ -90,6 +91,24 @@ jobs:
           name: release-runtimes
           path: runtimes/
 
+      - name: Install subwasm
+        run: |
+          # subwasm .deb needs libssl3 + glibc >= 2.34 — host runner
+          # (Ubuntu 24.04) has these, but the bullseye build container doesn't.
+          wget -q "https://github.com/chevdor/subwasm/releases/download/v${SUBWASM_VERSION}/subwasm_linux_amd64_v${SUBWASM_VERSION}.deb"
+          sudo dpkg -i "subwasm_linux_amd64_v${SUBWASM_VERSION}.deb"
+          subwasm --version
+
+      - name: Generate runtime metadata
+        run: |
+          for wasm in runtimes/*.wasm; do
+            NAME=$(basename "$wasm" -runtime.compact.compressed.wasm)
+            echo "=== ${NAME} ==="
+            subwasm info "$wasm"
+            subwasm --json info "$wasm" > "runtimes/${NAME}-info.json"
+            subwasm --json meta "$wasm" > "runtimes/${NAME}-metadata.json"
+          done
+
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -98,5 +117,7 @@ jobs:
           files: |
             runtimes/*.wasm
             runtimes/*.sha256
+            runtimes/*-info.json
+            runtimes/*-metadata.json
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
