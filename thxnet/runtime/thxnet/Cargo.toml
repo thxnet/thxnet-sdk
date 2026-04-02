@@ -119,7 +119,7 @@ keyring = { package = "sp-keyring", path = "../../../substrate/primitives/keyrin
 sp-trie = { path = "../../../substrate/primitives/trie" }
 serde_json = "1.0.96"
 separator = "0.4.1"
-remote-externalities = { package = "frame-remote-externalities" , path = "../../../substrate/utils/frame/remote-externalities" }
+remote-externalities = { package = "frame-remote-externalities", path = "../../../substrate/utils/frame/remote-externalities" }
 tokio = { version = "1.24.2", features = ["macros"] }
 sp-tracing = { path = "../../../substrate/primitives/tracing", default-features = false }
 
@@ -127,7 +127,7 @@ sp-tracing = { path = "../../../substrate/primitives/tracing", default-features 
 substrate-wasm-builder = { path = "../../../substrate/utils/wasm-builder" }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 no_std = []
 only-staking = []
 std = [
@@ -145,9 +145,10 @@ std = [
 	"frame-system/std",
 	"frame-try-runtime/std",
 	"inherents/std",
-	"sp-genesis-builder/std",
 	"log/std",
 	"offchain-primitives/std",
+	"pallet-asset-tx-payment/std",
+	"pallet-assets/std",
 	"pallet-authority-discovery/std",
 	"pallet-authorship/std",
 	"pallet-babe/std",
@@ -157,11 +158,13 @@ std = [
 	"pallet-child-bounties/std",
 	"pallet-collective/std",
 	"pallet-conviction-voting/std",
+	"pallet-dao/std",
 	"pallet-democracy/std",
 	"pallet-election-provider-multi-phase/std",
 	"pallet-election-provider-support-benchmarking?/std",
 	"pallet-elections-phragmen/std",
 	"pallet-fast-unstake/std",
+	"pallet-finality-rescue/std",
 	"pallet-grandpa/std",
 	"pallet-identity/std",
 	"pallet-im-online/std",
@@ -169,6 +172,8 @@ std = [
 	"pallet-membership/std",
 	"pallet-message-queue/std",
 	"pallet-multisig/std",
+	"pallet-nfts-runtime-api/std",
+	"pallet-nfts/std",
 	"pallet-nomination-pools-benchmarking?/std",
 	"pallet-nomination-pools-runtime-api/std",
 	"pallet-nomination-pools/std",
@@ -182,6 +187,7 @@ std = [
 	"pallet-session/std",
 	"pallet-staking-runtime-api/std",
 	"pallet-staking/std",
+	"pallet-sudo/std",
 	"pallet-timestamp/std",
 	"pallet-tips/std",
 	"pallet-transaction-payment-rpc-runtime-api/std",
@@ -193,14 +199,6 @@ std = [
 	"pallet-xcm-benchmarks?/std",
 	"pallet-xcm/std",
 	"parity-scale-codec/std",
-	"thxnet-runtime-constants/std",
-	"pallet-sudo/std",
-	"pallet-dao/std",
-	"pallet-finality-rescue/std",
-	"pallet-assets/std",
-	"pallet-nfts/std",
-	"pallet-nfts-runtime-api/std",
-	"pallet-asset-tx-payment/std",
 	"primitives/std",
 	"runtime-common/std",
 	"runtime-parachains/std",
@@ -211,6 +209,7 @@ std = [
 	"sp-api/std",
 	"sp-arithmetic/std",
 	"sp-core/std",
+	"sp-genesis-builder/std",
 	"sp-io/std",
 	"sp-mmr-primitives/std",
 	"sp-npos-elections/std",
@@ -221,6 +220,7 @@ std = [
 	"sp-storage/std",
 	"sp-tracing/std",
 	"sp-version/std",
+	"thxnet-runtime-constants/std",
 	"tx-pool-api/std",
 	"xcm-builder/std",
 	"xcm-executor/std",
@@ -233,6 +233,7 @@ runtime-benchmarks = [
 	"frame-system-benchmarking/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"hex-literal",
+	"pallet-asset-tx-payment/runtime-benchmarks",
 	"pallet-assets/runtime-benchmarks",
 	"pallet-babe/runtime-benchmarks",
 	"pallet-bags-list/runtime-benchmarks",
@@ -241,6 +242,7 @@ runtime-benchmarks = [
 	"pallet-child-bounties/runtime-benchmarks",
 	"pallet-collective/runtime-benchmarks",
 	"pallet-conviction-voting/runtime-benchmarks",
+	"pallet-dao/runtime-benchmarks",
 	"pallet-democracy/runtime-benchmarks",
 	"pallet-election-provider-multi-phase/runtime-benchmarks",
 	"pallet-election-provider-support-benchmarking/runtime-benchmarks",
@@ -265,6 +267,7 @@ runtime-benchmarks = [
 	"pallet-scheduler/runtime-benchmarks",
 	"pallet-session-benchmarking/runtime-benchmarks",
 	"pallet-staking/runtime-benchmarks",
+	"pallet-sudo/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-tips/runtime-benchmarks",
 	"pallet-treasury/runtime-benchmarks",
@@ -288,6 +291,8 @@ try-runtime = [
 	"frame-system/try-runtime",
 	"frame-try-runtime",
 	"frame-try-runtime/try-runtime",
+	"pallet-asset-tx-payment/try-runtime",
+	"pallet-assets/try-runtime",
 	"pallet-authority-discovery/try-runtime",
 	"pallet-authorship/try-runtime",
 	"pallet-babe/try-runtime",
@@ -297,10 +302,12 @@ try-runtime = [
 	"pallet-child-bounties/try-runtime",
 	"pallet-collective/try-runtime",
 	"pallet-conviction-voting/try-runtime",
+	"pallet-dao/try-runtime",
 	"pallet-democracy/try-runtime",
 	"pallet-election-provider-multi-phase/try-runtime",
 	"pallet-elections-phragmen/try-runtime",
 	"pallet-fast-unstake/try-runtime",
+	"pallet-finality-rescue/try-runtime",
 	"pallet-grandpa/try-runtime",
 	"pallet-identity/try-runtime",
 	"pallet-im-online/try-runtime",
@@ -308,6 +315,7 @@ try-runtime = [
 	"pallet-membership/try-runtime",
 	"pallet-message-queue/try-runtime",
 	"pallet-multisig/try-runtime",
+	"pallet-nfts/try-runtime",
 	"pallet-nomination-pools/try-runtime",
 	"pallet-offences/try-runtime",
 	"pallet-preimage/try-runtime",
@@ -316,6 +324,7 @@ try-runtime = [
 	"pallet-scheduler/try-runtime",
 	"pallet-session/try-runtime",
 	"pallet-staking/try-runtime",
+	"pallet-sudo/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"pallet-tips/try-runtime",
 	"pallet-transaction-payment/try-runtime",
@@ -324,12 +333,6 @@ try-runtime = [
 	"pallet-vesting/try-runtime",
 	"pallet-whitelist/try-runtime",
 	"pallet-xcm/try-runtime",
-	"pallet-sudo/try-runtime",
-	"pallet-dao/try-runtime",
-	"pallet-finality-rescue/try-runtime",
-	"pallet-assets/try-runtime",
-	"pallet-nfts/try-runtime",
-	"pallet-asset-tx-payment/try-runtime",
 	"runtime-common/try-runtime",
 	"runtime-parachains/try-runtime",
 	"sp-runtime/try-runtime",
@@ -338,9 +341,9 @@ try-runtime = [
 # A feature that should be enabled when the runtime should be build for on-chain
 # deployment. This will disable stuff that shouldn't be part of the on-chain wasm
 # to make it smaller like logging for example.
-on-chain-release-build = [ "sp-api/disable-logging" ]
+on-chain-release-build = ["sp-api/disable-logging"]
 
 # Set timing constants (e.g. session period) to faster versions to speed up testing.
-fast-runtime = []
+fast-runtime = ["thxnet-runtime-constants/fast-runtime"]
 
-runtime-metrics = [ "runtime-parachains/runtime-metrics", "sp-io/with-tracing" ]
+runtime-metrics = ["runtime-parachains/runtime-metrics", "sp-io/with-tracing"]

@@ -1,50 +1,135 @@
 name: CI
 
 on:
-  push:
-    tags:
-      - "v*"
   pull_request:
+  merge_group:
   workflow_dispatch:
     inputs:
       version:
         description: "Version tag for Docker images (e.g. 1.3.0)"
         required: true
 
+permissions: {}
+
 env:
   REGISTRY: ghcr.io
   ROOTCHAIN_IMAGE: ${{ github.repository_owner }}/rootchain
   LEAFCHAIN_IMAGE: ${{ github.repository_owner }}/leafchain
+  GIT_CONFIG_COUNT: "1"
+  GIT_CONFIG_KEY_0: safe.directory
+  GIT_CONFIG_VALUE_0: "*"
+  RUSTC_WRAPPER: sccache
+  CARGO_INCREMENTAL: "0"
+  SCCACHE_DIR: /home/runner/.cache/sccache
+  SCCACHE_CACHE_SIZE: 300G
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
+  # ─── Pre-flight ──────────────────────────────────────────────────────
+
+  preflight:
+    name: Runner pre-flight checks
+    runs-on: [self-hosted, hetzner-thxnet]
+    timeout-minutes: 2
+    steps:
+      - name: Verify runner environment
+        run: |
+          set +e
+          errors=0
+          warnings=0
+
+          echo "::group::sccache binary"
+          if [ -x /home/runner/.cache/sccache-bin/sccache ]; then
+            echo "OK: sccache found"
+            /home/runner/.cache/sccache-bin/sccache --version
+          else
+            echo "::error::sccache binary missing or not executable at /home/runner/.cache/sccache-bin/sccache"
+            errors=$((errors + 1))
+          fi
+          echo "::endgroup::"
+
+          echo "::group::try-runtime binary"
+          if [ -x /home/runner/.cargo/bin/try-runtime ]; then
+            echo "OK: try-runtime found"
+            /home/runner/.cargo/bin/try-runtime --version 2>/dev/null || true
+          else
+            echo "::warning::try-runtime binary missing at /home/runner/.cargo/bin/try-runtime (only needed for upgrade branches)"
+          fi
+          echo "::endgroup::"
+
+          echo "::group::Docker daemon"
+          if docker info >/dev/null 2>&1; then
+            echo "OK: Docker is running"
+          else
+            echo "::error::Docker daemon is not running or not accessible"
+            errors=$((errors + 1))
+          fi
+          echo "::endgroup::"
+
+          echo "::group::Bash version"
+          bash_major="${BASH_VERSINFO[0]}"
+          echo "Bash version: ${BASH_VERSION}"
+          if [ "${bash_major}" -ge 4 ] 2>/dev/null; then
+            echo "OK: Bash >= 4 (associative array support)"
+          else
+            echo "::error::Bash >= 4 required for try-runtime-test.sh (found: ${BASH_VERSION})"
+            errors=$((errors + 1))
+          fi
+          echo "::endgroup::"
+
+          echo "::group::Disk space"
+          avail_gb=$(df --output=avail / 2>/dev/null | tail -1 | awk '{printf "%.0f", $1/1048576}')
+          echo "Available disk space: ${avail_gb}GB"
+          if [ "${avail_gb}" -lt 100 ] 2>/dev/null; then
+            echo "::warning::Low disk space: ${avail_gb}GB available (< 100GB threshold)"
+            warnings=$((warnings + 1))
+          else
+            echo "OK: ${avail_gb}GB available"
+          fi
+          echo "::endgroup::"
+
+          echo ""
+          echo "=== Pre-flight Summary ==="
+          echo "Errors:   ${errors}"
+          echo "Warnings: ${warnings}"
+          if [ "${errors}" -gt 0 ]; then
+            echo "::error::Pre-flight failed with ${errors} error(s). Fix runner environment before CI can proceed."
+            exit 1
+          fi
+          echo "Pre-flight passed."
+
   # ─── Build ────────────────────────────────────────────────────────────
 
   build-binaries:
     name: Build binaries
-    runs-on: self-hosted
+    needs: preflight
+    runs-on: [self-hosted, hetzner-thxnet]
+    timeout-minutes: 90
     container:
+      # Container bundles stable 1.77.0 + nightly-2024-04-10.
+      # The workspace rust-toolchain.toml selects nightly-2024-04-10, which
+      # the container provides.  The "1.77.0" in the tag is the co-installed
+      # stable toolchain — the nightly date suffix is what matters for us.
       image: docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
       volumes:
-        - /data/ci-cache:/cache
+        - /home/runner/.cache/cargo-registry:/usr/local/cargo/registry
+        - /home/runner/.cache/cargo-git:/usr/local/cargo/git
+        - /home/runner/.cache/sccache-bin/sccache:/usr/local/bin/sccache
+        - /home/runner/.cache/sccache:/home/runner/.cache/sccache
     env:
-      CARGO_TARGET_DIR: /cache/cargo-target/release
-      CARGO_HOME: /cache/cargo-home
       WASM_BUILD_WORKSPACE_HINT: ${{ github.workspace }}
     steps:
       - uses: actions/checkout@v5
 
-      - name: Build rootchain binaries
-        run: cargo build --locked --release -p polkadot
+      - name: Build all binaries & runtime WASMs
+        run: cargo build --locked --release -p polkadot -p thxnet-testnet-runtime -p thxnet-leafchain
 
-      - name: Build testnet runtime WASM
-        run: cargo build --locked --release -p thxnet-testnet-runtime
-
-      - name: Build leafchain binary
-        run: cargo build --locked --release -p thxnet-leafchain
+      - name: sccache stats
+        if: always()
+        run: sccache --show-stats
 
       - name: Upload binaries
         uses: actions/upload-artifact@v5
@@ -52,10 +137,10 @@ jobs:
           name: binaries
           retention-days: 3
           path: |
-            /cache/cargo-target/release/release/polkadot
-            /cache/cargo-target/release/release/polkadot-prepare-worker
-            /cache/cargo-target/release/release/polkadot-execute-worker
-            /cache/cargo-target/release/release/thxnet-leafchain
+            target/release/polkadot
+            target/release/polkadot-prepare-worker
+            target/release/polkadot-execute-worker
+            target/release/thxnet-leafchain
 
       - name: Upload WASM runtimes
         uses: actions/upload-artifact@v5
@@ -63,24 +148,17 @@ jobs:
           name: wasm-runtimes
           retention-days: 3
           path: |
-            /cache/cargo-target/release/release/wbuild/thxnet-runtime/thxnet_runtime.compact.compressed.wasm
-            /cache/cargo-target/release/release/wbuild/thxnet-testnet-runtime/thxnet_testnet_runtime.compact.compressed.wasm
-            /cache/cargo-target/release/release/wbuild/general-runtime/general_runtime.compact.compressed.wasm
-
-      - name: Clean build cache
-        if: always()
-        run: rm -rf /cache/cargo-target/release
-
-      - name: Fix workspace permissions
-        if: always()
-        run: chown -R 1000:1001 $GITHUB_WORKSPACE
+            target/release/wbuild/thxnet-runtime/thxnet_runtime.compact.compressed.wasm
+            target/release/wbuild/thxnet-testnet-runtime/thxnet_testnet_runtime.compact.compressed.wasm
+            target/release/wbuild/general-runtime/general_runtime.compact.compressed.wasm
 
   # ─── Docker images ───────────────────────────────────────────────────
 
   rootchain-image:
     name: Build rootchain image
-    needs: build-binaries
-    runs-on: self-hosted
+    needs: [preflight, build-binaries]
+    runs-on: [self-hosted, hetzner-thxnet-light]
+    timeout-minutes: 15
     permissions:
       contents: read
       packages: write
@@ -96,40 +174,44 @@ jobs:
       - name: Make binaries executable
         run: chmod +x target/release/polkadot target/release/polkadot-prepare-worker target/release/polkadot-execute-worker
 
-      - name: Install docker buildx
-        uses: docker/setup-buildx-action@v4
+      - uses: docker/setup-buildx-action@v4
 
       - name: Login to GitHub Container Registry
-        if: github.event_name != 'pull_request'
         uses: docker/login-action@v4
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Determine tag
-        id: tag
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "tag=${{ github.event.inputs.version }}" >> "$GITHUB_OUTPUT"
-          elif [ "${{ github.event_name }}" = "pull_request" ]; then
-            echo "tag=pr-${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
-          else
-            echo "tag=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
-          fi
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.ROOTCHAIN_IMAGE }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=ref,event=branch
+            type=ref,event=pr
+            type=raw,value=${{ inputs.version }},enable=${{ github.event_name == 'workflow_dispatch' }}
+            type=sha,prefix=
 
-      - name: Build rootchain image
+      - name: Build & push rootchain image
         uses: docker/build-push-action@v6
         with:
           context: .
           file: thxnet/docker/polkadot/polkadot_injected.Dockerfile
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ env.REGISTRY }}/${{ env.ROOTCHAIN_IMAGE }}:${{ steps.tag.outputs.tag }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.ROOTCHAIN_IMAGE }}:buildcache
+          cache-to: ${{ github.event_name != 'pull_request' && format('type=registry,ref={0}/{1}:buildcache,mode=max', env.REGISTRY, env.ROOTCHAIN_IMAGE) || '' }}
 
   leafchain-image:
     name: Build leafchain image
-    needs: build-binaries
-    runs-on: self-hosted
+    needs: [preflight, build-binaries]
+    runs-on: [self-hosted, hetzner-thxnet-light]
+    timeout-minutes: 15
     permissions:
       contents: read
       packages: write
@@ -145,77 +227,145 @@ jobs:
       - name: Make binaries executable
         run: chmod +x target/release/thxnet-leafchain
 
-      - name: Install docker buildx
-        uses: docker/setup-buildx-action@v4
+      - uses: docker/setup-buildx-action@v4
 
       - name: Login to GitHub Container Registry
-        if: github.event_name != 'pull_request'
         uses: docker/login-action@v4
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Determine tag
-        id: tag
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "tag=${{ github.event.inputs.version }}" >> "$GITHUB_OUTPUT"
-          elif [ "${{ github.event_name }}" = "pull_request" ]; then
-            echo "tag=pr-${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
-          else
-            echo "tag=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
-          fi
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.LEAFCHAIN_IMAGE }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=ref,event=branch
+            type=ref,event=pr
+            type=raw,value=${{ inputs.version }},enable=${{ github.event_name == 'workflow_dispatch' }}
+            type=sha,prefix=
 
-      - name: Build leafchain image
+      - name: Build & push leafchain image
         uses: docker/build-push-action@v6
         with:
           context: .
           file: thxnet/docker/leafchain/leafchain_injected.Dockerfile
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ env.REGISTRY }}/${{ env.LEAFCHAIN_IMAGE }}:${{ steps.tag.outputs.tag }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.LEAFCHAIN_IMAGE }}:buildcache
+          cache-to: ${{ github.event_name != 'pull_request' && format('type=registry,ref={0}/{1}:buildcache,mode=max', env.REGISTRY, env.LEAFCHAIN_IMAGE) || '' }}
+
+  wasm-oci:
+    name: Push WASM runtimes to ghcr.io
+    needs: [preflight, build-binaries]
+    if: github.event_name != 'pull_request'
+    runs-on: [self-hosted, hetzner-thxnet-light]
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        include:
+          - name: thxnet-runtime
+            wasm: thxnet_runtime.compact.compressed.wasm
+          - name: thxnet-testnet-runtime
+            wasm: thxnet_testnet_runtime.compact.compressed.wasm
+          - name: general-runtime
+            wasm: general_runtime.compact.compressed.wasm
+    steps:
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download WASM runtimes
+        uses: actions/download-artifact@v5
+        with:
+          name: wasm-runtimes
+          path: wasm
+
+      - name: Install oras
+        run: |
+          mkdir -p "$HOME/.local/bin"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          ORAS_VERSION=1.2.2
+          curl -fsSL "https://github.com/oras-project/oras/releases/download/v${ORAS_VERSION}/oras_${ORAS_VERSION}_linux_amd64.tar.gz" \
+            | tar xz -C "$HOME/.local/bin/" oras
+
+      - name: Determine tag
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "tag=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Push WASM as OCI artifact
+        run: |
+          WASM_FILE=$(find wasm -name '${{ matrix.wasm }}' -type f)
+          echo "Pushing ${WASM_FILE}"
+          oras push \
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ matrix.name }}:${{ steps.tag.outputs.tag }} \
+            --artifact-type application/wasm \
+            "${WASM_FILE}:application/wasm"
 
   # ─── Upgrade tests (upgrade/*, experiment/*, feat/endgame* branches) ─
 
   build-upgrade-extras:
     name: Build try-runtime & fast-runtime
-    needs: build-binaries
+    needs: preflight
+    timeout-minutes: 90
     if: >-
       startsWith(github.head_ref || github.ref_name, 'upgrade/') ||
       startsWith(github.head_ref || github.ref_name, 'experiment/') ||
       startsWith(github.head_ref || github.ref_name, 'feat/endgame')
-    runs-on: self-hosted
+    runs-on: [self-hosted, hetzner-thxnet]
     container:
       image: docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
       volumes:
-        - /data/ci-cache:/cache
+        - /home/runner/.cache/cargo-registry:/usr/local/cargo/registry
+        - /home/runner/.cache/cargo-git:/usr/local/cargo/git
+        - /home/runner/.cache/sccache-bin/sccache:/usr/local/bin/sccache
+        - /home/runner/.cache/sccache:/home/runner/.cache/sccache
     env:
-      CARGO_TARGET_DIR: /cache/cargo-target/upgrade
-      CARGO_HOME: /cache/cargo-home
       WASM_BUILD_WORKSPACE_HINT: ${{ github.workspace }}
     steps:
       - uses: actions/checkout@v5
 
       - name: Build try-runtime WASMs
         run: |
-          cargo build --release -p thxnet-testnet-runtime --features try-runtime
-          cargo build --release -p thxnet-runtime --features try-runtime
-          cargo build --release -p general-runtime --features try-runtime
+          cargo build --locked --release \
+            -p thxnet-testnet-runtime \
+            -p thxnet-runtime \
+            -p general-runtime \
+            --features try-runtime
           mkdir -p /tmp/try-runtime-wasm
-          cp /cache/cargo-target/upgrade/release/wbuild/thxnet-testnet-runtime/thxnet_testnet_runtime.compact.compressed.wasm \
+          cp target/release/wbuild/thxnet-testnet-runtime/thxnet_testnet_runtime.compact.compressed.wasm \
             /tmp/try-runtime-wasm/thxnet-testnet-runtime-try-runtime.wasm
-          cp /cache/cargo-target/upgrade/release/wbuild/thxnet-runtime/thxnet_runtime.compact.compressed.wasm \
+          cp target/release/wbuild/thxnet-runtime/thxnet_runtime.compact.compressed.wasm \
             /tmp/try-runtime-wasm/thxnet-runtime-try-runtime.wasm
-          cp /cache/cargo-target/upgrade/release/wbuild/general-runtime/general_runtime.compact.compressed.wasm \
+          cp target/release/wbuild/general-runtime/general_runtime.compact.compressed.wasm \
             /tmp/try-runtime-wasm/general-runtime-try-runtime.wasm
+
+      - name: sccache stats (try-runtime)
+        if: always()
+        run: sccache --show-stats 2>/dev/null || true
 
       - name: Build fast-runtime binary
         run: |
-          cargo build --release -p polkadot --features fast-runtime
+          cargo build --locked --release -p polkadot --features fast-runtime
           mkdir -p /tmp/fast-runtime-bins
-          cp /cache/cargo-target/upgrade/release/polkadot /tmp/fast-runtime-bins/polkadot-fast-runtime
-          cp /cache/cargo-target/upgrade/release/polkadot-prepare-worker /tmp/fast-runtime-bins/
-          cp /cache/cargo-target/upgrade/release/polkadot-execute-worker /tmp/fast-runtime-bins/
+          cp target/release/polkadot /tmp/fast-runtime-bins/polkadot-fast-runtime
+          cp target/release/polkadot-prepare-worker /tmp/fast-runtime-bins/
+          cp target/release/polkadot-execute-worker /tmp/fast-runtime-bins/
 
       - name: Upload try-runtime WASMs
         uses: actions/upload-artifact@v5
@@ -231,60 +381,142 @@ jobs:
           retention-days: 3
           path: /tmp/fast-runtime-bins/
 
-      - name: Clean build cache
-        if: always()
-        run: rm -rf /cache/cargo-target/upgrade
-
-      - name: Fix workspace permissions
-        if: always()
-        run: chown -R 1000:1001 $GITHUB_WORKSPACE
-
   try-runtime:
     name: try-runtime migration tests
-    needs: build-upgrade-extras
-    runs-on: self-hosted
+    needs: [preflight, build-upgrade-extras]
+    runs-on: [self-hosted, hetzner-thxnet]
+    permissions:
+      contents: read
+    timeout-minutes: 60
+    env:
+      SNAPSHOT_DIR: /home/runner/.cache/try-runtime-snapshots
+      SNAPSHOT_MAX_AGE_HOURS: "24"
+      SNAPSHOT_MAX_SIZE_GB: "50"
+      KEEP_SNAPSHOTS: "1"
+      SKIP_BUILD: "1"
+      TRY_RUNTIME_BIN: /home/runner/.cargo/bin/try-runtime
+      CARGO_TARGET_DIR: /tmp/try-runtime-artifacts
+      ROOTCHAIN_TESTNET_URI: ${{ secrets.ROOTCHAIN_RPC_URL }}
+      ROOTCHAIN_MAINNET_URI: ${{ secrets.ROOTCHAIN_MAINNET_RPC_URL }}
+      LEAFCHAIN_SAND_URI: ${{ secrets.LEAFCHAIN_RPC_URL }}
+      LEAFCHAIN_AVATECT_URI: ${{ secrets.LEAFCHAIN_MAINNET_RPC_URL }}
     steps:
+      - uses: actions/checkout@v5
+
       - name: Download try-runtime WASMs
         uses: actions/download-artifact@v5
         with:
           name: try-runtime-wasm
           path: /tmp/try-runtime-wasm
 
-      - name: try-runtime — rootchain
+      # Bridge artifact filenames to the directory layout the script expects:
+      #   ${CARGO_TARGET_DIR}/release/wbuild/<pkg>/<standard_wasm_name>
+      - name: Stage WASMs for script
         run: |
-          pkill -f "port-forward.*9944" 2>/dev/null || true
-          kubectl port-forward -n forked-testnet svc/archive-node 9944:9944 &
-          sleep 5
+          WBUILD="${CARGO_TARGET_DIR}/release/wbuild"
+          mkdir -p "${WBUILD}/thxnet-testnet-runtime" \
+                   "${WBUILD}/thxnet-runtime" \
+                   "${WBUILD}/general-runtime"
+          cp /tmp/try-runtime-wasm/thxnet-testnet-runtime-try-runtime.wasm \
+             "${WBUILD}/thxnet-testnet-runtime/thxnet_testnet_runtime.compact.compressed.wasm"
+          cp /tmp/try-runtime-wasm/thxnet-runtime-try-runtime.wasm \
+             "${WBUILD}/thxnet-runtime/thxnet_runtime.compact.compressed.wasm"
+          cp /tmp/try-runtime-wasm/general-runtime-try-runtime.wasm \
+             "${WBUILD}/general-runtime/general_runtime.compact.compressed.wasm"
 
-          ~/.cargo/bin/try-runtime \
-            --runtime /tmp/try-runtime-wasm/thxnet-testnet-runtime-try-runtime.wasm \
-            on-runtime-upgrade --blocktime 6000 --disable-mbm-checks --disable-spec-version-check \
-            live --uri ws://localhost:9944
+      - name: Prepare snapshot directory
+        run: mkdir -p "${SNAPSHOT_DIR}"
 
-      - name: try-runtime — leafchain
+      # ── Basic migration tests (live or from snapshot) ──────────────────
+      # On the persistent Hetzner runner, snapshots survive between runs.
+      # If fresh snapshots exist (<24h), use the fast path; otherwise fetch live state.
+      - name: Detect snapshot capability
+        id: snapshot-cap
         run: |
-          pkill -f "port-forward.*9945" 2>/dev/null || true
-          COLLATOR_POD=$(kubectl get pods -n forked-testnet -l app=collator-albania -o jsonpath='{.items[0].metadata.name}')
-          kubectl port-forward -n forked-testnet pod/$COLLATOR_POD 9945:60002 &
-          sleep 5
+          chmod +x scripts/try-runtime-test.sh
+          # Same logic as snapshot_supported() in scripts/try-runtime-test.sh:
+          # check whether try-runtime's `on-runtime-upgrade live` subcommand
+          # advertises the --create-snapshot flag.
+          TRY_RUNTIME_BIN="${TRY_RUNTIME_BIN:-try-runtime}"
+          if command -v "${TRY_RUNTIME_BIN}" &>/dev/null \
+             && "${TRY_RUNTIME_BIN}" on-runtime-upgrade live --help 2>&1 | grep -q -- '--create-snapshot'; then
+            echo "supported=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "supported=false" >> "$GITHUB_OUTPUT"
+          fi
 
-          ~/.cargo/bin/try-runtime \
-            --runtime /tmp/try-runtime-wasm/general-runtime-try-runtime.wasm \
-            on-runtime-upgrade --blocktime 12000 --disable-mbm-checks --disable-spec-version-check \
-            live --uri ws://localhost:9945
+      - name: Check for existing snapshots
+        id: snapshots
+        run: |
+          FRESH_COUNT=$( { find "${SNAPSHOT_DIR}" -name '*.snap' -mmin -$((SNAPSHOT_MAX_AGE_HOURS * 60)) 2>/dev/null || true; } | wc -l | tr -d ' ' )
+          echo "fresh_count=${FRESH_COUNT}" >> "$GITHUB_OUTPUT"
+          scripts/try-runtime-test.sh list-snapshots || true
 
-      - name: Cleanup port-forwards
+      - name: "Migration test (fast path: from snapshots)"
+        if: steps.snapshot-cap.outputs.supported == 'true' && steps.snapshots.outputs.fresh_count != '0'
+        run: scripts/try-runtime-test.sh test-from-snapshot-all
+
+      - name: "Migration test (full: live state)"
+        if: steps.snapshot-cap.outputs.supported != 'true' || steps.snapshots.outputs.fresh_count == '0'
+        run: scripts/try-runtime-test.sh test-all
+
+      # Create/refresh snapshots for next run (after tests pass)
+      - name: Create snapshots for caching
+        if: steps.snapshot-cap.outputs.supported == 'true' && steps.snapshots.outputs.fresh_count == '0'
+        run: scripts/try-runtime-test.sh create-snapshot-all
+
+      # ── Idempotency tests ─────────────────────────────────────────────
+      - name: "Idempotency test (testnet only)"
+        if: github.event_name == 'pull_request'
+        run: scripts/try-runtime-test.sh test-idempotency-all-testnet
+
+      - name: "Idempotency test (all chains)"
+        if: github.event_name != 'pull_request'
+        run: scripts/try-runtime-test.sh test-idempotency-all
+
+      # ── Pallet-level critical migration matrix ─────────────────────────
+      - name: "Pallet migration matrix (testnet)"
+        if: github.event_name == 'pull_request'
+        env:
+          MATRIX_CHAINS: "rootchain-testnet leafchain-sand"
+        run: scripts/try-runtime-test.sh test-pallet-matrix
+
+      - name: "Pallet migration matrix (all chains)"
+        if: github.event_name != 'pull_request'
+        env:
+          MATRIX_CHAINS: "rootchain-testnet rootchain-mainnet leafchain-sand leafchain-avatect"
+        run: scripts/try-runtime-test.sh test-pallet-matrix
+
+      # ── Cleanup & artifacts ────────────────────────────────────────────
+      - name: Clean stale snapshots
         if: always()
-        run: |
-          pkill -f "port-forward.*9944" 2>/dev/null || true
-          pkill -f "port-forward.*9945" 2>/dev/null || true
+        run: scripts/try-runtime-test.sh clean-snapshots || true
+
+      - name: Upload try-runtime logs
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: try-runtime-logs
+          retention-days: 7
+          if-no-files-found: ignore
+          path: |
+            ${{ env.SNAPSHOT_DIR }}/*.log
 
   zombienet:
     name: Zombienet smoke test
-    needs: [build-upgrade-extras, build-binaries]
-    runs-on: self-hosted
+    needs: [preflight, build-upgrade-extras, build-binaries]
+    runs-on: [self-hosted, hetzner-thxnet]
     steps:
       - uses: actions/checkout@v5
+
+      - name: Install zombienet
+        run: |
+          mkdir -p "$HOME/.local/bin"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          ZOMBIENET_VERSION=v1.3.138
+          curl -L "https://github.com/paritytech/zombienet/releases/download/${ZOMBIENET_VERSION}/zombienet-linux-x64" \
+            -o "$HOME/.local/bin/zombienet"
+          chmod +x "$HOME/.local/bin/zombienet"
 
       - name: Download fast-runtime binaries
         uses: actions/download-artifact@v5
@@ -307,20 +539,61 @@ jobs:
           export RELAY_BIN=/tmp/upgrade-bins/polkadot-fast-runtime
           export COLLATOR_BIN=/tmp/upgrade-bins/thxnet-leafchain
 
-          /home/raj/.local/bin/zombienet -p native -f test scripts/zombienet-smoke.zndsl
+          zombienet -p native -f test scripts/zombienet-smoke.zndsl
         timeout-minutes: 15
+
+  chopsticks:
+    name: Chopsticks upgrade test
+    needs: [preflight, build-binaries]
+    runs-on: [self-hosted, hetzner-thxnet]
+    timeout-minutes: 15
+    if: >-
+      startsWith(github.head_ref || github.ref_name, 'upgrade/') ||
+      startsWith(github.head_ref || github.ref_name, 'experiment/') ||
+      startsWith(github.head_ref || github.ref_name, 'feat/endgame')
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Download WASM runtimes
+        uses: actions/download-artifact@v5
+        with:
+          name: wasm-runtimes
+          path: wasm
+
+      - name: Setup WASM paths
+        run: |
+          echo "Artifact contents:" && find wasm -type f
+          mkdir -p target/release/wbuild/general-runtime
+          find wasm -name "general_runtime.compact.compressed.wasm" -exec cp {} \
+            target/release/wbuild/general-runtime/ \;
+          ls -la target/release/wbuild/general-runtime/general_runtime.compact.compressed.wasm
+
+      - name: Run Chopsticks upgrade test (leafchain-sand)
+        run: |
+          curl -fsSL https://bun.sh/install | bash
+          export PATH="$HOME/.bun/bin:$PATH"
+          bun --version
+          bun install @polkadot/api @acala-network/chopsticks
+          ./scripts/chopsticks/chopsticks-test.sh leafchain-sand
+        timeout-minutes: 10
 
   xcm-tests:
     name: XCM integration tests
-    needs: build-upgrade-extras
-    runs-on: self-hosted
+    needs: preflight
+    timeout-minutes: 60
+    if: >-
+      startsWith(github.head_ref || github.ref_name, 'upgrade/') ||
+      startsWith(github.head_ref || github.ref_name, 'experiment/') ||
+      startsWith(github.head_ref || github.ref_name, 'feat/endgame')
+    runs-on: [self-hosted, hetzner-thxnet]
     container:
       image: docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
       volumes:
-        - /data/ci-cache:/cache
+        - /home/runner/.cache/cargo-registry:/usr/local/cargo/registry
+        - /home/runner/.cache/cargo-git:/usr/local/cargo/git
+        - /home/runner/.cache/sccache-bin/sccache:/usr/local/bin/sccache
+        - /home/runner/.cache/sccache:/home/runner/.cache/sccache
     env:
-      CARGO_TARGET_DIR: /cache/cargo-target/xcm
-      CARGO_HOME: /cache/cargo-home
       WASM_BUILD_WORKSPACE_HINT: ${{ github.workspace }}
     steps:
       - uses: actions/checkout@v5
@@ -328,10 +601,57 @@ jobs:
       - name: Run XCM integration tests
         run: cargo test -p xcm-integration-tests --release
 
-      - name: Clean build cache
+      - name: sccache stats
         if: always()
-        run: rm -rf /cache/cargo-target/xcm
+        run: sccache --show-stats 2>/dev/null || true
 
-      - name: Fix workspace permissions
-        if: always()
-        run: chown -R 1000:1001 $GITHUB_WORKSPACE
+  # ─── Cache ownership cleanup ──────────────────────────────────────────
+  # Container jobs run as root (UID 0) inside the container, writing
+  # root-owned files to mounted host volumes. Bare-metal jobs run as the
+  # runner user (UID 1001) and cannot read/write those files. This job
+  # runs bare-metal AFTER all container jobs and fixes file ownership so
+  # caches remain usable across both execution modes.
+
+  cache-cleanup:
+    name: Fix cache file ownership
+    needs: [build-binaries, build-upgrade-extras, xcm-tests]
+    if: always()
+    runs-on: [self-hosted, hetzner-thxnet]
+    timeout-minutes: 5
+    steps:
+      - name: Fix ownership of shared cache directories
+        run: |
+          set -euo pipefail
+          TARGET_UID=$(id -u)
+          TARGET_GID=$(id -g)
+          echo "Fixing cache ownership to ${TARGET_UID}:${TARGET_GID}"
+
+          CACHE_DIRS=(
+            /home/runner/.cache/cargo-registry
+            /home/runner/.cache/cargo-git
+            /home/runner/.cache/sccache
+          )
+
+          for dir in "${CACHE_DIRS[@]}"; do
+            if [[ ! -d "${dir}" ]]; then
+              echo "  [skip] ${dir} does not exist"
+              continue
+            fi
+
+            # Count root-owned files (UID 0) to decide if chown is needed
+            root_count=$( { find "${dir}" -user 0 2>/dev/null || true; } | head -100 | wc -l | tr -d ' ' )
+            if [[ "${root_count}" -eq 0 ]]; then
+              echo "  [ok]   ${dir} — no root-owned files"
+              continue
+            fi
+
+            echo "  [fix]  ${dir} — found root-owned files, fixing..."
+            if command -v sudo &>/dev/null; then
+              sudo chown -R "${TARGET_UID}:${TARGET_GID}" "${dir}"
+            else
+              # Fallback: fix only files we can access (best-effort)
+              find "${dir}" -user 0 -exec chown "${TARGET_UID}:${TARGET_GID}" {} + 2>/dev/null || true
+            fi
+            echo "         done"
+          done
+          echo "Cache ownership check complete."

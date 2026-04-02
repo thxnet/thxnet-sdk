@@ -192,7 +192,7 @@ full-node = [
 # Configure the native runtimes to use.
 westend-native = ["bitvec", "westend-runtime", "westend-runtime-constants"]
 rococo-native = ["bitvec", "rococo-runtime", "rococo-runtime-constants"]
-thxnet-native = ["thxnet-runtime", "thxnet-runtime-constants", "polkadot-runtime-common"]
+thxnet-native = ["bitvec", "polkadot-runtime-common", "thxnet-runtime", "thxnet-runtime-constants"]
 
 runtime-benchmarks = [
 	"frame-benchmarking-cli/runtime-benchmarks",
@@ -203,13 +203,14 @@ runtime-benchmarks = [
 	"pallet-staking/runtime-benchmarks",
 	"polkadot-parachain-primitives/runtime-benchmarks",
 	"polkadot-primitives/runtime-benchmarks",
+	"polkadot-runtime-common?/runtime-benchmarks",
 	"polkadot-runtime-parachains/runtime-benchmarks",
 	"polkadot-test-client/runtime-benchmarks",
 	"rococo-runtime?/runtime-benchmarks",
-	"thxnet-runtime?/runtime-benchmarks",
 	"sc-client-db/runtime-benchmarks",
 	"service/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
+	"thxnet-runtime?/runtime-benchmarks",
 	"westend-runtime?/runtime-benchmarks",
 	"xcm-fee-payment-runtime-api/runtime-benchmarks",
 ]
@@ -219,10 +220,11 @@ try-runtime = [
 	"pallet-babe/try-runtime",
 	"pallet-staking/try-runtime",
 	"pallet-transaction-payment/try-runtime",
+	"polkadot-runtime-common?/try-runtime",
 	"polkadot-runtime-parachains/try-runtime",
 	"rococo-runtime?/try-runtime",
-	"thxnet-runtime?/try-runtime",
 	"sp-runtime/try-runtime",
+	"thxnet-runtime?/try-runtime",
 	"westend-runtime?/try-runtime",
 ]
 fast-runtime = ["rococo-runtime?/fast-runtime", "thxnet-runtime?/fast-runtime", "westend-runtime?/fast-runtime"]

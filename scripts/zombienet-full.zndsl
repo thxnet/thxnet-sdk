@@ -1,0 +1,56 @@
+Description: THXNet full integration test — HRMP channels, DMP transfer, runtime upgrade
+Network: ./scripts/zombienet-local.toml
+Creds: config
+
+# ═══════════════════════════════════════════════
+# Phase 1: Network Bootstrap
+# ═══════════════════════════════════════════════
+
+# Relay chain validators are up
+alice: is up within 30 seconds
+bob: is up within 30 seconds
+
+# Relay chain producing and finalizing blocks
+alice: reports substrate_block_height{status="finalized"} is at least 5 within 180 seconds
+
+# Parachains registered and producing blocks
+alice: parachain 2000 is registered within 300 seconds
+alice: parachain 2001 is registered within 300 seconds
+alice: parachain 2000 block height is at least 3 within 600 seconds
+alice: parachain 2001 block height is at least 3 within 600 seconds
+
+# ═══════════════════════════════════════════════
+# Phase 2: HRMP Channel Setup
+# ═══════════════════════════════════════════════
+
+# Open bidirectional HRMP channels: 2000 <-> 2001
+alice: js-script ./zombienet-js/open-hrmp-channels.js with "2000,2001,8,512" within 60 seconds
+
+# Wait for channels to propagate to both parachains
+leafchain-a-collator-1: js-script ./zombienet-js/verify-hrmp-channel.js with "2001" within 120 seconds
+leafchain-b-collator-1: js-script ./zombienet-js/verify-hrmp-channel.js with "2000" within 120 seconds
+
+# ═══════════════════════════════════════════════
+# Phase 3: DMP Transfer (Relay → Para)
+# ═══════════════════════════════════════════════
+
+# Send 100 UNIT (10^12 raw) from relay Alice to non-endowed //DmpTestRecipient on parachain 2000
+# Uses a fresh account with 0 genesis balance to ensure the test is meaningful
+alice: js-script ./zombienet-js/xcm-relay-to-para.js with "2000,1000000000000,//DmpTestRecipient" within 60 seconds
+
+# Verify balance arrived on parachain (//DmpTestRecipient starts with 0 balance)
+# Check for at least half the sent amount (rest may go to fees)
+leafchain-a-collator-1: js-script ./zombienet-js/verify-balance.js with "//DmpTestRecipient,500000000000" within 120 seconds
+
+# ═══════════════════════════════════════════════
+# Phase 4: Runtime Upgrade (uses ZNDSL built-in)
+# ═══════════════════════════════════════════════
+
+# Perform dummy upgrade on parachain 2000 (appends custom WASM section, same specVersion)
+alice: parachain 2000 perform dummy upgrade within 600 seconds
+
+# Verify the runtime code changed (dummy upgrade changes code hash but not specVersion)
+leafchain-a-collator-1: js-script ./zombienet-js/verify-runtime-change.js within 120 seconds
+
+# Parachain continues producing blocks after upgrade
+alice: parachain 2000 block height is at least 20 within 300 seconds

@@ -1,0 +1,50 @@
+name: Check links
+
+on:
+  pull_request:
+    paths:
+      - "**/*.rs"
+      - "**/*.md"
+      - "**/*.toml"
+  merge_group:
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check-links:
+    name: Lychee link checker
+    runs-on: [self-hosted, hetzner-thxnet-light]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Restore lychee cache
+        uses: actions/cache@v4
+        with:
+          path: .lycheecache
+          key: cache-lychee-${{ github.sha }}
+          restore-keys: cache-lychee-
+
+      - name: Check links
+        uses: lycheeverse/lychee-action@v2
+        with:
+          args: >-
+            --cache
+            --max-cache-age 7d
+            --no-progress
+            --exclude-path target
+            --exclude-path .git
+            --exclude 'crates\.io'
+            --exclude 'github\.com/.*/commit/'
+            --exclude 'github\.com/.*/blob/'
+            --exclude 'github\.com/thxnet/rootchain'
+            --exclude 'thxlab\.jetbrains\.space'
+            --exclude 'research\.web3\.foundation'
+            'thxnet/**/*.rs'
+            'thxnet/**/*.md'
+            '*.md'
+          fail: true

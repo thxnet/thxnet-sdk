@@ -213,6 +213,12 @@ impl frame_support::traits::OnRuntimeUpgrade for CrowdfundingStampOrMigrateToV3 
 	}
 }
 
+// Leafchains have only 4-6 identity entries each; u64::MAX is safe here because
+// the migration iterates all entries in a single block, and the VersionedMigration
+// wrapper ensures it runs at most once (gated on on-chain StorageVersion == 0).
+// With so few entries the PoV / weight impact is negligible.
+const IDENTITY_MIGRATION_KEY_LIMIT: u64 = u64::MAX;
+
 /// Cumulative migrations for live leafchains upgrading from v0.9.40 to v1.12.0.
 ///
 /// On-chain state at v0.9.40:
@@ -242,6 +248,8 @@ pub type Migrations = (
 	pallet_collator_selection::migration::v2::MigrationToV2<Runtime>,
 	// DmpQueue: force-stamp StorageVersion to v2 (all chains have 0 DmpQueue data)
 	InitDmpQueueStorageVersion,
+	// Identity: username/authority feature migration (v0→v1)
+	pallet_identity::migration::versioned::V0ToV1<Runtime, IDENTITY_MIGRATION_KEY_LIMIT>,
 	// ── Custom pallet migrations ──
 	// RWA: stamp on-chain version to v5 (noop if already ≥5, no data change)
 	pallet_rwa::migrations::v5::MigrateToV5<Runtime>,
