@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - master
+      - main-thxnet
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
   merge_group:
