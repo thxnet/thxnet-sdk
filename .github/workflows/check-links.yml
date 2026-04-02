@@ -7,6 +7,7 @@ on:
       - "**/*.md"
       - "**/*.toml"
   merge_group:
+  workflow_dispatch:
 
 permissions: {}
 
