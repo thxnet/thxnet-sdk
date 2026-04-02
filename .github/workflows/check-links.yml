@@ -45,6 +45,7 @@ jobs:
             --exclude 'github\.com/thxnet/rootchain'
             --exclude 'thxlab\.jetbrains\.space'
             --exclude 'research\.web3\.foundation'
+            --exclude 'gnu\.org'
             'thxnet/**/*.rs'
             'thxnet/**/*.md'
             '*.md'
