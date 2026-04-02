@@ -26,6 +26,7 @@ default = ["std"]
 std = [
 	"codec/std",
 	"cumulus-primitives-core/std",
+	"futures/std",
 	"sp-inherents/std",
 	"sp-std/std",
 	"sp-timestamp/std",
