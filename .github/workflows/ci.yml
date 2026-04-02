@@ -186,7 +186,7 @@ jobs:
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          password: ${{ secrets.PACKAGES_TOKEN }}
 
       - name: Docker metadata
         id: meta
@@ -239,7 +239,7 @@ jobs:
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          password: ${{ secrets.PACKAGES_TOKEN }}
 
       - name: Docker metadata
         id: meta
@@ -288,7 +288,7 @@ jobs:
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          password: ${{ secrets.PACKAGES_TOKEN }}
 
       - name: Download WASM runtimes
         uses: actions/download-artifact@v5
