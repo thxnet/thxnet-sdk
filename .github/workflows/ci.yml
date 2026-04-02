@@ -325,8 +325,10 @@ jobs:
     timeout-minutes: 90
     if: >-
       startsWith(github.head_ref || github.ref_name, 'upgrade/') ||
+      startsWith(github.head_ref || github.ref_name, 'thxnet/release-') ||
       startsWith(github.head_ref || github.ref_name, 'experiment/') ||
-      startsWith(github.head_ref || github.ref_name, 'feat/endgame')
+      startsWith(github.head_ref || github.ref_name, 'feat/endgame') ||
+      github.ref_name == 'main-thxnet'
     runs-on: [self-hosted, hetzner-thxnet]
     container:
       image: docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
@@ -551,8 +553,10 @@ jobs:
     timeout-minutes: 15
     if: >-
       startsWith(github.head_ref || github.ref_name, 'upgrade/') ||
+      startsWith(github.head_ref || github.ref_name, 'thxnet/release-') ||
       startsWith(github.head_ref || github.ref_name, 'experiment/') ||
-      startsWith(github.head_ref || github.ref_name, 'feat/endgame')
+      startsWith(github.head_ref || github.ref_name, 'feat/endgame') ||
+      github.ref_name == 'main-thxnet'
     steps:
       - uses: actions/checkout@v5
 
@@ -601,8 +605,10 @@ jobs:
     timeout-minutes: 60
     if: >-
       startsWith(github.head_ref || github.ref_name, 'upgrade/') ||
+      startsWith(github.head_ref || github.ref_name, 'thxnet/release-') ||
       startsWith(github.head_ref || github.ref_name, 'experiment/') ||
-      startsWith(github.head_ref || github.ref_name, 'feat/endgame')
+      startsWith(github.head_ref || github.ref_name, 'feat/endgame') ||
+      github.ref_name == 'main-thxnet'
     runs-on: [self-hosted, hetzner-thxnet]
     container:
       image: docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
