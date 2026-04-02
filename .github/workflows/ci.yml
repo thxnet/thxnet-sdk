@@ -1,6 +1,11 @@
 name: CI
 
 on:
+  push:
+    branches:
+      - main
+      - master
+      - main-thxnet
   pull_request:
   merge_group:
   workflow_dispatch:
