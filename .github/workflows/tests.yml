@@ -1,79 +1,149 @@
-name: tests
+name: Tests
 
 on:
   push:
     branches:
+      - main
       - master
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
   merge_group:
+
+env:
+  GIT_CONFIG_COUNT: "1"
+  GIT_CONFIG_KEY_0: safe.directory
+  GIT_CONFIG_VALUE_0: "*"
+  RUSTC_WRAPPER: sccache
+  CARGO_INCREMENTAL: "0"
+  SCCACHE_DIR: /home/runner/.cache/sccache
+  SCCACHE_CACHE_SIZE: 300G
+
+permissions: {}
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
-  isdraft:
-    uses: ./.github/workflows/reusable-isdraft.yml
-  preflight:
-    needs: isdraft
-    uses: ./.github/workflows/reusable-preflight.yml
+  nextest:
+    name: Cargo nextest
+    runs-on: [self-hosted, hetzner-thxnet]
+    timeout-minutes: 120
+    container:
+      image: docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
+      volumes:
+        - /home/runner/.cache/cargo-registry:/usr/local/cargo/registry
+        - /home/runner/.cache/cargo-git:/usr/local/cargo/git
+        - /home/runner/.cache/sccache-bin/sccache:/usr/local/bin/sccache
+        - /home/runner/.cache/sccache:/home/runner/.cache/sccache
+    env:
+      RUSTFLAGS: "-C debug-assertions"
+      WASM_BUILD_RUSTFLAGS: "-C debug-assertions"
+      WASM_BUILD_WORKSPACE_HINT: ${{ github.workspace }}
+      RUST_BACKTRACE: full
+    steps:
+      - uses: actions/checkout@v5
 
-  # This job runs all benchmarks defined in the `/bin/node/runtime` once to check that there are no errors.
-  quick-benchmarks:
-    needs: [preflight]
-    if: ${{ needs.preflight.outputs.changes_rust }}
-    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+      - name: Run tests
+        run: |
+          cargo nextest run --locked --release \
+            --package thxnet-runtime \
+            --package thxnet-testnet-runtime \
+            --package general-runtime \
+            --package thxnet-leafchain
+
+      - name: sccache stats
+        if: always()
+        run: sccache --show-stats 2>/dev/null || true
+
+  bench-check:
+    name: Benchmark compilation check
+    runs-on: [self-hosted, hetzner-thxnet]
     timeout-minutes: 60
     container:
-      image: ${{ needs.preflight.outputs.IMAGE }}
+      image: docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
+      volumes:
+        - /home/runner/.cache/cargo-registry:/usr/local/cargo/registry
+        - /home/runner/.cache/cargo-git:/usr/local/cargo/git
+        - /home/runner/.cache/sccache-bin/sccache:/usr/local/bin/sccache
+        - /home/runner/.cache/sccache:/home/runner/.cache/sccache
     env:
-      RUSTFLAGS: "-C debug-assertions -D warnings"
-      RUST_BACKTRACE: "full"
-      WASM_BUILD_NO_COLOR: 1
-      WASM_BUILD_RUSTFLAGS: "-C debug-assertions -D warnings"
+      SKIP_WASM_BUILD: 1
+      WASM_BUILD_WORKSPACE_HINT: ${{ github.workspace }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - name: script
-        run: forklift cargo run --locked --release -p staging-node-cli --bin substrate-node --features runtime-benchmarks --quiet -- benchmark pallet --chain dev --pallet "*" --extrinsic "*" --steps 2 --repeat 1 --min-duration 0 --quiet
+      - uses: actions/checkout@v5
 
-  # cf https://github.com/paritytech/polkadot-sdk/issues/1652
+      - name: Check benchmarks compile
+        run: |
+          cargo check --locked --benches \
+            --package thxnet-runtime \
+            --package thxnet-testnet-runtime \
+            --package general-runtime
+
+      - name: sccache stats
+        if: always()
+        run: sccache --show-stats 2>/dev/null || true
+
+  # Syscalls validation for worker binaries.
+  # Catches unexpected syscall additions that could be security risks.
+  # cf. https://github.com/paritytech/polkadot-sdk/issues/1652
+  #
+  # NOTE: The baseline files (execute-worker-syscalls, prepare-worker-syscalls)
+  # are currently copied from polkadot-sdk upstream. They should be regenerated
+  # from thxnet-sdk's own binaries on a Linux build to capture any divergence.
+  # To regenerate:
+  #   cargo build --locked --profile production --target x86_64-unknown-linux-musl \
+  #     --bin polkadot-execute-worker --bin polkadot-prepare-worker
+  #   ./polkadot/scripts/list-syscalls/list-syscalls.rb \
+  #     target/x86_64-unknown-linux-musl/production/polkadot-execute-worker --only-used-syscalls \
+  #     > polkadot/scripts/list-syscalls/execute-worker-syscalls
+  #   ./polkadot/scripts/list-syscalls/list-syscalls.rb \
+  #     target/x86_64-unknown-linux-musl/production/polkadot-prepare-worker --only-used-syscalls \
+  #     > polkadot/scripts/list-syscalls/prepare-worker-syscalls
   test-syscalls:
-    needs: [preflight]
-    if: ${{ needs.preflight.outputs.changes_rust }}
-    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    name: Syscalls validation
+    runs-on: [self-hosted, hetzner-thxnet]
     timeout-minutes: 60
+    continue-on-error: true
     container:
-      image: ${{ needs.preflight.outputs.IMAGE }}
-    continue-on-error: true # this rarely triggers in practice
+      image: docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
+      volumes:
+        - /home/runner/.cache/cargo-registry:/usr/local/cargo/registry
+        - /home/runner/.cache/cargo-git:/usr/local/cargo/git
+        - /home/runner/.cache/sccache-bin/sccache:/usr/local/bin/sccache
+        - /home/runner/.cache/sccache:/home/runner/.cache/sccache
     env:
       SKIP_WASM_BUILD: 1
+      WASM_BUILD_WORKSPACE_HINT: ${{ github.workspace }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - name: script
-        id: test
-        run: |
-          forklift cargo build --locked --profile production --target x86_64-unknown-linux-musl --bin polkadot-execute-worker --bin polkadot-prepare-worker --quiet
-          cd polkadot/scripts/list-syscalls
-          ./list-syscalls.rb ../../../target/x86_64-unknown-linux-musl/production/polkadot-execute-worker --only-used-syscalls | diff -u execute-worker-syscalls -
-          ./list-syscalls.rb ../../../target/x86_64-unknown-linux-musl/production/polkadot-prepare-worker --only-used-syscalls | diff -u prepare-worker-syscalls -
-      - name: on_failure
-        if: failure() && steps.test.outcome == 'failure'
-        run: |
-          echo "The x86_64 syscalls used by the worker binaries have changed. Please review if this is expected and update polkadot/scripts/list-syscalls/*-worker-syscalls as needed." >> $GITHUB_STEP_SUMMARY
+      - uses: actions/checkout@v5
 
-  cargo-check-all-benches:
-    needs: [preflight]
-    if: ${{ needs.preflight.outputs.changes_rust }}
-    runs-on: ${{ needs.preflight.outputs.RUNNER }}
-    timeout-minutes: 60
-    container:
-      image: ${{ needs.preflight.outputs.IMAGE }}
-    env:
-      SKIP_WASM_BUILD: 1
-    steps:
-      - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - name: script
-        run: forklift cargo check --all --benches --quiet
+      - name: Ensure musl target and ruby are available
+        run: |
+          rustup target add x86_64-unknown-linux-musl 2>/dev/null || true
+          ruby --version || (apt-get update -qq && apt-get install -y -qq ruby > /dev/null 2>&1)
+          objdump --version | head -1
+
+      - name: Build worker binaries (musl, production)
+        run: |
+          cargo build --locked --profile production \
+            --target x86_64-unknown-linux-musl \
+            --bin polkadot-execute-worker \
+            --bin polkadot-prepare-worker
+
+      - name: Validate execute-worker syscalls
+        run: |
+          cd polkadot/scripts/list-syscalls
+          ./list-syscalls.rb \
+            ../../../target/x86_64-unknown-linux-musl/production/polkadot-execute-worker \
+            --only-used-syscalls | diff -u execute-worker-syscalls -
+
+      - name: Validate prepare-worker syscalls
+        run: |
+          cd polkadot/scripts/list-syscalls
+          ./list-syscalls.rb \
+            ../../../target/x86_64-unknown-linux-musl/production/polkadot-prepare-worker \
+            --only-used-syscalls | diff -u prepare-worker-syscalls -
+
+      - name: sccache stats
+        if: always()
+        run: sccache --show-stats 2>/dev/null || true

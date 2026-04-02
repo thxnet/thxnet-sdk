@@ -1,0 +1,53 @@
+name: Rust
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+  merge_group:
+
+env:
+  CARGO_TERM_COLOR: always
+  WASM_BUILD_WORKSPACE_HINT: ${{ github.workspace }}
+  GIT_CONFIG_COUNT: "1"
+  GIT_CONFIG_KEY_0: safe.directory
+  GIT_CONFIG_VALUE_0: "*"
+  RUSTC_WRAPPER: sccache
+  CARGO_INCREMENTAL: "0"
+  SCCACHE_DIR: /home/runner/.cache/sccache
+  SCCACHE_CACHE_SIZE: 300G
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Cargo check (thxnet crates)
+    runs-on: [self-hosted, hetzner-thxnet]
+    timeout-minutes: 60
+    container:
+      image: docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
+      volumes:
+        - /home/runner/.cache/cargo-registry:/usr/local/cargo/registry
+        - /home/runner/.cache/cargo-git:/usr/local/cargo/git
+        - /home/runner/.cache/sccache-bin/sccache:/usr/local/bin/sccache
+        - /home/runner/.cache/sccache:/home/runner/.cache/sccache
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Cargo check — all thxnet crates
+        run: |
+          cargo check --locked \
+            --package thxnet-runtime \
+            --package thxnet-testnet-runtime \
+            --package general-runtime \
+            --package thxnet-leafchain
+
+      - name: sccache stats
+        if: always()
+        run: sccache --show-stats 2>/dev/null || true
