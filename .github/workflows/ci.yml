@@ -309,8 +309,11 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "tag=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
-          else
+          elif [[ "$GITHUB_REF" == refs/tags/* ]]; then
             echo "tag=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
+          else
+            # Branch push — use short SHA as tag
+            echo "tag=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Push WASM as OCI artifact
