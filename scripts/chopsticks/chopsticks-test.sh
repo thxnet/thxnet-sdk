@@ -4,7 +4,7 @@
 #
 # Usage:
 #   ./scripts/chopsticks/chopsticks-test.sh [chain]
-#   chain: leafchain-sand (default), leafchain-avatect, rootchain-testnet, rootchain-mainnet, all
+#   chain: leafchain-sand-testnet (default), leafchain-avatect-mainnet, leafchain-lmt-testnet, leafchain-lmt-mainnet, rootchain-testnet, rootchain-mainnet, all
 #
 # Prerequisites:
 #   - bun installed
@@ -23,25 +23,31 @@ LEAFCHAIN_WASM="${WASM_DIR}/general-runtime/general_runtime.compact.compressed.w
 
 # Chain configs: name -> config_file, wasm, port
 declare -A CHAIN_CONFIG CHAIN_WASM CHAIN_PORT
-CHAIN_CONFIG[leafchain-sand]="${SCRIPT_DIR}/leafchain-sand.yml"
-CHAIN_CONFIG[leafchain-avatect]="${SCRIPT_DIR}/leafchain-avatect.yml"
+CHAIN_CONFIG[leafchain-sand-testnet]="${SCRIPT_DIR}/leafchain-sand-testnet.yml"
+CHAIN_CONFIG[leafchain-avatect-mainnet]="${SCRIPT_DIR}/leafchain-avatect-mainnet.yml"
+CHAIN_CONFIG[leafchain-lmt-testnet]="${SCRIPT_DIR}/leafchain-lmt-testnet.yml"
+CHAIN_CONFIG[leafchain-lmt-mainnet]="${SCRIPT_DIR}/leafchain-lmt-mainnet.yml"
 CHAIN_CONFIG[rootchain-testnet]="${SCRIPT_DIR}/rootchain-testnet.yml"
 CHAIN_CONFIG[rootchain-mainnet]="${SCRIPT_DIR}/rootchain-mainnet.yml"
 
-CHAIN_WASM[leafchain-sand]="${LEAFCHAIN_WASM}"
-CHAIN_WASM[leafchain-avatect]="${LEAFCHAIN_WASM}"
+CHAIN_WASM[leafchain-sand-testnet]="${LEAFCHAIN_WASM}"
+CHAIN_WASM[leafchain-avatect-mainnet]="${LEAFCHAIN_WASM}"
+CHAIN_WASM[leafchain-lmt-testnet]="${LEAFCHAIN_WASM}"
+CHAIN_WASM[leafchain-lmt-mainnet]="${LEAFCHAIN_WASM}"
 CHAIN_WASM[rootchain-testnet]="${ROOTCHAIN_TESTNET_WASM}"
 CHAIN_WASM[rootchain-mainnet]="${ROOTCHAIN_MAINNET_WASM}"
 
-CHAIN_PORT[leafchain-sand]=8102
-CHAIN_PORT[leafchain-avatect]=8103
+CHAIN_PORT[leafchain-sand-testnet]=8102
+CHAIN_PORT[leafchain-avatect-mainnet]=8103
+CHAIN_PORT[leafchain-lmt-testnet]=8104
+CHAIN_PORT[leafchain-lmt-mainnet]=8105
 CHAIN_PORT[rootchain-testnet]=8100
 CHAIN_PORT[rootchain-mainnet]=8101
 
 # Leafchains have RWA/CF pallets; rootchains have DAO
-LEAFCHAINS="leafchain-sand leafchain-avatect"
+LEAFCHAINS="leafchain-sand-testnet leafchain-avatect-mainnet leafchain-lmt-testnet leafchain-lmt-mainnet"
 
-CHAIN="${1:-leafchain-sand}"
+CHAIN="${1:-leafchain-sand-testnet}"
 PASSED=0
 FAILED=0
 TOTAL=0
@@ -113,7 +119,7 @@ echo "Chopsticks Upgrade Test Orchestrator"
 echo "====================================="
 
 if [[ "${CHAIN}" == "all" ]]; then
-    for c in leafchain-sand leafchain-avatect rootchain-testnet rootchain-mainnet; do
+    for c in leafchain-sand-testnet leafchain-avatect-mainnet leafchain-lmt-testnet leafchain-lmt-mainnet rootchain-testnet rootchain-mainnet; do
         run_chain_test "${c}"
     done
 else

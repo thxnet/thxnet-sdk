@@ -2,7 +2,7 @@
 //
 // Usage:
 //   # Start Chopsticks in another terminal:
-//   bunx @acala-network/chopsticks -c scripts/chopsticks/leafchain-sand.yml \
+//   bunx @acala-network/chopsticks -c scripts/chopsticks/leafchain-sand-testnet.yml \
 //     -w target/release/wbuild/general-runtime/general_runtime.compact.compressed.wasm
 //
 //   # Run this test:

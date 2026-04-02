@@ -398,8 +398,10 @@ jobs:
       CARGO_TARGET_DIR: /tmp/try-runtime-artifacts
       ROOTCHAIN_TESTNET_URI: ${{ secrets.ROOTCHAIN_RPC_URL }}
       ROOTCHAIN_MAINNET_URI: ${{ secrets.ROOTCHAIN_MAINNET_RPC_URL }}
-      LEAFCHAIN_SAND_URI: ${{ secrets.LEAFCHAIN_RPC_URL }}
-      LEAFCHAIN_AVATECT_URI: ${{ secrets.LEAFCHAIN_MAINNET_RPC_URL }}
+      LEAFCHAIN_SAND_TESTNET_URI: ${{ secrets.LEAFCHAIN_RPC_URL }}
+      LEAFCHAIN_AVATECT_MAINNET_URI: ${{ secrets.LEAFCHAIN_MAINNET_RPC_URL }}
+      LEAFCHAIN_LMT_TESTNET_URI: ${{ secrets.LEAFCHAIN_LMT_TESTNET_RPC_URL }}
+      LEAFCHAIN_LMT_MAINNET_URI: ${{ secrets.LEAFCHAIN_LMT_MAINNET_RPC_URL }}
     steps:
       - uses: actions/checkout@v5
 
@@ -478,13 +480,13 @@ jobs:
       - name: "Pallet migration matrix (testnet)"
         if: github.event_name == 'pull_request'
         env:
-          MATRIX_CHAINS: "rootchain-testnet leafchain-sand"
+          MATRIX_CHAINS: "rootchain-testnet leafchain-sand-testnet leafchain-lmt-testnet"
         run: scripts/try-runtime-test.sh test-pallet-matrix
 
       - name: "Pallet migration matrix (all chains)"
         if: github.event_name != 'pull_request'
         env:
-          MATRIX_CHAINS: "rootchain-testnet rootchain-mainnet leafchain-sand leafchain-avatect"
+          MATRIX_CHAINS: "rootchain-testnet rootchain-mainnet leafchain-sand-testnet leafchain-avatect-mainnet leafchain-lmt-testnet leafchain-lmt-mainnet"
         run: scripts/try-runtime-test.sh test-pallet-matrix
 
       # ── Cleanup & artifacts ────────────────────────────────────────────
@@ -568,13 +570,29 @@ jobs:
             target/release/wbuild/general-runtime/ \;
           ls -la target/release/wbuild/general-runtime/general_runtime.compact.compressed.wasm
 
-      - name: Run Chopsticks upgrade test (leafchain-sand)
+      - name: Install bun and Chopsticks
         run: |
           curl -fsSL https://bun.sh/install | bash
           export PATH="$HOME/.bun/bin:$PATH"
           bun --version
           bun install @polkadot/api @acala-network/chopsticks
-          ./scripts/chopsticks/chopsticks-test.sh leafchain-sand
+
+      - name: Run Chopsticks upgrade test (leafchain-sand-testnet)
+        run: |
+          export PATH="$HOME/.bun/bin:$PATH"
+          ./scripts/chopsticks/chopsticks-test.sh leafchain-sand-testnet
+        timeout-minutes: 10
+
+      - name: Run Chopsticks upgrade test (leafchain-lmt-testnet)
+        run: |
+          export PATH="$HOME/.bun/bin:$PATH"
+          ./scripts/chopsticks/chopsticks-test.sh leafchain-lmt-testnet
+        timeout-minutes: 10
+
+      - name: Run Chopsticks upgrade test (leafchain-lmt-mainnet)
+        run: |
+          export PATH="$HOME/.bun/bin:$PATH"
+          ./scripts/chopsticks/chopsticks-test.sh leafchain-lmt-mainnet
         timeout-minutes: 10
 
   xcm-tests:

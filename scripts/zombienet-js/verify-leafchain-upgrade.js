@@ -40,7 +40,7 @@ async function run(nodeName, networkInfo, _args) {
     "Block production stalled after upgrade"
   );
 
-  // 3. Quick health: system.health
+  // 2. Quick health: system.health
   const health = await api.rpc.system.health();
   console.log(
     `Node health: peers=${health.peers}, syncing=${health.isSyncing}`

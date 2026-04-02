@@ -1,5 +1,5 @@
 endpoint: wss://node.avatect.mainnet.thxnet.org/archive-001/ws
 port: 8103
 mock-signature-host: true
-db: ./chopsticks-db/leafchain-avatect.sqlite
+db: ./chopsticks-db/leafchain-avatect-mainnet.sqlite
 runtime-log-level: 3

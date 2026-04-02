@@ -3,7 +3,7 @@
 // Called from any node.
 //
 // Usage in ZNDSL:
-//   leafchain-a-collator-1: js-script ./scripts/zombienet-js/verify-upgrade.js within 60 seconds
+//   leafchain-a-collator-1: js-script ./zombienet-js/verify-upgrade.js within 60 seconds
 //
 // Returns the new specVersion on success.
 // Follows upstream pattern from cumulus/zombienet/tests/runtime_upgrade.js
