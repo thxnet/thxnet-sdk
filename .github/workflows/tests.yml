@@ -30,7 +30,7 @@ jobs:
     runs-on: [self-hosted, hetzner-thxnet]
     timeout-minutes: 120
     container:
-      image: docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
+      image: docker.io/paritytech/ci-unified:bullseye-1.88.0-2025-06-27-v202511141243
       volumes:
         - /home/runner/.cache/cargo-registry:/usr/local/cargo/registry
         - /home/runner/.cache/cargo-git:/usr/local/cargo/git
@@ -61,7 +61,7 @@ jobs:
     runs-on: [self-hosted, hetzner-thxnet]
     timeout-minutes: 60
     container:
-      image: docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
+      image: docker.io/paritytech/ci-unified:bullseye-1.88.0-2025-06-27-v202511141243
       volumes:
         - /home/runner/.cache/cargo-registry:/usr/local/cargo/registry
         - /home/runner/.cache/cargo-git:/usr/local/cargo/git
@@ -106,7 +106,7 @@ jobs:
     timeout-minutes: 60
     continue-on-error: true
     container:
-      image: docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
+      image: docker.io/paritytech/ci-unified:bullseye-1.88.0-2025-06-27-v202511141243
       volumes:
         - /home/runner/.cache/cargo-registry:/usr/local/cargo/registry
         - /home/runner/.cache/cargo-git:/usr/local/cargo/git
