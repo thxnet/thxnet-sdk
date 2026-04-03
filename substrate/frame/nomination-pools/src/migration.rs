@@ -46,6 +46,19 @@ pub mod versioned {
 		<T as frame_system::Config>::DbWeight,
 	>;
 
+	/// V4 → V5: adds `total_commission_pending` and `total_commission_claimed` to `RewardPool`.
+	///
+	/// The original `MigrateToV5` has a broken guard (`in_code == 5`) that never fires
+	/// in stable2512 where `in_code` is 8. This `VersionedMigration` wrapper correctly checks
+	/// `on_chain == 4` and stamps to 5.
+	pub type V4toV5<T> = frame_support::migrations::VersionedMigration<
+		4,
+		5,
+		v5::UncheckedMigrateV4ToV5<T>,
+		crate::pallet::Pallet<T>,
+		<T as frame_system::Config>::DbWeight,
+	>;
+
 	/// Wrapper over `MigrateToV6` with convenience version checks.
 	pub type V5toV6<T> = frame_support::migrations::VersionedMigration<
 		5,
@@ -549,6 +562,41 @@ pub mod v5 {
 				total_commission_pending: Zero::zero(),
 				total_commission_claimed: Zero::zero(),
 			}
+		}
+	}
+
+	/// Unchecked V4→V5 migration for use with `VersionedMigration<4, 5, ...>`.
+	/// The original `MigrateToV5` has a manual guard `in_code == 5 && on_chain == 4`.
+	/// In stable2512, `in_code` is 8, so the guard never fires.
+	pub struct UncheckedMigrateV4ToV5<T>(core::marker::PhantomData<T>);
+	impl<T: Config> UncheckedOnRuntimeUpgrade for UncheckedMigrateV4ToV5<T> {
+		fn on_runtime_upgrade() -> Weight {
+			let mut translated = 0u64;
+			RewardPools::<T>::translate::<OldRewardPool<T>, _>(|_id, old_value| {
+				translated.saturating_inc();
+				Some(old_value.migrate_to_v5())
+			});
+			log!(info, "UncheckedMigrateV4ToV5: upgraded {} pools", translated);
+			T::DbWeight::get().reads_writes(translated + 1, translated + 1)
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
+			let rpool_values = RewardPools::<T>::iter_values().count();
+			Ok((rpool_values as u64).encode())
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade(_data: Vec<u8>) -> Result<(), TryRuntimeError> {
+			ensure!(
+				RewardPools::<T>::iter().all(|(_, reward_pool)| reward_pool
+					.total_commission_pending >=
+					Zero::zero() && reward_pool
+					.total_commission_claimed >=
+					Zero::zero()),
+				"a commission value has been incorrectly set"
+			);
+			Ok(())
 		}
 	}
 
