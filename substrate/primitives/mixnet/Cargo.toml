@@ -23,9 +23,4 @@ sp-application-crypto.workspace = true
 
 [features]
 default = ["std"]
-std = [
-	"codec/std",
-	"scale-info/std",
-	"sp-api/std",
-	"sp-application-crypto/std",
-]
+std = ["codec/std", "scale-info/std", "sp-api/std", "sp-application-crypto/std"]

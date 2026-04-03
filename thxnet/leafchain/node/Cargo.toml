@@ -80,22 +80,22 @@ substrate-build-script-utils = { path = "../../../substrate/utils/build-script-u
 [features]
 default = []
 runtime-benchmarks = [
-	"cumulus-primitives-core/runtime-benchmarks",
-	"frame-benchmarking-cli/runtime-benchmarks",
-	"frame-benchmarking/runtime-benchmarks",
-	"general-runtime/runtime-benchmarks",
-	"pallet-asset-tx-payment/runtime-benchmarks",
-	"pallet-assets/runtime-benchmarks",
-	"polkadot-cli/runtime-benchmarks",
-	"polkadot-primitives/runtime-benchmarks",
-	"sc-service/runtime-benchmarks",
-	"sp-runtime/runtime-benchmarks",
-	"xcm/runtime-benchmarks",
+  "cumulus-primitives-core/runtime-benchmarks",
+  "frame-benchmarking-cli/runtime-benchmarks",
+  "frame-benchmarking/runtime-benchmarks",
+  "general-runtime/runtime-benchmarks",
+  "pallet-asset-tx-payment/runtime-benchmarks",
+  "pallet-assets/runtime-benchmarks",
+  "polkadot-cli/runtime-benchmarks",
+  "polkadot-primitives/runtime-benchmarks",
+  "sc-service/runtime-benchmarks",
+  "sp-runtime/runtime-benchmarks",
+  "xcm/runtime-benchmarks",
 ]
 try-runtime = [
-	"general-runtime/try-runtime",
-	"pallet-asset-tx-payment/try-runtime",
-	"pallet-assets/try-runtime",
-	"polkadot-cli/try-runtime",
-	"sp-runtime/try-runtime",
+  "general-runtime/try-runtime",
+  "pallet-asset-tx-payment/try-runtime",
+  "pallet-assets/try-runtime",
+  "polkadot-cli/try-runtime",
+  "sp-runtime/try-runtime",
 ]

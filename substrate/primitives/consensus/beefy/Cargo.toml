@@ -36,33 +36,33 @@ w3f-bls = { features = ["std"], workspace = true, default-features = true }
 [features]
 default = ["std"]
 std = [
-	"codec/std",
-	"scale-info/std",
-	"serde/std",
-	"sp-api/std",
-	"sp-application-crypto/std",
-	"sp-core/std",
-	"sp-crypto-hashing/std",
-	"sp-io/std",
-	"sp-keystore/std",
-	"sp-mmr-primitives/std",
-	"sp-runtime/std",
-	"sp-weights/std",
-	"strum/std",
+  "codec/std",
+  "scale-info/std",
+  "serde/std",
+  "sp-api/std",
+  "sp-application-crypto/std",
+  "sp-core/std",
+  "sp-crypto-hashing/std",
+  "sp-io/std",
+  "sp-keystore/std",
+  "sp-mmr-primitives/std",
+  "sp-runtime/std",
+  "sp-weights/std",
+  "strum/std",
 ]
 
 # Serde support without relying on std features.
 serde = [
-	"dep:serde",
-	"scale-info/serde",
-	"sp-application-crypto/serde",
-	"sp-core/serde",
-	"sp-runtime/serde",
+  "dep:serde",
+  "scale-info/serde",
+  "sp-application-crypto/serde",
+  "sp-core/serde",
+  "sp-runtime/serde",
 ]
 
 # This feature adds BLS crypto primitives. It should not be used in production since
 # the BLS implementation and interface may still be subject to significant change.
 bls-experimental = [
-	"sp-application-crypto/bls-experimental",
-	"sp-core/bls-experimental",
+  "sp-application-crypto/bls-experimental",
+  "sp-core/bls-experimental",
 ]

@@ -22,9 +22,16 @@ fnv = { workspace = true }
 futures = { workspace = true }
 futures-timer = { workspace = true }
 http-body-util = { workspace = true }
-hyper = { features = ["http1", "http2"], workspace = true, default-features = true }
+hyper = { features = [
+  "http1",
+  "http2",
+], workspace = true, default-features = true }
 hyper-rustls = { workspace = true }
-hyper-util = { features = ["client-legacy", "http1", "http2"], workspace = true }
+hyper-util = { features = [
+  "client-legacy",
+  "http1",
+  "http2",
+], workspace = true }
 num_cpus = { workspace = true }
 once_cell = { workspace = true }
 parking_lot = { workspace = true, default-features = true }

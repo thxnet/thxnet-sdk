@@ -23,11 +23,11 @@ sp-trie.workspace = true
 [features]
 default = ["std"]
 std = [
-	"async-trait",
-	"codec/std",
-	"cumulus-primitives-core/std",
-	"scale-info/std",
-	"sp-core/std",
-	"sp-inherents/std",
-	"sp-trie/std",
+  "async-trait",
+  "codec/std",
+  "cumulus-primitives-core/std",
+  "scale-info/std",
+  "sp-core/std",
+  "sp-inherents/std",
+  "sp-trie/std",
 ]

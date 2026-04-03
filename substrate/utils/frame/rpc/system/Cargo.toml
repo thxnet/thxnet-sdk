@@ -21,7 +21,11 @@ docify = { workspace = true }
 frame-system-rpc-runtime-api.default-features = true
 frame-system-rpc-runtime-api.workspace = true
 futures = { workspace = true }
-jsonrpsee = { features = ["client-core", "macros", "server-core"], workspace = true }
+jsonrpsee = { features = [
+  "client-core",
+  "macros",
+  "server-core",
+], workspace = true }
 log = { workspace = true, default-features = true }
 sc-rpc-api.default-features = true
 sc-rpc-api.workspace = true

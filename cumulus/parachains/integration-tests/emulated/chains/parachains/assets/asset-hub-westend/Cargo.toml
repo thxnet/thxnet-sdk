@@ -21,7 +21,9 @@ parachains-common.default-features = true
 parachains-common.workspace = true
 sp-core.workspace = true
 sp-keyring.workspace = true
-testnet-parachains-constants = { features = ["westend"], workspace = true, default-features = true }
+testnet-parachains-constants = { features = [
+  "westend",
+], workspace = true, default-features = true }
 westend-emulated-chain.default-features = true
 westend-emulated-chain.workspace = true
 xcm.workspace = true

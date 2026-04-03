@@ -30,9 +30,9 @@ futures = { workspace = true }
 [features]
 default = ["std"]
 std = [
-	"async-trait",
-	"codec/std",
-	"scale-info/std",
-	"sp-runtime/std",
-	"thiserror",
+  "async-trait",
+  "codec/std",
+  "scale-info/std",
+  "sp-runtime/std",
+  "thiserror",
 ]

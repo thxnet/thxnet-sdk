@@ -14,7 +14,11 @@ workspace = true
 [dependencies]
 codec = { features = ["derive"], workspace = true, default-features = true }
 futures = { workspace = true }
-jsonrpsee = { features = ["client-core", "macros", "server-core"], workspace = true }
+jsonrpsee = { features = [
+  "client-core",
+  "macros",
+  "server-core",
+], workspace = true }
 log = { workspace = true, default-features = true }
 parking_lot = { workspace = true, default-features = true }
 sc-consensus-beefy.default-features = true
@@ -33,6 +37,8 @@ sp-runtime.workspace = true
 thiserror = { workspace = true }
 
 [dev-dependencies]
-sc-rpc = { features = ["test-helpers"], default-features = true, workspace = true }
+sc-rpc = { features = [
+  "test-helpers",
+], default-features = true, workspace = true }
 substrate-test-runtime-client = { workspace = true }
 tokio = { features = ["macros"], workspace = true, default-features = true }

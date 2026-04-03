@@ -43,7 +43,9 @@ sc-rpc-api.default-features = true
 sc-rpc-api.workspace = true
 sc-transaction-pool-api.default-features = true
 sc-transaction-pool-api.workspace = true
-scale-info = { features = ["derive"], workspace = true, default-features = true }
+scale-info = { features = [
+  "derive",
+], workspace = true, default-features = true }
 serde_json = { workspace = true }
 sp-consensus-grandpa.default-features = true
 sp-consensus-grandpa.workspace = true
@@ -60,7 +62,9 @@ sp-trie.workspace = true
 sp-version.default-features = true
 sp-version.workspace = true
 thiserror = { workspace = true }
-tokio = { features = ["rt-multi-thread"], workspace = true, default-features = true }
+tokio = { features = [
+  "rt-multi-thread",
+], workspace = true, default-features = true }
 tracing = { workspace = true }
 xcm.default-features = true
 xcm.workspace = true

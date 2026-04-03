@@ -40,7 +40,9 @@ thiserror = { workspace = true }
 assert_matches = { workspace = true }
 futures = { features = ["thread-pool"], workspace = true }
 polkadot-node-subsystem-test-helpers = { workspace = true }
-polkadot-primitives = { features = ["test"], workspace = true, default-features = false }
+polkadot-primitives = { features = [
+  "test",
+], workspace = true, default-features = false }
 polkadot-primitives-test-helpers = { workspace = true }
 sc-keystore = { default-features = true, workspace = true }
 sp-application-crypto = { default-features = true, workspace = true }

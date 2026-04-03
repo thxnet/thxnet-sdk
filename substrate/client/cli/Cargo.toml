@@ -67,7 +67,11 @@ sp-runtime.workspace = true
 sp-version.default-features = true
 sp-version.workspace = true
 thiserror = { workspace = true }
-tokio = { features = ["parking_lot", "rt-multi-thread", "signal"], workspace = true, default-features = true }
+tokio = { features = [
+  "parking_lot",
+  "rt-multi-thread",
+  "signal",
+], workspace = true, default-features = true }
 
 [dev-dependencies]
 futures-timer = { workspace = true }

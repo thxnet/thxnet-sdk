@@ -36,22 +36,22 @@ sp-io = { default-features = true, workspace = true }
 [features]
 default = ["std"]
 std = [
-	"bp-beefy/std",
-	"bp-runtime/std",
-	"codec/std",
-	"frame-support/std",
-	"frame-system/std",
-	"scale-info/std",
-	"serde/std",
-	"sp-core/std",
-	"sp-runtime/std",
-	"sp-std/std",
-	"tracing/std",
+  "bp-beefy/std",
+  "bp-runtime/std",
+  "codec/std",
+  "frame-support/std",
+  "frame-system/std",
+  "scale-info/std",
+  "serde/std",
+  "sp-core/std",
+  "sp-runtime/std",
+  "sp-std/std",
+  "tracing/std",
 ]
 try-runtime = [
-	"frame-support/try-runtime",
-	"frame-system/try-runtime",
-	"pallet-beefy-mmr/try-runtime",
-	"pallet-mmr/try-runtime",
-	"sp-runtime/try-runtime",
+  "frame-support/try-runtime",
+  "frame-system/try-runtime",
+  "pallet-beefy-mmr/try-runtime",
+  "pallet-mmr/try-runtime",
+  "sp-runtime/try-runtime",
 ]

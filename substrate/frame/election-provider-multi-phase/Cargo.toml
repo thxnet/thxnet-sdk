@@ -33,7 +33,9 @@ strum = { features = ["derive"], optional = true, workspace = true }
 # optional for remote testing
 hex = { workspace = true, default-features = true, optional = true }
 remote-externalities = { workspace = true, optional = true, default-features = true }
-tokio = { features = ["macros"], workspace = true, default-features = true, optional = true }
+tokio = { features = [
+  "macros",
+], workspace = true, default-features = true, optional = true }
 
 [dev-dependencies]
 frame-benchmarking = { default-features = true, workspace = true }
@@ -47,35 +49,35 @@ sp-tracing = { default-features = true, workspace = true }
 remote-mining = ["hex", "remote-externalities", "tokio"]
 default = ["std"]
 std = [
-	"codec/std",
-	"frame-benchmarking?/std",
-	"frame-election-provider-support/std",
-	"frame-support/std",
-	"frame-system/std",
-	"log/std",
-	"rand/std",
-	"scale-info/std",
-	"sp-arithmetic/std",
-	"sp-core/std",
-	"sp-io/std",
-	"sp-npos-elections/std",
-	"sp-runtime/std",
-	"strum/std",
+  "codec/std",
+  "frame-benchmarking?/std",
+  "frame-election-provider-support/std",
+  "frame-support/std",
+  "frame-system/std",
+  "log/std",
+  "rand/std",
+  "scale-info/std",
+  "sp-arithmetic/std",
+  "sp-core/std",
+  "sp-io/std",
+  "sp-npos-elections/std",
+  "sp-runtime/std",
+  "strum/std",
 ]
 runtime-benchmarks = [
-	"frame-benchmarking/runtime-benchmarks",
-	"frame-election-provider-support/runtime-benchmarks",
-	"frame-support/runtime-benchmarks",
-	"frame-system/runtime-benchmarks",
-	"pallet-balances/runtime-benchmarks",
-	"rand",
-	"sp-runtime/runtime-benchmarks",
-	"strum",
+  "frame-benchmarking/runtime-benchmarks",
+  "frame-election-provider-support/runtime-benchmarks",
+  "frame-support/runtime-benchmarks",
+  "frame-system/runtime-benchmarks",
+  "pallet-balances/runtime-benchmarks",
+  "rand",
+  "sp-runtime/runtime-benchmarks",
+  "strum",
 ]
 try-runtime = [
-	"frame-election-provider-support/try-runtime",
-	"frame-support/try-runtime",
-	"frame-system/try-runtime",
-	"pallet-balances/try-runtime",
-	"sp-runtime/try-runtime",
+  "frame-election-provider-support/try-runtime",
+  "frame-support/try-runtime",
+  "frame-system/try-runtime",
+  "pallet-balances/try-runtime",
+  "sp-runtime/try-runtime",
 ]

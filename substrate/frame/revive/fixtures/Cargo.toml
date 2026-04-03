@@ -16,7 +16,9 @@ exclude-from-umbrella = true
 workspace = true
 
 [dependencies]
-alloy-core = { workspace = true, default-features = true, features = ["sol-types"], optional = true }
+alloy-core = { workspace = true, default-features = true, features = [
+  "sol-types",
+], optional = true }
 anyhow = { workspace = true, default-features = true, optional = true }
 cargo_metadata = { workspace = true, optional = true }
 hex = { workspace = true, features = ["alloc"], optional = true }
@@ -40,15 +42,15 @@ toml = { workspace = true }
 default = ["std"]
 # only when std is enabled all fixtures are available
 std = [
-	"alloy-core",
-	"anyhow",
-	"cargo_metadata",
-	"hex",
-	"hex/std",
-	"polkavm-linker",
-	"serde_json",
-	"serde_json/std",
-	"sp-core",
-	"sp-io",
-	"toml",
+  "alloy-core",
+  "anyhow",
+  "cargo_metadata",
+  "hex",
+  "hex/std",
+  "polkavm-linker",
+  "serde_json",
+  "serde_json/std",
+  "sp-core",
+  "sp-io",
+  "toml",
 ]

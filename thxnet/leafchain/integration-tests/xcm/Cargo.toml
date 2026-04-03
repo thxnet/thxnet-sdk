@@ -14,7 +14,9 @@ general-runtime = { path = "../../runtime/general" }
 xcm-emulator = { package = "thxnet-xcm-emulator", path = "../../xcm/xcm-emulator" }
 
 # Rootchain runtime (in thxnet/ dir within monorepo)
-thxnet-runtime = { path = "../../../runtime/thxnet", default-features = false, features = ["std"] }
+thxnet-runtime = { path = "../../../runtime/thxnet", default-features = false, features = [
+  "std",
+] }
 
 # XCM
 pallet-xcm = { path = "../../../../polkadot/xcm/pallet-xcm" }

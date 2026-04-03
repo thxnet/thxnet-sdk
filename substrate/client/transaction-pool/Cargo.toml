@@ -53,7 +53,10 @@ sp-transaction-pool.default-features = true
 sp-transaction-pool.workspace = true
 strum = { workspace = true, features = ["derive"] }
 thiserror = { workspace = true }
-tokio = { workspace = true, default-features = true, features = ["macros", "time"] }
+tokio = { workspace = true, default-features = true, features = [
+  "macros",
+  "time",
+] }
 tokio-stream = { workspace = true }
 tracing = { workspace = true, default-features = true }
 

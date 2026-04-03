@@ -27,13 +27,13 @@ xcm.workspace = true
 [features]
 default = ["std"]
 std = [
-	"cumulus-primitives-core/std",
-	"frame-support/std",
-	"polkadot-core-primitives/std",
-	"rococo-runtime-constants?/std",
-	"sp-runtime/std",
-	"westend-runtime-constants?/std",
-	"xcm/std",
+  "cumulus-primitives-core/std",
+  "frame-support/std",
+  "polkadot-core-primitives/std",
+  "rococo-runtime-constants?/std",
+  "sp-runtime/std",
+  "westend-runtime-constants?/std",
+  "xcm/std",
 ]
 
 # Test runtimes specific features.

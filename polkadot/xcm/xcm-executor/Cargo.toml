@@ -29,22 +29,22 @@ xcm.workspace = true
 [features]
 default = ["std"]
 runtime-benchmarks = [
-	"frame-benchmarking/runtime-benchmarks",
-	"frame-support/runtime-benchmarks",
-	"sp-runtime/runtime-benchmarks",
-	"xcm/runtime-benchmarks",
+  "frame-benchmarking/runtime-benchmarks",
+  "frame-support/runtime-benchmarks",
+  "sp-runtime/runtime-benchmarks",
+  "xcm/runtime-benchmarks",
 ]
 std = [
-	"codec/std",
-	"environmental/std",
-	"frame-benchmarking/std",
-	"frame-support/std",
-	"scale-info/std",
-	"sp-arithmetic/std",
-	"sp-core/std",
-	"sp-io/std",
-	"sp-runtime/std",
-	"sp-weights/std",
-	"tracing/std",
-	"xcm/std",
+  "codec/std",
+  "environmental/std",
+  "frame-benchmarking/std",
+  "frame-support/std",
+  "scale-info/std",
+  "sp-arithmetic/std",
+  "sp-core/std",
+  "sp-io/std",
+  "sp-runtime/std",
+  "sp-weights/std",
+  "tracing/std",
+  "xcm/std",
 ]

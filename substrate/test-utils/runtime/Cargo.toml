@@ -36,7 +36,9 @@ sp-consensus-babe = { features = ["serde"], workspace = true }
 sp-consensus-grandpa = { features = ["serde"], workspace = true }
 sp-core = { features = ["serde"], workspace = true }
 sp-crypto-hashing.workspace = true
-sp-debug-derive = { workspace = true, features = ["force-debug"], default-features = false }
+sp-debug-derive = { workspace = true, features = [
+  "force-debug",
+], default-features = false }
 sp-externalities.workspace = true
 sp-genesis-builder.workspace = true
 sp-inherents.workspace = true
@@ -70,52 +72,54 @@ sp-tracing = { default-features = true, workspace = true }
 substrate-test-runtime-client = { workspace = true }
 
 [build-dependencies]
-substrate-wasm-builder = { optional = true, features = ["metadata-hash"], workspace = true, default-features = true }
+substrate-wasm-builder = { optional = true, features = [
+  "metadata-hash",
+], workspace = true, default-features = true }
 
 [features]
 default = ["std"]
 
 std = [
-	"array-bytes",
-	"codec/std",
-	"frame-executive/std",
-	"frame-metadata-hash-extension/std",
-	"frame-support/std",
-	"frame-system-rpc-runtime-api/std",
-	"frame-system/std",
-	"log/std",
-	"pallet-babe/std",
-	"pallet-balances/std",
-	"pallet-timestamp/std",
-	"pallet-utility/std",
-	"sc-service",
-	"scale-info/std",
-	"serde/std",
-	"serde_json/std",
-	"sp-api/std",
-	"sp-application-crypto/std",
-	"sp-block-builder/std",
-	"sp-consensus-aura/std",
-	"sp-consensus-babe/std",
-	"sp-consensus-grandpa/std",
-	"sp-core/std",
-	"sp-crypto-hashing/std",
-	"sp-debug-derive/std",
-	"sp-externalities/std",
-	"sp-genesis-builder/std",
-	"sp-inherents/std",
-	"sp-io/std",
-	"sp-keyring/std",
-	"sp-offchain/std",
-	"sp-runtime/std",
-	"sp-session/std",
-	"sp-state-machine/std",
-	"sp-transaction-pool/std",
-	"sp-trie/std",
-	"sp-version/std",
-	"substrate-wasm-builder",
-	"tracing/std",
-	"trie-db/std",
+  "array-bytes",
+  "codec/std",
+  "frame-executive/std",
+  "frame-metadata-hash-extension/std",
+  "frame-support/std",
+  "frame-system-rpc-runtime-api/std",
+  "frame-system/std",
+  "log/std",
+  "pallet-babe/std",
+  "pallet-balances/std",
+  "pallet-timestamp/std",
+  "pallet-utility/std",
+  "sc-service",
+  "scale-info/std",
+  "serde/std",
+  "serde_json/std",
+  "sp-api/std",
+  "sp-application-crypto/std",
+  "sp-block-builder/std",
+  "sp-consensus-aura/std",
+  "sp-consensus-babe/std",
+  "sp-consensus-grandpa/std",
+  "sp-core/std",
+  "sp-crypto-hashing/std",
+  "sp-debug-derive/std",
+  "sp-externalities/std",
+  "sp-genesis-builder/std",
+  "sp-inherents/std",
+  "sp-io/std",
+  "sp-keyring/std",
+  "sp-offchain/std",
+  "sp-runtime/std",
+  "sp-session/std",
+  "sp-state-machine/std",
+  "sp-transaction-pool/std",
+  "sp-trie/std",
+  "sp-version/std",
+  "substrate-wasm-builder",
+  "tracing/std",
+  "trie-db/std",
 ]
 
 # Special feature to disable logging

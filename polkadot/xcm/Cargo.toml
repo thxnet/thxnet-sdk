@@ -36,22 +36,22 @@ sp-io = { default-features = true, workspace = true }
 default = ["std"]
 wasm-api = []
 std = [
-	"bounded-collections/std",
-	"codec/std",
-	"environmental/std",
-	"frame-support/std",
-	"scale-info/std",
-	"serde/std",
-	"sp-runtime/std",
-	"sp-weights/std",
-	"tracing/std",
+  "bounded-collections/std",
+  "codec/std",
+  "environmental/std",
+  "frame-support/std",
+  "scale-info/std",
+  "serde/std",
+  "sp-runtime/std",
+  "sp-weights/std",
+  "tracing/std",
 ]
 json-schema = [
-	"bounded-collections/json-schema",
-	"dep:schemars",
-	"sp-weights/json-schema",
+  "bounded-collections/json-schema",
+  "dep:schemars",
+  "sp-weights/json-schema",
 ]
 runtime-benchmarks = [
-	"frame-support/runtime-benchmarks",
-	"sp-runtime/runtime-benchmarks",
+  "frame-support/runtime-benchmarks",
+  "sp-runtime/runtime-benchmarks",
 ]

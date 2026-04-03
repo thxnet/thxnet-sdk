@@ -18,8 +18,4 @@ sp-timestamp.workspace = true
 
 [features]
 default = ["std"]
-std = [
-	"cumulus-primitives-core/std",
-	"sp-inherents/std",
-	"sp-timestamp/std",
-]
+std = ["cumulus-primitives-core/std", "sp-inherents/std", "sp-timestamp/std"]

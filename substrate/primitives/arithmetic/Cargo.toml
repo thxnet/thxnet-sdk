@@ -37,11 +37,6 @@ sp-crypto-hashing = { default-features = true, workspace = true }
 
 [features]
 default = ["std"]
-std = [
-	"codec/std",
-	"num-traits/std",
-	"scale-info/std",
-	"serde/std",
-]
+std = ["codec/std", "num-traits/std", "scale-info/std", "serde/std"]
 # Serde support without relying on std features.
 serde = ["dep:serde", "scale-info/serde"]

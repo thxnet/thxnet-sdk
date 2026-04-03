@@ -55,7 +55,10 @@ sp-core.workspace = true
 sp-runtime.default-features = true
 sp-runtime.workspace = true
 thiserror = { workspace = true }
-tokio = { features = ["macros", "time"], workspace = true, default-features = true }
+tokio = { features = [
+  "macros",
+  "time",
+], workspace = true, default-features = true }
 tokio-stream = { workspace = true }
 
 [dev-dependencies]

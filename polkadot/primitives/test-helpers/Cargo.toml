@@ -13,7 +13,9 @@ workspace = true
 
 [dependencies]
 codec = { features = ["bit-vec", "derive"], workspace = true }
-polkadot-primitives = { features = ["test"], workspace = true, default-features = true }
+polkadot-primitives = { features = [
+  "test",
+], workspace = true, default-features = true }
 rand = { workspace = true, default-features = true }
 scale-info = { features = ["bit-vec", "derive", "serde"], workspace = true }
 sp-application-crypto.workspace = true

@@ -25,14 +25,14 @@ xcm.workspace = true
 [features]
 default = ["std"]
 std = [
-	"bp-messages/std",
-	"bp-runtime/std",
-	"codec/std",
-	"frame-support/std",
-	"scale-info/std",
-	"serde/std",
-	"sp-core/std",
-	"sp-io/std",
-	"sp-std/std",
-	"xcm/std",
+  "bp-messages/std",
+  "bp-runtime/std",
+  "codec/std",
+  "frame-support/std",
+  "scale-info/std",
+  "serde/std",
+  "sp-core/std",
+  "sp-io/std",
+  "sp-std/std",
+  "xcm/std",
 ]

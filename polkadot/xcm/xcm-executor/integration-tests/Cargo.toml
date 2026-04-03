@@ -43,10 +43,10 @@ xcm-executor.workspace = true
 [features]
 default = ["std"]
 std = [
-	"frame-support/std",
-	"frame-system/std",
-	"pallet-sudo/std",
-	"polkadot-runtime-parachains/std",
-	"sp-runtime/std",
-	"xcm/std",
+  "frame-support/std",
+  "frame-system/std",
+  "pallet-sudo/std",
+  "polkadot-runtime-parachains/std",
+  "sp-runtime/std",
+  "xcm/std",
 ]

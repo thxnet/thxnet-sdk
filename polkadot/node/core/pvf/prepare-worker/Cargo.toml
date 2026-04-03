@@ -48,7 +48,7 @@ rococo-runtime = { workspace = true }
 [features]
 builder = []
 jemalloc-allocator = [
-	"dep:tikv-jemalloc-ctl",
-	"dep:tikv-jemallocator",
-	"polkadot-node-core-pvf-common/jemalloc-allocator",
+  "dep:tikv-jemalloc-ctl",
+  "dep:tikv-jemallocator",
+  "polkadot-node-core-pvf-common/jemalloc-allocator",
 ]

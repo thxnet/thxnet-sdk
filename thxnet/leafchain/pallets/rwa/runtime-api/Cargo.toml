@@ -6,8 +6,12 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
-scale-info = { version = "2.5.0", default-features = false, features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = [
+  "derive",
+] }
+scale-info = { version = "2.5.0", default-features = false, features = [
+  "derive",
+] }
 
 sp-api = { path = "../../../../../substrate/primitives/api", default-features = false }
 sp-runtime = { path = "../../../../../substrate/primitives/runtime", default-features = false }
@@ -17,9 +21,9 @@ pallet-rwa = { path = "..", default-features = false }
 [features]
 default = ["std"]
 std = [
-	"codec/std",
-	"pallet-rwa/std",
-	"scale-info/std",
-	"sp-api/std",
-	"sp-runtime/std",
+  "codec/std",
+  "pallet-rwa/std",
+  "scale-info/std",
+  "sp-api/std",
+  "sp-runtime/std",
 ]

@@ -17,9 +17,4 @@ sp-std.workspace = true
 
 [features]
 default = ["std"]
-std = [
-	"codec/std",
-	"scale-info/std",
-	"sp-api/std",
-	"sp-std/std",
-]
+std = ["codec/std", "scale-info/std", "sp-api/std", "sp-std/std"]

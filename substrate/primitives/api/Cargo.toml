@@ -38,21 +38,21 @@ sp-test-primitives = { workspace = true }
 [features]
 default = ["std"]
 std = [
-	"codec/std",
-	"hash-db",
-	"log/std",
-	"scale-info/std",
-	"sp-api-proc-macro/std",
-	"sp-core/std",
-	"sp-externalities",
-	"sp-externalities?/std",
-	"sp-metadata-ir?/std",
-	"sp-runtime-interface/std",
-	"sp-runtime/std",
-	"sp-state-machine/std",
-	"sp-trie/std",
-	"sp-version/std",
-	"thiserror",
+  "codec/std",
+  "hash-db",
+  "log/std",
+  "scale-info/std",
+  "sp-api-proc-macro/std",
+  "sp-core/std",
+  "sp-externalities",
+  "sp-externalities?/std",
+  "sp-metadata-ir?/std",
+  "sp-runtime-interface/std",
+  "sp-runtime/std",
+  "sp-state-machine/std",
+  "sp-trie/std",
+  "sp-version/std",
+  "thiserror",
 ]
 # Special feature to disable logging completely.
 #

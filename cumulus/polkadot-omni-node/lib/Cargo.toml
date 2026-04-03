@@ -68,7 +68,9 @@ pallet-transaction-payment-rpc-runtime-api.default-features = true
 pallet-transaction-payment-rpc-runtime-api.workspace = true
 parachains-common.default-features = true
 parachains-common.workspace = true
-polkadot-cli = { workspace = true, features = ["service"], default-features = true }
+polkadot-cli = { workspace = true, features = [
+  "service",
+], default-features = true }
 polkadot-primitives.default-features = true
 polkadot-primitives.workspace = true
 prometheus-endpoint.default-features = true
@@ -171,23 +173,23 @@ default = []
 rococo-native = ["polkadot-cli/rococo-native"]
 westend-native = ["polkadot-cli/westend-native"]
 runtime-benchmarks = [
-	"cumulus-primitives-core/runtime-benchmarks",
-	"frame-benchmarking-cli/runtime-benchmarks",
-	"frame-benchmarking/runtime-benchmarks",
-	"frame-support/runtime-benchmarks",
-	"pallet-transaction-payment/runtime-benchmarks",
-	"parachains-common/runtime-benchmarks",
-	"polkadot-cli/runtime-benchmarks",
-	"polkadot-primitives/runtime-benchmarks",
-	"sc-client-db/runtime-benchmarks",
-	"sc-service/runtime-benchmarks",
-	"sp-runtime/runtime-benchmarks",
+  "cumulus-primitives-core/runtime-benchmarks",
+  "frame-benchmarking-cli/runtime-benchmarks",
+  "frame-benchmarking/runtime-benchmarks",
+  "frame-support/runtime-benchmarks",
+  "pallet-transaction-payment/runtime-benchmarks",
+  "parachains-common/runtime-benchmarks",
+  "polkadot-cli/runtime-benchmarks",
+  "polkadot-primitives/runtime-benchmarks",
+  "sc-client-db/runtime-benchmarks",
+  "sc-service/runtime-benchmarks",
+  "sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
-	"frame-support/try-runtime",
-	"frame-try-runtime/try-runtime",
-	"pallet-transaction-payment/try-runtime",
-	"parachains-common/try-runtime",
-	"polkadot-cli/try-runtime",
-	"sp-runtime/try-runtime",
+  "frame-support/try-runtime",
+  "frame-try-runtime/try-runtime",
+  "pallet-transaction-payment/try-runtime",
+  "parachains-common/try-runtime",
+  "polkadot-cli/try-runtime",
+  "sp-runtime/try-runtime",
 ]

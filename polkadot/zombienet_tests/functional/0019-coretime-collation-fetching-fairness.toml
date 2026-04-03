@@ -33,7 +33,11 @@ trashDataCount = 5120
 name = "collator-2000"
 image = "{{CUMULUS_IMAGE}}"
 command = "polkadot-parachain"
-args = ["-lparachain=debug,parachain::collator-protocol=trace", "--authoring", "slot-based"]
+args = [
+  "-lparachain=debug,parachain::collator-protocol=trace",
+  "--authoring",
+  "slot-based",
+]
 
 [[parachains]]
 id = 2001

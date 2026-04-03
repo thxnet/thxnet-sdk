@@ -26,20 +26,20 @@ xcm.workspace = true
 [features]
 default = ["std"]
 std = [
-	"codec/std",
-	"polkadot-core-primitives/std",
-	"polkadot-parachain-primitives/std",
-	"polkadot-primitives/std",
-	"scale-info/std",
-	"sp-api/std",
-	"sp-runtime/std",
-	"sp-trie/std",
-	"tracing/std",
-	"xcm/std",
+  "codec/std",
+  "polkadot-core-primitives/std",
+  "polkadot-parachain-primitives/std",
+  "polkadot-primitives/std",
+  "scale-info/std",
+  "sp-api/std",
+  "sp-runtime/std",
+  "sp-trie/std",
+  "tracing/std",
+  "xcm/std",
 ]
 runtime-benchmarks = [
-	"polkadot-parachain-primitives/runtime-benchmarks",
-	"polkadot-primitives/runtime-benchmarks",
-	"sp-runtime/runtime-benchmarks",
-	"xcm/runtime-benchmarks",
+  "polkadot-parachain-primitives/runtime-benchmarks",
+  "polkadot-primitives/runtime-benchmarks",
+  "sp-runtime/runtime-benchmarks",
+  "xcm/runtime-benchmarks",
 ]

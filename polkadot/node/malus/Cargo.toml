@@ -36,7 +36,11 @@ color-eyre = { workspace = true }
 futures = { workspace = true }
 gum.default-features = true
 gum.workspace = true
-polkadot-cli = { features = ["malus", "rococo-native", "westend-native"], workspace = true, default-features = true }
+polkadot-cli = { features = [
+  "malus",
+  "rococo-native",
+  "westend-native",
+], workspace = true, default-features = true }
 polkadot-erasure-coding.default-features = true
 polkadot-erasure-coding.workspace = true
 polkadot-node-core-pvf-common.default-features = true

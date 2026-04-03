@@ -29,7 +29,4 @@ polkadot-sdk = { workspace = true, features = ["substrate-build-script-utils"] }
 
 [features]
 default = ["std"]
-std = [
-	"polkadot-sdk/std",
-	"revive-dev-runtime/std",
-]
+std = ["polkadot-sdk/std", "revive-dev-runtime/std"]

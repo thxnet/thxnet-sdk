@@ -24,19 +24,10 @@ sp-metadata-ir = { optional = true, workspace = true }
 [features]
 default = ["std"]
 
-std = [
-	"codec/std",
-	"frame/std",
-	"scale-info/std",
-	"sp-metadata-ir/std",
-]
+std = ["codec/std", "frame/std", "scale-info/std", "sp-metadata-ir/std"]
 
-runtime-benchmarks = [
-	"frame/runtime-benchmarks",
-]
+runtime-benchmarks = ["frame/runtime-benchmarks"]
 
-try-runtime = [
-	"frame/try-runtime",
-]
+try-runtime = ["frame/try-runtime"]
 
 frame-metadata = ["sp-metadata-ir"]

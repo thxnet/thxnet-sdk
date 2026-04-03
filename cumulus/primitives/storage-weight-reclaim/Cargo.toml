@@ -31,15 +31,15 @@ sp-trie = { workspace = true, default-features = false }
 [features]
 default = ["std"]
 std = [
-	"codec/std",
-	"cumulus-primitives-core/std",
-	"cumulus-primitives-proof-size-hostfunction/std",
-	"frame-benchmarking/std",
-	"frame-support/std",
-	"frame-system/std",
-	"log/std",
-	"scale-info/std",
-	"sp-io/std",
-	"sp-runtime/std",
-	"sp-trie/std",
+  "codec/std",
+  "cumulus-primitives-core/std",
+  "cumulus-primitives-proof-size-hostfunction/std",
+  "frame-benchmarking/std",
+  "frame-support/std",
+  "frame-system/std",
+  "log/std",
+  "scale-info/std",
+  "sp-io/std",
+  "sp-runtime/std",
+  "sp-trie/std",
 ]

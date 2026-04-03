@@ -16,7 +16,10 @@ targets = ["wasm32-unknown-unknown"]
 
 [dependencies]
 bitflags = { workspace = true }
-codec = { features = ["derive", "max-encoded-len"], optional = true, workspace = true }
+codec = { features = [
+  "derive",
+  "max-encoded-len",
+], optional = true, workspace = true }
 paste = { workspace = true }
 scale-info = { features = ["derive"], optional = true, workspace = true }
 

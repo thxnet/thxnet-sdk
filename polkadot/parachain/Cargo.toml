@@ -32,13 +32,13 @@ serde = { features = ["alloc", "derive"], workspace = true }
 default = ["std"]
 wasm-api = []
 std = [
-	"bounded-collections/std",
-	"codec/std",
-	"polkadot-core-primitives/std",
-	"scale-info/std",
-	"serde/std",
-	"sp-core/std",
-	"sp-runtime/std",
-	"sp-weights/std",
+  "bounded-collections/std",
+  "codec/std",
+  "polkadot-core-primitives/std",
+  "scale-info/std",
+  "serde/std",
+  "sp-core/std",
+  "sp-runtime/std",
+  "sp-weights/std",
 ]
 runtime-benchmarks = ["sp-runtime/runtime-benchmarks"]

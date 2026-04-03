@@ -6,23 +6,19 @@ default_image = "parity/polkadot:latest"
 default_command = "polkadot"
 chain = "rococo-local"
 default_args = [
-	"--pool-kbytes 2048000",
-	"--pool-limit 100000",
-	"--pool-type=fork-aware",
-	"--rpc-max-connections 15000",
-	"--rpc-max-response-size 150",
-	"--rpc-max-subscriptions-per-connection=128000",
-	"--state-pruning=1024",
-	"-lsync=info",
-	"-ltxpool=debug",
-	"-ltxpoolstat=debug",
+  "--pool-kbytes 2048000",
+  "--pool-limit 100000",
+  "--pool-type=fork-aware",
+  "--rpc-max-connections 15000",
+  "--rpc-max-response-size 150",
+  "--rpc-max-subscriptions-per-connection=128000",
+  "--state-pruning=1024",
+  "-lsync=info",
+  "-ltxpool=debug",
+  "-ltxpoolstat=debug",
 ]
 [relaychain.genesis.runtimeGenesis.patch.balances]
-devAccounts = [
-	100000,
-	1000000000000000000,
-	"//Sender//{}",
-]
+devAccounts = [100000, 1000000000000000000, "//Sender//{}"]
 
 [[relaychain.nodes]]
 # command = "/home/miszka/parity/14-txpool-forks/polkadot-sdk-master-02/target/release-tokio-console/polkadot"

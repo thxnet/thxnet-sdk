@@ -17,6 +17,10 @@ name = "bags-list"
 path = "src/main.rs"
 
 [dependencies]
-frame-election-provider-support = { features = ["fuzz"], workspace = true, default-features = true }
+frame-election-provider-support = { features = [
+  "fuzz",
+], workspace = true, default-features = true }
 honggfuzz = { workspace = true }
-pallet-bags-list = { features = ["fuzz"], workspace = true, default-features = true }
+pallet-bags-list = { features = [
+  "fuzz",
+], workspace = true, default-features = true }

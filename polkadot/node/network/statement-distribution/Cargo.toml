@@ -43,7 +43,9 @@ thiserror = { workspace = true }
 assert_matches = { workspace = true }
 async-channel = { workspace = true }
 polkadot-node-subsystem-test-helpers = { workspace = true }
-polkadot-primitives = { features = ["test"], workspace = true, default-features = false }
+polkadot-primitives = { features = [
+  "test",
+], workspace = true, default-features = false }
 polkadot-primitives-test-helpers = { workspace = true }
 polkadot-subsystem-bench = { workspace = true }
 rand_chacha = { workspace = true, default-features = true }

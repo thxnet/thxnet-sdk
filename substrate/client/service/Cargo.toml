@@ -106,7 +106,11 @@ sp-version.workspace = true
 static_init = { workspace = true }
 tempfile = { workspace = true }
 thiserror = { workspace = true }
-tokio = { features = ["parking_lot", "rt-multi-thread", "time"], workspace = true, default-features = true }
+tokio = { features = [
+  "parking_lot",
+  "rt-multi-thread",
+  "time",
+], workspace = true, default-features = true }
 tracing = { workspace = true, default-features = true }
 tracing-futures = { workspace = true }
 
@@ -120,7 +124,7 @@ default = ["rocksdb"]
 # a path to a database, an error will be produced at runtime.
 rocksdb = ["sc-client-db/rocksdb"]
 runtime-benchmarks = [
-	"sc-client-db/runtime-benchmarks",
-	"sp-runtime/runtime-benchmarks",
+  "sc-client-db/runtime-benchmarks",
+  "sp-runtime/runtime-benchmarks",
 ]
 jemalloc-allocator = ["sc-client-db/jemalloc-allocator"]

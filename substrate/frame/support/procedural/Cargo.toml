@@ -37,22 +37,25 @@ sp-crypto-hashing.workspace = true
 syn = { features = ["full", "parsing", "visit-mut"], workspace = true }
 
 [dev-dependencies]
-codec = { features = ["derive", "max-encoded-len"], workspace = true, default-features = true }
+codec = { features = [
+  "derive",
+  "max-encoded-len",
+], workspace = true, default-features = true }
 frame-benchmarking = { default-features = true, workspace = true }
 frame-support = { default-features = true, workspace = true }
 frame-system = { default-features = true, workspace = true }
 pretty_assertions = { workspace = true }
 regex = { workspace = true }
-scale-info = { features = ["derive"], workspace = true, default-features = true }
+scale-info = { features = [
+  "derive",
+], workspace = true, default-features = true }
 sp-io = { default-features = true, workspace = true }
 sp-metadata-ir = { default-features = true, workspace = true }
 sp-runtime = { features = ["serde"], default-features = true, workspace = true }
 
 [features]
 default = ["std"]
-std = [
-	"sp-crypto-hashing/std",
-]
+std = ["sp-crypto-hashing/std"]
 no-metadata-docs = []
 experimental = []
 # Generate impl-trait for tuples with the given number of tuples. Will be needed as the number of

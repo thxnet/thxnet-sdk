@@ -15,7 +15,10 @@ workspace = true
 [dependencies]
 color-eyre = { workspace = true }
 polkadot-jemalloc-shim.workspace = true
-polkadot-omni-node-lib = { workspace = true, features = ["rococo-native", "westend-native"] }
+polkadot-omni-node-lib = { workspace = true, features = [
+  "rococo-native",
+  "westend-native",
+] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 polkadot-jemalloc-shim = { workspace = true, features = ["jemalloc-allocator"] }
@@ -30,9 +33,5 @@ substrate-build-script-utils.workspace = true
 [features]
 default = []
 jemalloc-allocator = ["polkadot-jemalloc-shim/jemalloc-allocator"]
-runtime-benchmarks = [
-	"polkadot-omni-node-lib/runtime-benchmarks",
-]
-try-runtime = [
-	"polkadot-omni-node-lib/try-runtime",
-]
+runtime-benchmarks = ["polkadot-omni-node-lib/runtime-benchmarks"]
+try-runtime = ["polkadot-omni-node-lib/try-runtime"]

@@ -73,13 +73,13 @@ wat = { workspace = true }
 default = ["std"]
 # This crate does not have `no_std` support, we just require this for tests
 std = [
-	"sp-api/std",
-	"sp-core/std",
-	"sp-externalities/std",
-	"sp-io/std",
-	"sp-runtime-interface/std",
-	"sp-trie/std",
-	"sp-version/std",
-	"sp-wasm-interface/std",
+  "sp-api/std",
+  "sp-core/std",
+  "sp-externalities/std",
+  "sp-io/std",
+  "sp-runtime-interface/std",
+  "sp-trie/std",
+  "sp-version/std",
+  "sp-wasm-interface/std",
 ]
 wasm-extern-trace = []

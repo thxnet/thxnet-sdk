@@ -16,7 +16,10 @@ workspace = true
 [dependencies]
 # Needed for all FRAME-based code
 codec = { workspace = true }
-frame = { features = ["experimental", "runtime"], workspace = true, default-features = true }
+frame = { features = [
+  "experimental",
+  "runtime",
+], workspace = true, default-features = true }
 pallet-contracts.workspace = true
 pallet-default-config-example.default-features = true
 pallet-default-config-example.workspace = true
@@ -95,7 +98,9 @@ parachain-info.default-features = true
 parachain-info.workspace = true
 polkadot-omni-node-lib.default-features = true
 polkadot-omni-node-lib.workspace = true
-polkadot-sdk = { features = ["runtime-full"], workspace = true, default-features = true }
+polkadot-sdk = { features = [
+  "runtime-full",
+], workspace = true, default-features = true }
 sc-chain-spec.default-features = true
 sc-chain-spec.workspace = true
 sc-cli.default-features = true

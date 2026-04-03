@@ -25,8 +25,4 @@ sp-runtime = { default-features = true, workspace = true }
 [features]
 debug = ["array-bytes", "log"]
 default = ["debug", "std"]
-std = [
-	"codec/std",
-	"hash-db/std",
-	"log/std",
-]
+std = ["codec/std", "hash-db/std", "log/std"]
