@@ -340,7 +340,8 @@ jobs:
       startsWith(github.head_ref || github.ref_name, 'experiment/') ||
       startsWith(github.head_ref || github.ref_name, 'feat/endgame') ||
       github.ref_name == 'main' ||
-      github.ref_name == 'develop'
+      github.ref_name == 'develop' ||
+      github.base_ref == 'main'
     runs-on: [self-hosted, hetzner-thxnet]
     container:
       image: docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
@@ -569,7 +570,8 @@ jobs:
       startsWith(github.head_ref || github.ref_name, 'experiment/') ||
       startsWith(github.head_ref || github.ref_name, 'feat/endgame') ||
       github.ref_name == 'main' ||
-      github.ref_name == 'develop'
+      github.ref_name == 'develop' ||
+      github.base_ref == 'main'
     steps:
       - uses: actions/checkout@v5
 
@@ -622,7 +624,8 @@ jobs:
       startsWith(github.head_ref || github.ref_name, 'experiment/') ||
       startsWith(github.head_ref || github.ref_name, 'feat/endgame') ||
       github.ref_name == 'main' ||
-      github.ref_name == 'develop'
+      github.ref_name == 'develop' ||
+      github.base_ref == 'main'
     runs-on: [self-hosted, hetzner-thxnet]
     container:
       image: docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408

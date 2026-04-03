@@ -1,7 +1,173 @@
-> NOTE: We have recently made significant changes to our repository structure. In order to streamline our development
-process and foster better contributions, we have merged three separate repositories Cumulus, Substrate and Polkadot into
-this repository. Read more about the changes [
-here](https://polkadot-public.notion.site/Polkadot-SDK-FAQ-fbc4cecc2c46443fb37b9eeec2f0d85f).
+# THXNet SDK
+
+Fork of [polkadot-sdk](https://github.com/paritytech/polkadot-sdk) powering the THXNet blockchain network: 2 rootchains (relay chains) and 9+ leafchains (parachains) across testnet and mainnet environments.
+
+---
+
+## Git Operations
+
+### Branches
+
+| Branch | Lifetime | Purpose |
+|--------|----------|---------|
+| `main` | permanent | Production — reflects code that has been **released and deployed** to all chains |
+| `develop` | permanent | Integration — accumulates features and fixes before release |
+| `release/vX.Y.Z` | temporary | Stabilisation, testing, and deployment of a specific version |
+| `upgrade/vX.Y.Z` | temporary | Merging an upstream polkadot-sdk release into THXNet |
+| `feat/*` | temporary | Feature development, branched from and merged back to `develop` |
+| `fix/*` | temporary | Bug fixes or hotfixes |
+| `experiment/*` | temporary | Exploratory work that may or may not land |
+| `upstream/main` | permanent | Mirror of upstream polkadot-sdk (do not commit directly) |
+
+### Day-to-day development
+
+```
+feat/my-feature ──PR──> develop
+                          |
+                     (accumulate features)
+                          |
+                     develop ──PR──> main  (after release + deploy)
+```
+
+- Branch `feat/*` from `develop`, open PR back to `develop`.
+- Never push directly to `main`. All changes reach `main` through a release cycle.
+- `develop` accepts direct pushes for small fixes and integration work.
+
+### Upstream upgrades
+
+```
+git fetch upstream
+git checkout -b upgrade/v1.13.0 main
+git merge upstream/polkadot-v1.13.0
+# resolve conflicts, adapt THXNet code, fix migration gaps
+# PR to develop or directly to the release branch
+```
+
+`upgrade/*` branches are short-lived. Once the upgrade is merged, archive as a tag if desired and delete the branch.
+
+### Release process
+
+Releases have three phases. **Do not skip or reorder them.**
+
+#### Phase 1 — Stabilise
+
+```
+git checkout -b release/v1.13.0 develop
+```
+
+On the release branch, the full CI suite must pass:
+
+- try-runtime migration tests against all live chains
+- Idempotency tests (run migrations twice, verify no change)
+- Pallet migration matrix (per-pallet isolation tests)
+- Zombienet smoke tests
+- Chopsticks upgrade tests
+- XCM integration tests
+
+Fix issues directly on the release branch or via `fix/* -> release/*` PRs.
+
+#### Phase 2 — Tag and build artifacts
+
+```
+git tag thxnet-v1.13.0 release/v1.13.0
+git push origin thxnet-v1.13.0
+```
+
+The tag push triggers the **release workflow**, which:
+
+1. Builds deterministic runtime WASMs (rootchain, rootchain-testnet, leafchain)
+2. Generates `subwasm` metadata and SHA-256 checksums
+3. Builds and pushes Docker images (rootchain + leafchain) to ghcr.io
+4. Publishes a GitHub Release with all artifacts
+
+#### Phase 3 — Deploy, then merge
+
+Deploy in strict order:
+
+1. **Testnet** — upgrade node binaries (Docker), then submit runtime upgrade governance proposal
+2. **Observe** — wait at least one full epoch; confirm no errors, no stalls
+3. **Mainnet** — repeat the above for each mainnet chain
+
+After **all chains** are upgraded and stable:
+
+```
+# Merge release back to main (main now reflects deployed state)
+PR: release/v1.13.0 -> main
+
+# Sync any release-phase fixes back to develop
+PR: release/v1.13.0 -> develop  (or main -> develop)
+
+# Clean up
+git branch -d release/v1.13.0
+git push origin --delete release/v1.13.0
+```
+
+### Hotfixes
+
+For critical issues discovered after release:
+
+```
+git checkout -b fix/critical-bug main
+# fix the bug
+git tag thxnet-v1.13.1 fix/critical-bug
+git push origin thxnet-v1.13.1        # triggers release workflow
+
+# After deployment
+PR: fix/critical-bug -> main
+PR: fix/critical-bug -> develop        # keep develop in sync
+```
+
+### Tag conventions
+
+| Pattern | Example | Purpose |
+|---------|---------|---------|
+| `thxnet-v*` | `thxnet-v1.13.0` | Production release (triggers release workflow) |
+| `thxnet-v*-rc*` | `thxnet-v1.13.0-rc1` | Release candidate (manual testing) |
+| `archive/upgrade-v*` | `archive/upgrade-v1.11.0` | Historical upgrade branch preservation |
+
+### What not to do
+
+| Action | Why |
+|--------|-----|
+| Push directly to `main` | Bypasses all CI gates; 11 live chains depend on this |
+| Tag on `main` before deploying | `main` should reflect deployed state, not pending state |
+| Merge release to `main` before all chains are upgraded | Creates ambiguity about what is actually in production |
+| Upgrade testnet and mainnet simultaneously | Testnet is your canary; let it run first |
+| Delete a release branch before merging to both `main` and `develop` | Loses release-phase hotfixes |
+| Use `v*` tags (without `thxnet-` prefix) | Conflicts with upstream polkadot-sdk tag namespace |
+
+---
+
+## CI Workflows
+
+| Workflow | Trigger | What it does |
+|----------|---------|--------------|
+| **ci.yml** | Push to `main`/`develop`/`release/*`/`upgrade/*`/`experiment/*`, PRs | Build binaries, Docker images, WASM OCI push, upgrade tests |
+| **fmt-check.yml** | Same branches + PRs | `cargo fmt`, `taplo` (TOML), `zepter` (feature propagation) |
+| **rust.yml** | Same branches + PRs | `cargo check` for all THXNet crates |
+| **tests.yml** | Same branches + PRs | `cargo nextest`, benchmark compilation, syscall validation |
+| **check-features.yml** | Push to active branches + PRs | `cargo-featalign` per-runtime feature alignment |
+| **check-links.yml** | Push/PR (path-filtered: `*.rs`, `*.md`, `*.toml`) | Lychee dead-link checker |
+| **check-semver.yml** | Push to active branches + PRs | `cargo-semver-checks` API compatibility against `main` |
+| **release.yml** | Tag `thxnet-v*` or manual dispatch | Build WASMs, Docker images, publish GitHub Release |
+
+### Upgrade tests (conditional)
+
+The following CI jobs only run on upgrade-related branches (`upgrade/*`, `release/*`, `experiment/*`, `feat/endgame*`), pushes to `main`/`develop`, or PRs targeting `main`:
+
+- **build-upgrade-extras** — try-runtime WASMs + fast-runtime binary
+- **try-runtime** — migration tests, idempotency, pallet matrix
+- **zombienet** — network smoke test with fast-runtime
+- **chopsticks** — fork-based upgrade simulation
+- **xcm-tests** — cross-chain message integration tests
+
+Regular `feat/*` PRs to `develop` run build + basic tests only, keeping CI fast for day-to-day work.
+
+---
+
+## Upstream Polkadot SDK
+
+> This repository is a fork of polkadot-sdk. The original README follows below.
 
 # Polkadot SDK
 
