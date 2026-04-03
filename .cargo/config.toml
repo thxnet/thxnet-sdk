@@ -6,7 +6,12 @@ rustdocflags = [
 ]
 
 [target.x86_64-unknown-linux-gnu]
-rustflags = ["--cfg", "curve25519_dalek_backend=\"serial\"", "-C", "link-arg=-fuse-ld=lld"]
+rustflags = [
+	"--cfg",
+	"curve25519_dalek_backend=\"serial\"",
+	"-C",
+	"link-arg=-fuse-ld=lld",
+]
 
 [env]
 # Needed for musl builds so user doesn't have to install musl-tools.

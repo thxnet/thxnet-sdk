@@ -13,11 +13,13 @@ COPY target/release/polkadot /usr/local/bin
 COPY target/release/polkadot-prepare-worker /usr/local/bin
 COPY target/release/polkadot-execute-worker /usr/local/bin
 
-RUN useradd -m -u 1000 -U -s /bin/sh -d /rootchain thxnet && \
+RUN apt-get update && \
+	DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ca-certificates && \
+	rm -rf /var/lib/apt/lists/* && \
+	useradd -m -u 1000 -U -s /bin/sh -d /rootchain thxnet && \
 	mkdir -p /data /rootchain/.local/share && \
 	chown -R thxnet:thxnet /data && \
 	ln -s /data /rootchain/.local/share/polkadot && \
-	rm -rf /usr/bin /usr/sbin && \
 	/usr/local/bin/polkadot --version
 
 USER thxnet

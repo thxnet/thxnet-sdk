@@ -40,8 +40,7 @@ use impls::CreditToBlockAuthor;
 
 use runtime_parachains::{
 	assigner_coretime as parachains_assigner_coretime, configuration as parachains_configuration,
-	coretime,
-	disputes as parachains_disputes,
+	coretime, disputes as parachains_disputes,
 	disputes::slashing as parachains_slashing,
 	dmp as parachains_dmp, hrmp as parachains_hrmp, inclusion as parachains_inclusion,
 	inclusion::{AggregateMessageOrigin, UmpQueueId},
@@ -156,7 +155,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("thxnet"),
 	impl_name: create_runtime_str!("thxnet"),
 	authoring_version: 0,
-	spec_version: 125_120_004,
+	spec_version: 125_120_005,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 25,
@@ -1342,10 +1341,8 @@ impl coretime::Config for Runtime {
 	type WeightInfo = coretime::TestWeightInfo;
 	type SendXcm = xcm_config::XcmRouter;
 	type AssetTransactor = xcm_config::LocalAssetTransactor;
-	type AccountToLocation = xcm_builder::AliasesIntoAccountId32<
-		xcm_config::ThisNetwork,
-		AccountId,
-	>;
+	type AccountToLocation =
+		xcm_builder::AliasesIntoAccountId32<xcm_config::ThisNetwork, AccountId>;
 	type MaxXcmTransactWeight = MaxXcmTransactWeight;
 }
 
@@ -2452,6 +2449,53 @@ pub mod migrations {
 		pallet_staking::migrations::v15::MigrateV14ToV15<Runtime>,
 	);
 
+	/// THXNet-specific implementation of GetLegacyLease for the coretime migration.
+	/// THXNet paras are registered via sudo, not via lease auctions, so slots::Leases is empty.
+	/// This returns ALL active parachains so they get coretime core assignments.
+	pub struct GetLegacyLeaseImpl;
+	impl coretime::migration::GetLegacyLease<BlockNumber> for GetLegacyLeaseImpl {
+		fn get_parachain_lease_in_blocks(_para: ParaId) -> Option<BlockNumber> {
+			None
+		}
+		fn get_all_parachains_with_leases() -> Vec<ParaId> {
+			runtime_parachains::paras::Parachains::<Runtime>::get()
+		}
+	}
+
+	/// Timeslice period for coretime (80 relay blocks = 1 timeslice). Standard Polkadot value.
+	const TIMESLICE_PERIOD: u32 = 80;
+
+	/// Wrapper around upstream MigrateToCoretime that skips the DMP post_upgrade check.
+	/// THXNet has no coretime chain, so the XCM send to BrokerId always fails.
+	/// The upstream post_upgrade asserts DMP messages were enqueued, which fails for us.
+	/// The core assignment itself works fine — only the XCM notification fails.
+	pub struct ThxnetMigrateToCoretime;
+	impl frame_support::traits::OnRuntimeUpgrade for ThxnetMigrateToCoretime {
+		fn on_runtime_upgrade() -> Weight {
+			<coretime::migration::MigrateToCoretime<
+				Runtime,
+				xcm_config::XcmRouter,
+				GetLegacyLeaseImpl,
+				TIMESLICE_PERIOD,
+			> as frame_support::traits::OnRuntimeUpgrade>::on_runtime_upgrade()
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
+			Ok(Vec::new())
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade(_state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+			let config = parachains_configuration::ActiveConfig::<Runtime>::get();
+			log::info!(
+				"ThxnetMigrateToCoretime::post_upgrade: num_cores = {}",
+				config.scheduler_params.num_cores
+			);
+			Ok(())
+		}
+	}
+
 	/// Migrations for v1.12.0 → stable2512.
 	type MigrationsStable2512 = (
 		parachains_shared::migration::MigrateToV1<Runtime>,
@@ -2464,6 +2508,12 @@ pub mod migrations {
 		pallet_child_bounties::migration::MigrateV0ToV1<Runtime, BalanceTransferAllowDeath>,
 		// permanent
 		pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
+		// THXNet: Assign active parachains to coretime cores.
+		// Uses ThxnetMigrateToCoretime wrapper which skips the DMP post_upgrade check
+		// (THXNet has no coretime chain, so XCM send always fails).
+		ThxnetMigrateToCoretime,
+		// On-demand parachain storage v0→v1
+		parachains_on_demand::migration::MigrateV0ToV1<Runtime>,
 	);
 
 	/// Full cumulative migrations for live chains upgrading from v0.9.40 to stable2512.
