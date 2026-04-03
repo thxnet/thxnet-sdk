@@ -1,5 +1,0 @@
-endpoint: wss://node.sand.testnet.thxnet.org/archive-001/ws
-port: 8102
-mock-signature-host: true
-db: ./chopsticks-db/leafchain-sand.sqlite
-runtime-log-level: 3
