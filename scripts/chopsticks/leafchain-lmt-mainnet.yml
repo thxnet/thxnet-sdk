@@ -1,0 +1,5 @@
+endpoint: wss://node.lmt.mainnet.thxnet.org/archive-001/ws
+port: 8105
+mock-signature-host: true
+db: ./chopsticks-db/leafchain-lmt-mainnet.sqlite
+runtime-log-level: 3

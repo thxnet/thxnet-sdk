@@ -2,7 +2,7 @@
 // Called from a parachain collator node.
 //
 // Usage in ZNDSL:
-//   leafchain-a-collator-1: js-script ./scripts/zombienet-js/verify-hrmp-channel.js with "2001" within 120 seconds
+//   leafchain-a-collator-1: js-script ./zombienet-js/verify-hrmp-channel.js with "2001" within 120 seconds
 //
 // Args: "siblingParaId"
 //

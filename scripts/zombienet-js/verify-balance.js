@@ -2,7 +2,7 @@
 // Called from any node.
 //
 // Usage in ZNDSL:
-//   leafchain-a-collator-1: js-script ./scripts/zombienet-js/verify-balance.js with "//DmpTestRecipient,500000000000" within 120 seconds
+//   leafchain-a-collator-1: js-script ./zombienet-js/verify-balance.js with "//DmpTestRecipient,500000000000" within 120 seconds
 //
 // Args: "seedOrAddress,minBalance"
 //   seedOrAddress: sr25519 seed (e.g. "//Alice") or SS58 address

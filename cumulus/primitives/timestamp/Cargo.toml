@@ -11,7 +11,7 @@ workspace = true
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
-futures = "0.3.28"
+futures = { version = "0.3.28", default-features = false }
 
 # Substrate
 sp-inherents = { path = "../../../substrate/primitives/inherents", default-features = false }
@@ -26,6 +26,7 @@ default = ["std"]
 std = [
 	"codec/std",
 	"cumulus-primitives-core/std",
+	"futures/std",
 	"sp-inherents/std",
 	"sp-std/std",
 	"sp-timestamp/std",

@@ -26,29 +26,37 @@
 #   build-all           Build all runtimes with try-runtime
 #   test-rootchain-testnet   Run migrations against rootchain testnet
 #   test-rootchain-mainnet   Run migrations against rootchain mainnet
-#   test-leafchain-sand      Run migrations against leafchain Sand (testnet)
-#   test-leafchain-avatect   Run migrations against leafchain Avatect (mainnet)
+#   test-leafchain-sand-testnet      Run migrations against leafchain Sand (testnet)
+#   test-leafchain-avatect-mainnet   Run migrations against leafchain Avatect (mainnet)
+#   test-leafchain-lmt-testnet   Run migrations against leafchain LMT (testnet)
+#   test-leafchain-lmt-mainnet   Run migrations against leafchain LMT (mainnet)
 #   test-all-testnet         Run all testnet chains (rootchain + leafchain)
 #   test-all                 Run all chains (testnet first, then mainnet)
 #   test-idempotency-rootchain-testnet   Idempotency test: rootchain testnet
 #   test-idempotency-rootchain-mainnet   Idempotency test: rootchain mainnet
-#   test-idempotency-leafchain-sand      Idempotency test: leafchain Sand
-#   test-idempotency-leafchain-avatect   Idempotency test: leafchain Avatect
-#   test-idempotency-all-testnet         Idempotency test: all testnet chains
+#   test-idempotency-leafchain-sand-testnet      Idempotency test: leafchain Sand
+#   test-idempotency-leafchain-avatect-mainnet       Idempotency test: leafchain Avatect
+#   test-idempotency-leafchain-lmt-testnet  Idempotency test: leafchain LMT testnet
+#   test-idempotency-leafchain-lmt-mainnet  Idempotency test: leafchain LMT mainnet
+#   test-idempotency-all-testnet             Idempotency test: all testnet chains
 #   test-idempotency-all                 Idempotency test: all chains
 #   create-snapshot-rootchain-testnet    Save rootchain testnet state as snapshot
 #   create-snapshot-rootchain-mainnet    Save rootchain mainnet state as snapshot
-#   create-snapshot-leafchain-sand       Save leafchain Sand state as snapshot
-#   create-snapshot-leafchain-avatect    Save leafchain Avatect state as snapshot
-#   create-snapshot-all-testnet          Save all testnet chain snapshots
+#   create-snapshot-leafchain-sand-testnet       Save leafchain Sand state as snapshot
+#   create-snapshot-leafchain-avatect-mainnet        Save leafchain Avatect state as snapshot
+#   create-snapshot-leafchain-lmt-testnet   Save leafchain LMT testnet state as snapshot
+#   create-snapshot-leafchain-lmt-mainnet   Save leafchain LMT mainnet state as snapshot
+#   create-snapshot-all-testnet              Save all testnet chain snapshots
 #   create-snapshot-all                  Save all chain snapshots
 #   list-snapshots           List all saved snapshots with name, size, date
 #   clean-snapshots          Remove snapshots older than SNAPSHOT_MAX_AGE_HOURS
 #   test-from-snapshot-rootchain-testnet [path]  Test rootchain testnet from snapshot
 #   test-from-snapshot-rootchain-mainnet [path]  Test rootchain mainnet from snapshot
-#   test-from-snapshot-leafchain-sand [path]     Test leafchain Sand from snapshot
-#   test-from-snapshot-leafchain-avatect [path]  Test leafchain Avatect from snapshot
-#   test-from-snapshot-all-testnet               Test all testnet chains from snapshots
+#   test-from-snapshot-leafchain-sand-testnet [path]     Test leafchain Sand from snapshot
+#   test-from-snapshot-leafchain-avatect-mainnet [path]      Test leafchain Avatect from snapshot
+#   test-from-snapshot-leafchain-lmt-testnet [path] Test leafchain LMT testnet from snapshot
+#   test-from-snapshot-leafchain-lmt-mainnet [path] Test leafchain LMT mainnet from snapshot
+#   test-from-snapshot-all-testnet                   Test all testnet chains from snapshots
 #   test-from-snapshot-all                       Test all chains from snapshots
 #   test-pallet <pallet> <chain>     Test single pallet migration on chain
 #   test-pallet-critical <chain>     Test all critical pallets on chain
@@ -65,8 +73,10 @@
 #   TRY_RUNTIME_BIN      Path to try-runtime binary (default: try-runtime in PATH)
 #   ROOTCHAIN_TESTNET_URI  Override testnet rootchain endpoint
 #   ROOTCHAIN_MAINNET_URI  Override mainnet rootchain endpoint
-#   LEAFCHAIN_SAND_URI     Override Sand leafchain endpoint
-#   LEAFCHAIN_AVATECT_URI  Override Avatect leafchain endpoint
+#   LEAFCHAIN_SAND_TESTNET_URI     Override Sand leafchain endpoint
+#   LEAFCHAIN_AVATECT_MAINNET_URI  Override Avatect leafchain endpoint
+#   LEAFCHAIN_LMT_TESTNET_URI     Override LMT testnet leafchain endpoint
+#   LEAFCHAIN_LMT_MAINNET_URI     Override LMT mainnet leafchain endpoint
 #   BLOCKTIME_ROOT         Rootchain block time in ms (default: 6000)
 #   BLOCKTIME_LEAF         Leafchain block time in ms (default: 12000)
 #   SKIP_BUILD             Set to 1 to skip WASM build (use pre-built artifacts)
@@ -105,8 +115,10 @@ TRY_RUNTIME_BIN="${TRY_RUNTIME_BIN:-try-runtime}"
 # Live chain RPC endpoints
 ROOTCHAIN_TESTNET_URI="${ROOTCHAIN_TESTNET_URI:-wss://node.testnet.thxnet.org/archive-001/ws}"
 ROOTCHAIN_MAINNET_URI="${ROOTCHAIN_MAINNET_URI:-wss://node.mainnet.thxnet.org/archive-001/ws}"
-LEAFCHAIN_SAND_URI="${LEAFCHAIN_SAND_URI:-wss://node.sand.testnet.thxnet.org/archive-001/ws}"
-LEAFCHAIN_AVATECT_URI="${LEAFCHAIN_AVATECT_URI:-wss://node.avatect.mainnet.thxnet.org/archive-001/ws}"
+LEAFCHAIN_SAND_TESTNET_URI="${LEAFCHAIN_SAND_TESTNET_URI:-wss://node.sand.testnet.thxnet.org/archive-001/ws}"
+LEAFCHAIN_AVATECT_MAINNET_URI="${LEAFCHAIN_AVATECT_MAINNET_URI:-wss://node.avatect.mainnet.thxnet.org/archive-001/ws}"
+LEAFCHAIN_LMT_TESTNET_URI="${LEAFCHAIN_LMT_TESTNET_URI:-wss://node.lmt.testnet.thxnet.org/archive-001/ws}"
+LEAFCHAIN_LMT_MAINNET_URI="${LEAFCHAIN_LMT_MAINNET_URI:-wss://node.lmt.mainnet.thxnet.org/archive-001/ws}"
 
 # Block times (ms)
 BLOCKTIME_ROOT="${BLOCKTIME_ROOT:-6000}"
@@ -272,19 +284,29 @@ resolve_chain_params() {
             _uri="${ROOTCHAIN_MAINNET_URI}"
             _blocktime="${BLOCKTIME_ROOT}"
             ;;
-        leafchain-sand)
+        leafchain-sand-testnet)
             _wasm_path="${LEAFCHAIN_WASM}"
-            _uri="${LEAFCHAIN_SAND_URI}"
+            _uri="${LEAFCHAIN_SAND_TESTNET_URI}"
             _blocktime="${BLOCKTIME_LEAF}"
             ;;
-        leafchain-avatect)
+        leafchain-avatect-mainnet)
             _wasm_path="${LEAFCHAIN_WASM}"
-            _uri="${LEAFCHAIN_AVATECT_URI}"
+            _uri="${LEAFCHAIN_AVATECT_MAINNET_URI}"
+            _blocktime="${BLOCKTIME_LEAF}"
+            ;;
+        leafchain-lmt-testnet)
+            _wasm_path="${LEAFCHAIN_WASM}"
+            _uri="${LEAFCHAIN_LMT_TESTNET_URI}"
+            _blocktime="${BLOCKTIME_LEAF}"
+            ;;
+        leafchain-lmt-mainnet)
+            _wasm_path="${LEAFCHAIN_WASM}"
+            _uri="${LEAFCHAIN_LMT_MAINNET_URI}"
             _blocktime="${BLOCKTIME_LEAF}"
             ;;
         *)
             log_error "Unknown chain: ${chain}"
-            echo "  Valid chains: rootchain-testnet, rootchain-mainnet, leafchain-sand, leafchain-avatect"
+            echo "  Valid chains: rootchain-testnet, rootchain-mainnet, leafchain-sand-testnet, leafchain-avatect-mainnet, leafchain-lmt-testnet, leafchain-lmt-mainnet"
             return 1
             ;;
     esac
@@ -409,19 +431,35 @@ test_rootchain_mainnet() {
         "${BLOCKTIME_ROOT}"
 }
 
-test_leafchain_sand() {
+test_leafchain_sand_testnet() {
     run_try_runtime \
-        "leafchain-sand" \
+        "leafchain-sand-testnet" \
         "${LEAFCHAIN_WASM}" \
-        "${LEAFCHAIN_SAND_URI}" \
+        "${LEAFCHAIN_SAND_TESTNET_URI}" \
         "${BLOCKTIME_LEAF}"
 }
 
-test_leafchain_avatect() {
+test_leafchain_avatect_mainnet() {
     run_try_runtime \
-        "leafchain-avatect" \
+        "leafchain-avatect-mainnet" \
         "${LEAFCHAIN_WASM}" \
-        "${LEAFCHAIN_AVATECT_URI}" \
+        "${LEAFCHAIN_AVATECT_MAINNET_URI}" \
+        "${BLOCKTIME_LEAF}"
+}
+
+test_leafchain_lmt_testnet() {
+    run_try_runtime \
+        "leafchain-lmt-testnet" \
+        "${LEAFCHAIN_WASM}" \
+        "${LEAFCHAIN_LMT_TESTNET_URI}" \
+        "${BLOCKTIME_LEAF}"
+}
+
+test_leafchain_lmt_mainnet() {
+    run_try_runtime \
+        "leafchain-lmt-mainnet" \
+        "${LEAFCHAIN_WASM}" \
+        "${LEAFCHAIN_LMT_MAINNET_URI}" \
         "${BLOCKTIME_LEAF}"
 }
 
@@ -436,9 +474,15 @@ test_all_testnet() {
         return 1
     fi
 
-    test_leafchain_sand || failed=1
+    test_leafchain_sand_testnet || failed=1
     if [[ ${failed} -ne 0 ]]; then
         log_error "Leafchain Sand failed"
+        return 1
+    fi
+
+    test_leafchain_lmt_testnet || failed=1
+    if [[ ${failed} -ne 0 ]]; then
+        log_error "Leafchain LMT testnet failed"
         return 1
     fi
 
@@ -457,9 +501,15 @@ test_all() {
         return 1
     fi
 
-    test_leafchain_sand || failed=1
+    test_leafchain_sand_testnet || failed=1
     if [[ ${failed} -ne 0 ]]; then
         log_error "Leafchain Sand (testnet) failed — aborting"
+        return 1
+    fi
+
+    test_leafchain_lmt_testnet || failed=1
+    if [[ ${failed} -ne 0 ]]; then
+        log_error "Leafchain LMT testnet failed — aborting"
         return 1
     fi
 
@@ -473,9 +523,15 @@ test_all() {
         return 1
     fi
 
-    test_leafchain_avatect || failed=1
+    test_leafchain_avatect_mainnet || failed=1
     if [[ ${failed} -ne 0 ]]; then
         log_error "Leafchain Avatect (mainnet) failed"
+        return 1
+    fi
+
+    test_leafchain_lmt_mainnet || failed=1
+    if [[ ${failed} -ne 0 ]]; then
+        log_error "Leafchain LMT mainnet failed"
         return 1
     fi
 
@@ -741,19 +797,35 @@ test_idempotency_rootchain_mainnet() {
         "${BLOCKTIME_ROOT}"
 }
 
-test_idempotency_leafchain_sand() {
+test_idempotency_leafchain_sand_testnet() {
     test_idempotency \
-        "leafchain-sand" \
+        "leafchain-sand-testnet" \
         "${LEAFCHAIN_WASM}" \
-        "${LEAFCHAIN_SAND_URI}" \
+        "${LEAFCHAIN_SAND_TESTNET_URI}" \
         "${BLOCKTIME_LEAF}"
 }
 
-test_idempotency_leafchain_avatect() {
+test_idempotency_leafchain_avatect_mainnet() {
     test_idempotency \
-        "leafchain-avatect" \
+        "leafchain-avatect-mainnet" \
         "${LEAFCHAIN_WASM}" \
-        "${LEAFCHAIN_AVATECT_URI}" \
+        "${LEAFCHAIN_AVATECT_MAINNET_URI}" \
+        "${BLOCKTIME_LEAF}"
+}
+
+test_idempotency_leafchain_lmt_testnet() {
+    test_idempotency \
+        "leafchain-lmt-testnet" \
+        "${LEAFCHAIN_WASM}" \
+        "${LEAFCHAIN_LMT_TESTNET_URI}" \
+        "${BLOCKTIME_LEAF}"
+}
+
+test_idempotency_leafchain_lmt_mainnet() {
+    test_idempotency \
+        "leafchain-lmt-mainnet" \
+        "${LEAFCHAIN_WASM}" \
+        "${LEAFCHAIN_LMT_MAINNET_URI}" \
         "${BLOCKTIME_LEAF}"
 }
 
@@ -768,9 +840,15 @@ test_idempotency_all_testnet() {
         return 1
     fi
 
-    test_idempotency_leafchain_sand || failed=1
+    test_idempotency_leafchain_sand_testnet || failed=1
     if [[ ${failed} -ne 0 ]]; then
         log_error "Leafchain Sand idempotency failed"
+        return 1
+    fi
+
+    test_idempotency_leafchain_lmt_testnet || failed=1
+    if [[ ${failed} -ne 0 ]]; then
+        log_error "Leafchain LMT testnet idempotency failed"
         return 1
     fi
 
@@ -789,9 +867,15 @@ test_idempotency_all() {
         return 1
     fi
 
-    test_idempotency_leafchain_sand || failed=1
+    test_idempotency_leafchain_sand_testnet || failed=1
     if [[ ${failed} -ne 0 ]]; then
         log_error "Leafchain Sand idempotency failed — aborting"
+        return 1
+    fi
+
+    test_idempotency_leafchain_lmt_testnet || failed=1
+    if [[ ${failed} -ne 0 ]]; then
+        log_error "Leafchain LMT testnet idempotency failed — aborting"
         return 1
     fi
 
@@ -805,9 +889,15 @@ test_idempotency_all() {
         return 1
     fi
 
-    test_idempotency_leafchain_avatect || failed=1
+    test_idempotency_leafchain_avatect_mainnet || failed=1
     if [[ ${failed} -ne 0 ]]; then
         log_error "Leafchain Avatect idempotency failed"
+        return 1
+    fi
+
+    test_idempotency_leafchain_lmt_mainnet || failed=1
+    if [[ ${failed} -ne 0 ]]; then
+        log_error "Leafchain LMT mainnet idempotency failed"
         return 1
     fi
 
@@ -938,19 +1028,35 @@ create_snapshot_rootchain_mainnet() {
         "${BLOCKTIME_ROOT}"
 }
 
-create_snapshot_leafchain_sand() {
+create_snapshot_leafchain_sand_testnet() {
     create_snapshot \
-        "leafchain-sand" \
+        "leafchain-sand-testnet" \
         "${LEAFCHAIN_WASM}" \
-        "${LEAFCHAIN_SAND_URI}" \
+        "${LEAFCHAIN_SAND_TESTNET_URI}" \
         "${BLOCKTIME_LEAF}"
 }
 
-create_snapshot_leafchain_avatect() {
+create_snapshot_leafchain_avatect_mainnet() {
     create_snapshot \
-        "leafchain-avatect" \
+        "leafchain-avatect-mainnet" \
         "${LEAFCHAIN_WASM}" \
-        "${LEAFCHAIN_AVATECT_URI}" \
+        "${LEAFCHAIN_AVATECT_MAINNET_URI}" \
+        "${BLOCKTIME_LEAF}"
+}
+
+create_snapshot_leafchain_lmt_testnet() {
+    create_snapshot \
+        "leafchain-lmt-testnet" \
+        "${LEAFCHAIN_WASM}" \
+        "${LEAFCHAIN_LMT_TESTNET_URI}" \
+        "${BLOCKTIME_LEAF}"
+}
+
+create_snapshot_leafchain_lmt_mainnet() {
+    create_snapshot \
+        "leafchain-lmt-mainnet" \
+        "${LEAFCHAIN_WASM}" \
+        "${LEAFCHAIN_LMT_MAINNET_URI}" \
         "${BLOCKTIME_LEAF}"
 }
 
@@ -965,9 +1071,15 @@ create_snapshot_all_testnet() {
         return 1
     fi
 
-    create_snapshot_leafchain_sand || failed=1
+    create_snapshot_leafchain_sand_testnet || failed=1
     if [[ ${failed} -ne 0 ]]; then
         log_error "Leafchain Sand snapshot failed"
+        return 1
+    fi
+
+    create_snapshot_leafchain_lmt_testnet || failed=1
+    if [[ ${failed} -ne 0 ]]; then
+        log_error "Leafchain LMT testnet snapshot failed"
         return 1
     fi
 
@@ -986,9 +1098,15 @@ create_snapshot_all() {
         return 1
     fi
 
-    create_snapshot_leafchain_sand || failed=1
+    create_snapshot_leafchain_sand_testnet || failed=1
     if [[ ${failed} -ne 0 ]]; then
         log_error "Leafchain Sand snapshot failed — aborting"
+        return 1
+    fi
+
+    create_snapshot_leafchain_lmt_testnet || failed=1
+    if [[ ${failed} -ne 0 ]]; then
+        log_error "Leafchain LMT testnet snapshot failed — aborting"
         return 1
     fi
 
@@ -1002,9 +1120,15 @@ create_snapshot_all() {
         return 1
     fi
 
-    create_snapshot_leafchain_avatect || failed=1
+    create_snapshot_leafchain_avatect_mainnet || failed=1
     if [[ ${failed} -ne 0 ]]; then
         log_error "Leafchain Avatect snapshot failed"
+        return 1
+    fi
+
+    create_snapshot_leafchain_lmt_mainnet || failed=1
+    if [[ ${failed} -ne 0 ]]; then
+        log_error "Leafchain LMT mainnet snapshot failed"
         return 1
     fi
 
@@ -1265,29 +1389,57 @@ test_from_snapshot_rootchain_mainnet() {
         "${BLOCKTIME_ROOT}"
 }
 
-test_from_snapshot_leafchain_sand() {
+test_from_snapshot_leafchain_sand_testnet() {
     local snapshot_path="${1:-}"
 
     if [[ -z "${snapshot_path}" ]]; then
-        snapshot_path=$(resolve_snapshot "leafchain-sand") || return 1
+        snapshot_path=$(resolve_snapshot "leafchain-sand-testnet") || return 1
     fi
 
     test_from_snapshot \
-        "leafchain-sand" \
+        "leafchain-sand-testnet" \
         "${LEAFCHAIN_WASM}" \
         "${snapshot_path}" \
         "${BLOCKTIME_LEAF}"
 }
 
-test_from_snapshot_leafchain_avatect() {
+test_from_snapshot_leafchain_avatect_mainnet() {
     local snapshot_path="${1:-}"
 
     if [[ -z "${snapshot_path}" ]]; then
-        snapshot_path=$(resolve_snapshot "leafchain-avatect") || return 1
+        snapshot_path=$(resolve_snapshot "leafchain-avatect-mainnet") || return 1
     fi
 
     test_from_snapshot \
-        "leafchain-avatect" \
+        "leafchain-avatect-mainnet" \
+        "${LEAFCHAIN_WASM}" \
+        "${snapshot_path}" \
+        "${BLOCKTIME_LEAF}"
+}
+
+test_from_snapshot_leafchain_lmt_testnet() {
+    local snapshot_path="${1:-}"
+
+    if [[ -z "${snapshot_path}" ]]; then
+        snapshot_path=$(resolve_snapshot "leafchain-lmt-testnet") || return 1
+    fi
+
+    test_from_snapshot \
+        "leafchain-lmt-testnet" \
+        "${LEAFCHAIN_WASM}" \
+        "${snapshot_path}" \
+        "${BLOCKTIME_LEAF}"
+}
+
+test_from_snapshot_leafchain_lmt_mainnet() {
+    local snapshot_path="${1:-}"
+
+    if [[ -z "${snapshot_path}" ]]; then
+        snapshot_path=$(resolve_snapshot "leafchain-lmt-mainnet") || return 1
+    fi
+
+    test_from_snapshot \
+        "leafchain-lmt-mainnet" \
         "${LEAFCHAIN_WASM}" \
         "${snapshot_path}" \
         "${BLOCKTIME_LEAF}"
@@ -1304,9 +1456,15 @@ test_from_snapshot_all_testnet() {
         return 1
     fi
 
-    test_from_snapshot_leafchain_sand || failed=1
+    test_from_snapshot_leafchain_sand_testnet || failed=1
     if [[ ${failed} -ne 0 ]]; then
         log_error "Leafchain Sand snapshot test failed"
+        return 1
+    fi
+
+    test_from_snapshot_leafchain_lmt_testnet || failed=1
+    if [[ ${failed} -ne 0 ]]; then
+        log_error "Leafchain LMT testnet snapshot test failed"
         return 1
     fi
 
@@ -1325,9 +1483,15 @@ test_from_snapshot_all() {
         return 1
     fi
 
-    test_from_snapshot_leafchain_sand || failed=1
+    test_from_snapshot_leafchain_sand_testnet || failed=1
     if [[ ${failed} -ne 0 ]]; then
         log_error "Leafchain Sand snapshot test failed — aborting"
+        return 1
+    fi
+
+    test_from_snapshot_leafchain_lmt_testnet || failed=1
+    if [[ ${failed} -ne 0 ]]; then
+        log_error "Leafchain LMT testnet snapshot test failed — aborting"
         return 1
     fi
 
@@ -1341,9 +1505,15 @@ test_from_snapshot_all() {
         return 1
     fi
 
-    test_from_snapshot_leafchain_avatect || failed=1
+    test_from_snapshot_leafchain_avatect_mainnet || failed=1
     if [[ ${failed} -ne 0 ]]; then
         log_error "Leafchain Avatect snapshot test failed"
+        return 1
+    fi
+
+    test_from_snapshot_leafchain_lmt_mainnet || failed=1
+    if [[ ${failed} -ne 0 ]]; then
+        log_error "Leafchain LMT mainnet snapshot test failed"
         return 1
     fi
 
@@ -1667,14 +1837,16 @@ test_pallet_batch() {
 
 # abbreviate_chain <chain-name>
 #   Produces a short column header for the matrix display.
-#   e.g., rootchain-testnet → rc-test, leafchain-avatect → lc-avat
+#   e.g., rootchain-testnet → rc-test, leafchain-avatect-mainnet → lc-avat
 abbreviate_chain() {
     local chain="$1"
     case "${chain}" in
-        rootchain-testnet)  echo "rc-test" ;;
-        rootchain-mainnet)  echo "rc-main" ;;
-        leafchain-sand)     echo "lc-sand" ;;
-        leafchain-avatect)  echo "lc-avat" ;;
+        rootchain-testnet)          echo "rc-test" ;;
+        rootchain-mainnet)          echo "rc-main" ;;
+        leafchain-sand-testnet)     echo "lc-sand" ;;
+        leafchain-avatect-mainnet)  echo "lc-avat" ;;
+        leafchain-lmt-testnet)      echo "lc-lmt-t" ;;
+        leafchain-lmt-mainnet)      echo "lc-lmt-m" ;;
         *)
             # Generic abbreviation: take first 2 chars of each hyphen-delimited part
             echo "${chain}" | awk -F'-' '{for(i=1;i<=NF;i++) printf "%s", substr($i,1,4); print ""}'
@@ -1687,7 +1859,7 @@ abbreviate_chain() {
 #   and prints a chain x pallet matrix grid.
 #
 #   Chain/pallet lists can also come from env vars:
-#     MATRIX_CHAINS="rootchain-testnet leafchain-sand"
+#     MATRIX_CHAINS="rootchain-testnet leafchain-sand-testnet"
 #     MATRIX_PALLETS="nomination_pools staking session"
 #
 #   If no pallets specified, uses KNOWN_PALLETS.
@@ -1730,8 +1902,8 @@ test_pallet_matrix() {
     # Defaults
     if [[ ${#chains[@]} -eq 0 ]]; then
         log_error "No chains specified. Set MATRIX_CHAINS or pass chain names as arguments."
-        echo "  Example: $0 test-pallet-matrix rootchain-testnet leafchain-sand"
-        echo "  Or: MATRIX_CHAINS='rootchain-testnet leafchain-sand' $0 test-pallet-matrix"
+        echo "  Example: $0 test-pallet-matrix rootchain-testnet leafchain-sand-testnet"
+        echo "  Or: MATRIX_CHAINS='rootchain-testnet leafchain-sand-testnet' $0 test-pallet-matrix"
         return 1
     fi
     if [[ ${#pallets[@]} -eq 0 ]]; then
@@ -2104,8 +2276,10 @@ verify_ci_readiness() {
         local endpoints=(
             "rootchain-testnet:${ROOTCHAIN_TESTNET_URI}"
             "rootchain-mainnet:${ROOTCHAIN_MAINNET_URI}"
-            "leafchain-sand:${LEAFCHAIN_SAND_URI}"
-            "leafchain-avatect:${LEAFCHAIN_AVATECT_URI}"
+            "leafchain-sand-testnet:${LEAFCHAIN_SAND_TESTNET_URI}"
+            "leafchain-avatect-mainnet:${LEAFCHAIN_AVATECT_MAINNET_URI}"
+            "leafchain-lmt-testnet:${LEAFCHAIN_LMT_TESTNET_URI}"
+            "leafchain-lmt-mainnet:${LEAFCHAIN_LMT_MAINNET_URI}"
         )
 
         for entry in "${endpoints[@]}"; do
@@ -2171,17 +2345,21 @@ verify_ci_readiness() {
     local known_commands=(
         build-rootchain build-leafchain build-all
         test-rootchain-testnet test-rootchain-mainnet
-        test-leafchain-sand test-leafchain-avatect
+        test-leafchain-sand-testnet test-leafchain-avatect-mainnet
+        test-leafchain-lmt-testnet test-leafchain-lmt-mainnet
         test-all-testnet test-all
         test-idempotency-rootchain-testnet test-idempotency-rootchain-mainnet
-        test-idempotency-leafchain-sand test-idempotency-leafchain-avatect
+        test-idempotency-leafchain-sand-testnet test-idempotency-leafchain-avatect-mainnet
+        test-idempotency-leafchain-lmt-testnet test-idempotency-leafchain-lmt-mainnet
         test-idempotency-all-testnet test-idempotency-all
         create-snapshot-rootchain-testnet create-snapshot-rootchain-mainnet
-        create-snapshot-leafchain-sand create-snapshot-leafchain-avatect
+        create-snapshot-leafchain-sand-testnet create-snapshot-leafchain-avatect-mainnet
+        create-snapshot-leafchain-lmt-testnet create-snapshot-leafchain-lmt-mainnet
         create-snapshot-all-testnet create-snapshot-all
         list-snapshots clean-snapshots
         test-from-snapshot-rootchain-testnet test-from-snapshot-rootchain-mainnet
-        test-from-snapshot-leafchain-sand test-from-snapshot-leafchain-avatect
+        test-from-snapshot-leafchain-sand-testnet test-from-snapshot-leafchain-avatect-mainnet
+        test-from-snapshot-leafchain-lmt-testnet test-from-snapshot-leafchain-lmt-mainnet
         test-from-snapshot-all-testnet test-from-snapshot-all
         test-pallet test-pallet-critical test-pallet-matrix
         check checklist verify-ci-readiness
@@ -2238,8 +2416,10 @@ verify_ci_readiness() {
     printf "  ╟──────────────────────────────────────────────────────────────────╢\n"
     printf "  ║  %-25s  %-38s ║\n" "ROOTCHAIN_TESTNET_URI" "${ROOTCHAIN_TESTNET_URI:0:38}"
     printf "  ║  %-25s  %-38s ║\n" "ROOTCHAIN_MAINNET_URI" "${ROOTCHAIN_MAINNET_URI:0:38}"
-    printf "  ║  %-25s  %-38s ║\n" "LEAFCHAIN_SAND_URI" "${LEAFCHAIN_SAND_URI:0:38}"
-    printf "  ║  %-25s  %-38s ║\n" "LEAFCHAIN_AVATECT_URI" "${LEAFCHAIN_AVATECT_URI:0:38}"
+    printf "  ║  %-25s  %-38s ║\n" "LEAFCHAIN_SAND_TESTNET_URI" "${LEAFCHAIN_SAND_TESTNET_URI:0:38}"
+    printf "  ║  %-25s  %-38s ║\n" "LEAFCHAIN_AVATECT_MAINNET_URI" "${LEAFCHAIN_AVATECT_MAINNET_URI:0:38}"
+    printf "  ║  %-25s  %-38s ║\n" "LEAFCHAIN_LMT_TESTNET_URI" "${LEAFCHAIN_LMT_TESTNET_URI:0:38}"
+    printf "  ║  %-25s  %-38s ║\n" "LEAFCHAIN_LMT_MAINNET_URI" "${LEAFCHAIN_LMT_MAINNET_URI:0:38}"
     printf "  ╟──────────────────────────────────────────────────────────────────╢\n"
     printf "  ║  %-25s  %-38s ║\n" "ROOTCHAIN_TESTNET_WASM" "$(basename "${ROOTCHAIN_TESTNET_WASM}")"
     printf "  ║  %-25s  %-38s ║\n" "ROOTCHAIN_MAINNET_WASM" "$(basename "${ROOTCHAIN_MAINNET_WASM}")"
@@ -2438,34 +2618,42 @@ show_help() {
     echo "Migration test commands:"
     echo "  test-rootchain-testnet           Run migrations against rootchain testnet"
     echo "  test-rootchain-mainnet           Run migrations against rootchain mainnet"
-    echo "  test-leafchain-sand              Run migrations against leafchain Sand"
-    echo "  test-leafchain-avatect           Run migrations against leafchain Avatect"
+    echo "  test-leafchain-sand-testnet              Run migrations against leafchain Sand"
+    echo "  test-leafchain-avatect-mainnet           Run migrations against leafchain Avatect"
+    echo "  test-leafchain-lmt-testnet       Run migrations against leafchain LMT testnet"
+    echo "  test-leafchain-lmt-mainnet       Run migrations against leafchain LMT mainnet"
     echo "  test-all-testnet                 Run all testnet chains"
     echo "  test-all                         Run all chains (testnet first, then mainnet)"
     echo ""
     echo "Idempotency test commands:"
     echo "  test-idempotency-rootchain-testnet   Dual-pass deterministic test: rootchain testnet"
     echo "  test-idempotency-rootchain-mainnet   Dual-pass deterministic test: rootchain mainnet"
-    echo "  test-idempotency-leafchain-sand      Dual-pass deterministic test: leafchain Sand"
-    echo "  test-idempotency-leafchain-avatect   Dual-pass deterministic test: leafchain Avatect"
-    echo "  test-idempotency-all-testnet         Dual-pass deterministic test: all testnet chains"
+    echo "  test-idempotency-leafchain-sand-testnet      Dual-pass deterministic test: leafchain Sand"
+    echo "  test-idempotency-leafchain-avatect-mainnet       Dual-pass deterministic test: leafchain Avatect"
+    echo "  test-idempotency-leafchain-lmt-testnet Dual-pass deterministic test: leafchain LMT testnet"
+    echo "  test-idempotency-leafchain-lmt-mainnet Dual-pass deterministic test: leafchain LMT mainnet"
+    echo "  test-idempotency-all-testnet             Dual-pass deterministic test: all testnet chains"
     echo "  test-idempotency-all                 Dual-pass deterministic test: all chains"
     echo ""
     echo "Snapshot commands:"
     echo "  create-snapshot-rootchain-testnet     Save rootchain testnet state as snapshot"
     echo "  create-snapshot-rootchain-mainnet     Save rootchain mainnet state as snapshot"
-    echo "  create-snapshot-leafchain-sand        Save leafchain Sand state as snapshot"
-    echo "  create-snapshot-leafchain-avatect     Save leafchain Avatect state as snapshot"
-    echo "  create-snapshot-all-testnet           Save all testnet chain snapshots"
+    echo "  create-snapshot-leafchain-sand-testnet        Save leafchain Sand state as snapshot"
+    echo "  create-snapshot-leafchain-avatect-mainnet         Save leafchain Avatect state as snapshot"
+    echo "  create-snapshot-leafchain-lmt-testnet   Save leafchain LMT testnet state as snapshot"
+    echo "  create-snapshot-leafchain-lmt-mainnet   Save leafchain LMT mainnet state as snapshot"
+    echo "  create-snapshot-all-testnet               Save all testnet chain snapshots"
     echo "  create-snapshot-all                   Save all chain snapshots"
     echo "  list-snapshots                        List all saved snapshots (name, size, date)"
     echo "  clean-snapshots                       Remove snapshots older than SNAPSHOT_MAX_AGE_HOURS"
     echo ""
     echo "  test-from-snapshot-rootchain-testnet [path]   Test from snapshot: rootchain testnet"
     echo "  test-from-snapshot-rootchain-mainnet [path]   Test from snapshot: rootchain mainnet"
-    echo "  test-from-snapshot-leafchain-sand [path]      Test from snapshot: leafchain Sand"
-    echo "  test-from-snapshot-leafchain-avatect [path]   Test from snapshot: leafchain Avatect"
-    echo "  test-from-snapshot-all-testnet                Test all testnet chains from snapshots"
+    echo "  test-from-snapshot-leafchain-sand-testnet [path]      Test from snapshot: leafchain Sand"
+    echo "  test-from-snapshot-leafchain-avatect-mainnet [path]       Test from snapshot: leafchain Avatect"
+    echo "  test-from-snapshot-leafchain-lmt-testnet [path] Test from snapshot: leafchain LMT testnet"
+    echo "  test-from-snapshot-leafchain-lmt-mainnet [path] Test from snapshot: leafchain LMT mainnet"
+    echo "  test-from-snapshot-all-testnet                    Test all testnet chains from snapshots"
     echo "  test-from-snapshot-all                        Test all chains from snapshots"
     echo ""
     echo "Pallet-level test commands:"
@@ -2475,7 +2663,7 @@ show_help() {
     echo "                                        Matrix test: pallets x chains grid"
     echo "                                        Also reads MATRIX_CHAINS / MATRIX_PALLETS"
     echo ""
-    echo "  Valid chains: rootchain-testnet, rootchain-mainnet, leafchain-sand, leafchain-avatect"
+    echo "  Valid chains: rootchain-testnet, rootchain-mainnet, leafchain-sand-testnet, leafchain-avatect-mainnet, leafchain-lmt-testnet, leafchain-lmt-mainnet"
     echo ""
     echo "Utility commands:"
     echo "  verify-ci-readiness              Comprehensive pre-flight check for CI pipeline"
@@ -2489,8 +2677,10 @@ show_help() {
     echo "  TRY_RUNTIME_BIN            Path to try-runtime binary (default: try-runtime in PATH)"
     echo "  ROOTCHAIN_TESTNET_URI      Rootchain testnet RPC endpoint"
     echo "  ROOTCHAIN_MAINNET_URI      Rootchain mainnet RPC endpoint"
-    echo "  LEAFCHAIN_SAND_URI         Leafchain Sand RPC endpoint"
-    echo "  LEAFCHAIN_AVATECT_URI      Leafchain Avatect RPC endpoint"
+    echo "  LEAFCHAIN_SAND_TESTNET_URI         Leafchain Sand RPC endpoint"
+    echo "  LEAFCHAIN_AVATECT_MAINNET_URI      Leafchain Avatect RPC endpoint"
+    echo "  LEAFCHAIN_LMT_TESTNET_URI  Leafchain LMT testnet RPC endpoint"
+    echo "  LEAFCHAIN_LMT_MAINNET_URI  Leafchain LMT mainnet RPC endpoint"
     echo "  BLOCKTIME_ROOT             Rootchain block time in ms (default: 6000)"
     echo "  BLOCKTIME_LEAF             Leafchain block time in ms (default: 12000)"
     echo "  SKIP_BUILD                 Set to 1 to skip WASM build (use pre-built artifacts)"
@@ -2541,8 +2731,10 @@ main() {
         build-all)            build_all ;;
         test-rootchain-testnet)   test_rootchain_testnet ;;
         test-rootchain-mainnet)   test_rootchain_mainnet ;;
-        test-leafchain-sand)      test_leafchain_sand ;;
-        test-leafchain-avatect)   test_leafchain_avatect ;;
+        test-leafchain-sand-testnet)      test_leafchain_sand_testnet ;;
+        test-leafchain-avatect-mainnet)       test_leafchain_avatect_mainnet ;;
+        test-leafchain-lmt-testnet)   test_leafchain_lmt_testnet ;;
+        test-leafchain-lmt-mainnet)   test_leafchain_lmt_mainnet ;;
         test-all-testnet)         test_all_testnet ;;
         test-all)                 test_all ;;
         # ── Snapshot-dependent commands (gated by SNAPSHOT_SUPPORTED) ──────
@@ -2555,12 +2747,18 @@ main() {
         test-idempotency-rootchain-mainnet)
             require_snapshot_support "${cmd}" || exit 0
             test_idempotency_rootchain_mainnet ;;
-        test-idempotency-leafchain-sand)
+        test-idempotency-leafchain-sand-testnet)
             require_snapshot_support "${cmd}" || exit 0
-            test_idempotency_leafchain_sand ;;
-        test-idempotency-leafchain-avatect)
+            test_idempotency_leafchain_sand_testnet ;;
+        test-idempotency-leafchain-avatect-mainnet)
             require_snapshot_support "${cmd}" || exit 0
-            test_idempotency_leafchain_avatect ;;
+            test_idempotency_leafchain_avatect_mainnet ;;
+        test-idempotency-leafchain-lmt-testnet)
+            require_snapshot_support "${cmd}" || exit 0
+            test_idempotency_leafchain_lmt_testnet ;;
+        test-idempotency-leafchain-lmt-mainnet)
+            require_snapshot_support "${cmd}" || exit 0
+            test_idempotency_leafchain_lmt_mainnet ;;
         test-idempotency-all-testnet)
             require_snapshot_support "${cmd}" || exit 0
             test_idempotency_all_testnet ;;
@@ -2573,12 +2771,18 @@ main() {
         create-snapshot-rootchain-mainnet)
             require_snapshot_support "${cmd}" || exit 0
             create_snapshot_rootchain_mainnet ;;
-        create-snapshot-leafchain-sand)
+        create-snapshot-leafchain-sand-testnet)
             require_snapshot_support "${cmd}" || exit 0
-            create_snapshot_leafchain_sand ;;
-        create-snapshot-leafchain-avatect)
+            create_snapshot_leafchain_sand_testnet ;;
+        create-snapshot-leafchain-avatect-mainnet)
             require_snapshot_support "${cmd}" || exit 0
-            create_snapshot_leafchain_avatect ;;
+            create_snapshot_leafchain_avatect_mainnet ;;
+        create-snapshot-leafchain-lmt-testnet)
+            require_snapshot_support "${cmd}" || exit 0
+            create_snapshot_leafchain_lmt_testnet ;;
+        create-snapshot-leafchain-lmt-mainnet)
+            require_snapshot_support "${cmd}" || exit 0
+            create_snapshot_leafchain_lmt_mainnet ;;
         create-snapshot-all-testnet)
             require_snapshot_support "${cmd}" || exit 0
             create_snapshot_all_testnet ;;
@@ -2589,8 +2793,10 @@ main() {
         clean-snapshots)                      clean_snapshots ;;
         test-from-snapshot-rootchain-testnet)  test_from_snapshot_rootchain_testnet "${2:-}" ;;
         test-from-snapshot-rootchain-mainnet)  test_from_snapshot_rootchain_mainnet "${2:-}" ;;
-        test-from-snapshot-leafchain-sand)     test_from_snapshot_leafchain_sand "${2:-}" ;;
-        test-from-snapshot-leafchain-avatect)  test_from_snapshot_leafchain_avatect "${2:-}" ;;
+        test-from-snapshot-leafchain-sand-testnet)     test_from_snapshot_leafchain_sand_testnet "${2:-}" ;;
+        test-from-snapshot-leafchain-avatect-mainnet)      test_from_snapshot_leafchain_avatect_mainnet "${2:-}" ;;
+        test-from-snapshot-leafchain-lmt-testnet)  test_from_snapshot_leafchain_lmt_testnet "${2:-}" ;;
+        test-from-snapshot-leafchain-lmt-mainnet)  test_from_snapshot_leafchain_lmt_mainnet "${2:-}" ;;
         test-from-snapshot-all-testnet)        test_from_snapshot_all_testnet ;;
         test-from-snapshot-all)                test_from_snapshot_all ;;
         test-pallet)
@@ -2600,7 +2806,7 @@ main() {
             if [[ -z "${pallet_arg}" || -z "${chain_arg}" ]]; then
                 log_error "Usage: $0 test-pallet <pallet_name> <chain>"
                 echo "  Example: $0 test-pallet nomination_pools rootchain-testnet"
-                echo "  Chains: rootchain-testnet, rootchain-mainnet, leafchain-sand, leafchain-avatect"
+                echo "  Chains: rootchain-testnet, rootchain-mainnet, leafchain-sand-testnet, leafchain-avatect-mainnet, leafchain-lmt-testnet, leafchain-lmt-mainnet"
                 exit 1
             fi
             local _wasm_path _uri _blocktime
@@ -2613,7 +2819,7 @@ main() {
             if [[ -z "${chain_arg}" ]]; then
                 log_error "Usage: $0 test-pallet-critical <chain>"
                 echo "  Example: $0 test-pallet-critical rootchain-testnet"
-                echo "  Chains: rootchain-testnet, rootchain-mainnet, leafchain-sand, leafchain-avatect"
+                echo "  Chains: rootchain-testnet, rootchain-mainnet, leafchain-sand-testnet, leafchain-avatect-mainnet, leafchain-lmt-testnet, leafchain-lmt-mainnet"
                 exit 1
             fi
             local _wasm_path _uri _blocktime

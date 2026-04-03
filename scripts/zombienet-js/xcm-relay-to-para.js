@@ -2,7 +2,7 @@
 // Called from relay chain node (alice).
 //
 // Usage in ZNDSL:
-//   alice: js-script ./scripts/zombienet-js/xcm-relay-to-para.js with "2000,1000000000000,//DmpTestRecipient" within 60 seconds
+//   alice: js-script ./zombienet-js/xcm-relay-to-para.js with "2000,1000000000000,//DmpTestRecipient" within 60 seconds
 //
 // Args: "destParaId,amount,beneficiarySeed"
 //   beneficiarySeed: sr25519 derivation path for the recipient (use a non-endowed seed for meaningful testing)

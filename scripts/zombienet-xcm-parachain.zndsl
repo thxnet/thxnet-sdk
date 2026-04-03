@@ -1,0 +1,87 @@
+Description: THXNet cross-parachain XCM — verify HRMP messaging infrastructure and document reserve transfer limitation (E-63)
+Network: ./scripts/zombienet-local.toml
+Creds: config
+
+# ═══════════════════════════════════════════════
+# Phase 1: Network Bootstrap
+# ═══════════════════════════════════════════════
+
+# Relay chain validators are up
+alice: is up within 30 seconds
+bob: is up within 30 seconds
+
+# Relay chain producing and finalizing blocks
+alice: reports substrate_block_height{status="finalized"} is at least 5 within 180 seconds
+
+# Both parachains registered and producing blocks
+alice: parachain 2000 is registered within 300 seconds
+alice: parachain 2001 is registered within 300 seconds
+alice: parachain 2000 block height is at least 3 within 600 seconds
+alice: parachain 2001 block height is at least 3 within 600 seconds
+
+# ═══════════════════════════════════════════════
+# Phase 2: Fund Parachains via DMP (Relay → Para)
+# ═══════════════════════════════════════════════
+
+# Fund Alice on parachain 2000 with relay tokens so she can pay XCM fees
+# for the cross-chain reserve transfer attempt in Phase 4
+alice: js-script ./zombienet-js/xcm-relay-to-para.js with "2000,10000000000000,//Alice" within 60 seconds
+
+# Verify Alice on para 2000 received the relay tokens
+leafchain-a-collator-1: js-script ./zombienet-js/verify-balance.js with "//Alice,1000000000000" within 120 seconds
+
+# ═══════════════════════════════════════════════
+# Phase 3: HRMP Channel Setup
+# ═══════════════════════════════════════════════
+
+# Open bidirectional HRMP channels: 2000 <-> 2001
+alice: js-script ./zombienet-js/open-hrmp-channels.js with "2000,2001,8,512" within 60 seconds
+
+# Verify HRMP channels are open from both sides
+leafchain-a-collator-1: js-script ./zombienet-js/verify-hrmp-channel.js with "2001" within 120 seconds
+leafchain-b-collator-1: js-script ./zombienet-js/verify-hrmp-channel.js with "2000" within 120 seconds
+
+# ═══════════════════════════════════════════════
+# Phase 4: Cross-Parachain Reserve Transfer Attempt
+# ═══════════════════════════════════════════════
+
+# Attempt reserve transfer from para 2000 → para 2001 (1 UNIT = 10^12 raw)
+# The extrinsic succeeds on the sender side and the XCM message is routed
+# via XCMP/HRMP, proving the messaging infrastructure works end-to-end.
+# However, the receiving parachain (2001) will reject the reserve deposit
+# because IsReserve=NativeAsset only accepts assets whose id matches the
+# origin — relay tokens from a sibling parachain fail this check (E-63).
+leafchain-a-collator-1: js-script ./zombienet-js/xcm-para-to-para.js with "2001,1000000000000,//XcmCrossRecipient" within 120 seconds
+
+# ═══════════════════════════════════════════════
+# Phase 5: Verify Transfer Did NOT Deliver Funds
+# ═══════════════════════════════════════════════
+
+# Confirm that //XcmCrossRecipient on para 2001 has NO balance.
+# This is the expected outcome: IsReserve=NativeAsset blocks cross-parachain
+# reserve transfers. The threshold 1_000_000_000 (1 milliUNIT) ensures we
+# detect even partial delivery.
+leafchain-b-collator-1: js-script ./zombienet-js/verify-no-balance.js with "//XcmCrossRecipient,1000000000" within 60 seconds
+
+# ═══════════════════════════════════════════════
+# Phase 6: Network Health After XCM Attempt
+# ═══════════════════════════════════════════════
+
+# Both parachains continue producing blocks — the failed XCM did not crash anything
+alice: parachain 2000 block height is at least 15 within 300 seconds
+alice: parachain 2001 block height is at least 10 within 300 seconds
+
+# ═══════════════════════════════════════════════
+# Known Limitations (documented for future work)
+# ═══════════════════════════════════════════════
+#
+# E-62: DenyReserveTransferToRelayChain blocks UMP (para→relay) reserve transfers.
+# E-63: IsReserve=NativeAsset blocks cross-parachain reserve transfers because
+#       the asset id (relay token at Parent) doesn't match the origin (sibling
+#       parachain at ../Parachain(N)). The XCMP messaging infrastructure works
+#       correctly — only the asset acceptance filter needs updating.
+#
+# To enable cross-parachain transfers, update IsReserve in xcm_config.rs to
+# accept relay tokens from sibling parachains, e.g.:
+#   type IsReserve = (NativeAsset, RelayTokenFromSiblings);
+# where RelayTokenFromSiblings matches asset id Parent from origin ../Parachain(_).

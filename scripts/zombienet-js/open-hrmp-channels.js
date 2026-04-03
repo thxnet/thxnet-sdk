@@ -2,7 +2,7 @@
 // Called from relay chain node (alice).
 //
 // Usage in ZNDSL:
-//   alice: js-script ./scripts/zombienet-js/open-hrmp-channels.js with "2000,2001,8,512" within 60 seconds
+//   alice: js-script ./zombienet-js/open-hrmp-channels.js with "2000,2001,8,512" within 60 seconds
 //
 // Args: "senderParaId,recipientParaId,maxCapacity,maxMessageSize"
 

@@ -1,0 +1,65 @@
+Description: THXNet XCM reserve transfer — verify DMP relay-to-parachain token transfer via XCM
+Network: ./scripts/zombienet-local.toml
+Creds: config
+
+# ═══════════════════════════════════════════════
+# Phase 1: Network Bootstrap
+# ═══════════════════════════════════════════════
+
+# Relay chain validators are up
+alice: is up within 30 seconds
+bob: is up within 30 seconds
+
+# Relay chain producing and finalizing blocks
+alice: reports substrate_block_height{status="finalized"} is at least 5 within 180 seconds
+
+# Parachain registered and producing blocks
+alice: parachain 2000 is registered within 300 seconds
+alice: parachain 2000 block height is at least 3 within 600 seconds
+
+# ═══════════════════════════════════════════════
+# Phase 2: DMP Reserve Transfer (Relay → Parachain 2000)
+# ═══════════════════════════════════════════════
+
+# Send 100 UNIT (10^12 raw) from relay Alice to //XcmTestRecipient on parachain 2000
+# Uses a non-endowed account so balance change is unambiguous
+alice: js-script ./zombienet-js/xcm-relay-to-para.js with "2000,1000000000000,//XcmTestRecipient" within 60 seconds
+
+# Verify balance arrived on parachain (at least half of sent amount; rest covers XCM fees)
+leafchain-a-collator-1: js-script ./zombienet-js/verify-balance.js with "//XcmTestRecipient,500000000000" within 120 seconds
+
+# ═══════════════════════════════════════════════
+# Phase 3: Second Transfer to Same Recipient
+# ═══════════════════════════════════════════════
+
+# Send another 50 UNIT to verify repeated transfers accumulate correctly
+alice: js-script ./zombienet-js/xcm-relay-to-para.js with "2000,500000000000,//XcmTestRecipient" within 60 seconds
+
+# Verify accumulated balance (at least 750B from 1.5T total sent, accounting for 50% fee margin)
+leafchain-a-collator-1: js-script ./zombienet-js/verify-balance.js with "//XcmTestRecipient,750000000000" within 120 seconds
+
+# ═══════════════════════════════════════════════
+# Phase 4: Transfer to Different Parachain
+# ═══════════════════════════════════════════════
+
+# Verify parachain 2001 is also alive
+alice: parachain 2001 is registered within 300 seconds
+alice: parachain 2001 block height is at least 3 within 600 seconds
+
+# Send 100 UNIT from relay to //XcmTestRecipient on parachain 2001
+alice: js-script ./zombienet-js/xcm-relay-to-para.js with "2001,1000000000000,//XcmTestRecipient" within 60 seconds
+
+# Verify balance on parachain 2001
+leafchain-b-collator-1: js-script ./zombienet-js/verify-balance.js with "//XcmTestRecipient,500000000000" within 120 seconds
+
+# ═══════════════════════════════════════════════
+# Phase 5: Network Still Healthy
+# ═══════════════════════════════════════════════
+
+# Both parachains continue producing blocks after all transfers
+alice: parachain 2000 block height is at least 15 within 300 seconds
+alice: parachain 2001 block height is at least 10 within 300 seconds
+
+# NOTE: UMP (para→relay) reserve transfers are blocked by DenyReserveTransferToRelayChain (E-62).
+# XCMP reserve transfers between parachains don't transfer balance due to IsReserve=NativeAsset (E-63).
+# When E-62/E-63 are resolved, add reverse transfer tests here.
