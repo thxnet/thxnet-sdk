@@ -26,19 +26,19 @@ regex = { workspace = true, optional = true }
 tracing = { workspace = true }
 tracing-core = { workspace = true }
 tracing-subscriber = { workspace = true, optional = true, features = [
-  "env-filter",
-  "time",
-  "tracing-log",
+	"env-filter",
+	"time",
+	"tracing-log",
 ] }
 
 [features]
 default = ["std"]
 with-tracing = ["codec/derive", "codec/full"]
 std = [
-  "codec/std",
-  "regex",
-  "tracing-core/std",
-  "tracing-subscriber",
-  "tracing/std",
-  "with-tracing",
+	"codec/std",
+	"regex",
+	"tracing-core/std",
+	"tracing-subscriber",
+	"tracing/std",
+	"with-tracing",
 ]

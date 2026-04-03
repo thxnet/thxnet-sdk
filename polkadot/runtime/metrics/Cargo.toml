@@ -22,10 +22,10 @@ bs58 = { features = ["alloc"], workspace = true }
 [features]
 default = ["std"]
 std = [
-  "bs58/std",
-  "codec/std",
-  "frame-benchmarking?/std",
-  "polkadot-primitives/std",
-  "sp-tracing/std",
+	"bs58/std",
+	"codec/std",
+	"frame-benchmarking?/std",
+	"polkadot-primitives/std",
+	"sp-tracing/std",
 ]
 runtime-metrics = ["frame-benchmarking", "sp-tracing/with-tracing"]

@@ -25,9 +25,9 @@ thiserror = { optional = true, workspace = true }
 [features]
 default = ["std"]
 std = [
-  "async-trait",
-  "codec/std",
-  "sp-inherents/std",
-  "sp-runtime/std",
-  "thiserror",
+	"async-trait",
+	"codec/std",
+	"sp-inherents/std",
+	"sp-runtime/std",
+	"thiserror",
 ]

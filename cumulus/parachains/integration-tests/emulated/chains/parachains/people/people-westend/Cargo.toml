@@ -19,5 +19,5 @@ parachains-common.workspace = true
 people-westend-runtime.workspace = true
 sp-core.workspace = true
 testnet-parachains-constants = { features = [
-  "westend",
+	"westend",
 ], workspace = true, default-features = true }

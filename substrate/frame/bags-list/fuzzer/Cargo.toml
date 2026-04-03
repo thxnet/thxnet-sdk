@@ -18,9 +18,9 @@ path = "src/main.rs"
 
 [dependencies]
 frame-election-provider-support = { features = [
-  "fuzz",
+	"fuzz",
 ], workspace = true, default-features = true }
 honggfuzz = { workspace = true }
 pallet-bags-list = { features = [
-  "fuzz",
+	"fuzz",
 ], workspace = true, default-features = true }

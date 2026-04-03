@@ -23,7 +23,7 @@ futures = { workspace = true }
 sc-client-api.default-features = true
 sc-client-api.workspace = true
 sc-client-db = { features = [
-  "test-helpers",
+	"test-helpers",
 ], workspace = true, default-features = false }
 sc-consensus.default-features = true
 sc-consensus.workspace = true

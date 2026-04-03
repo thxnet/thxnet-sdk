@@ -23,7 +23,7 @@ async-trait = { workspace = true }
 codec = { features = ["derive"], workspace = true, default-features = true }
 dyn-clone = { workspace = true }
 finality-grandpa = { features = [
-  "derive-codec",
+	"derive-codec",
 ], workspace = true, default-features = true }
 fork-tree.default-features = true
 fork-tree.workspace = true
@@ -84,8 +84,8 @@ thiserror = { workspace = true }
 [dev-dependencies]
 assert_matches = { workspace = true }
 finality-grandpa = { features = [
-  "derive-codec",
-  "test-helpers",
+	"derive-codec",
+	"test-helpers",
 ], workspace = true, default-features = true }
 sc-network-test = { workspace = true }
 sp-keyring = { default-features = true, workspace = true }

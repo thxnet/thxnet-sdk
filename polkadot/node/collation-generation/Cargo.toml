@@ -35,7 +35,7 @@ thiserror = { workspace = true }
 assert_matches = { workspace = true }
 polkadot-node-subsystem-test-helpers = { workspace = true }
 polkadot-primitives = { features = [
-  "test",
+	"test",
 ], workspace = true, default-features = false }
 polkadot-primitives-test-helpers = { workspace = true }
 rstest = { workspace = true }

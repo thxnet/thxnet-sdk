@@ -38,8 +38,8 @@ syn = { features = ["full", "parsing", "visit-mut"], workspace = true }
 
 [dev-dependencies]
 codec = { features = [
-  "derive",
-  "max-encoded-len",
+	"derive",
+	"max-encoded-len",
 ], workspace = true, default-features = true }
 frame-benchmarking = { default-features = true, workspace = true }
 frame-support = { default-features = true, workspace = true }
@@ -47,7 +47,7 @@ frame-system = { default-features = true, workspace = true }
 pretty_assertions = { workspace = true }
 regex = { workspace = true }
 scale-info = { features = [
-  "derive",
+	"derive",
 ], workspace = true, default-features = true }
 sp-io = { default-features = true, workspace = true }
 sp-metadata-ir = { default-features = true, workspace = true }

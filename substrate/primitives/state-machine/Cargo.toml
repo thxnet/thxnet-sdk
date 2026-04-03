@@ -44,16 +44,16 @@ sp-runtime = { default-features = true, workspace = true }
 default = ["std"]
 fuzzing = ["arbitrary"]
 std = [
-  "codec/std",
-  "hash-db/std",
-  "log/std",
-  "parking_lot",
-  "rand",
-  "sp-core/std",
-  "sp-externalities/std",
-  "sp-panic-handler",
-  "sp-trie/std",
-  "thiserror",
-  "tracing",
-  "trie-db/std",
+	"codec/std",
+	"hash-db/std",
+	"log/std",
+	"parking_lot",
+	"rand",
+	"sp-core/std",
+	"sp-externalities/std",
+	"sp-panic-handler",
+	"sp-trie/std",
+	"thiserror",
+	"tracing",
+	"trie-db/std",
 ]

@@ -27,7 +27,7 @@ sp-runtime.workspace = true
 [dev-dependencies]
 sp-core = { default-features = true, workspace = true }
 tokio = { features = [
-  "macros",
-  "rt-multi-thread",
-  "sync",
+	"macros",
+	"rt-multi-thread",
+	"sync",
 ], workspace = true, default-features = true }

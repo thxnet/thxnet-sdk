@@ -17,7 +17,7 @@ async-trait = { workspace = true }
 clap = { features = ["derive"], workspace = true }
 codec = { workspace = true, default-features = true }
 criterion = { features = [
-  "async_tokio",
+	"async_tokio",
 ], workspace = true, default-features = true }
 cumulus-client-cli.default-features = true
 cumulus-client-cli.workspace = true
@@ -141,19 +141,19 @@ futures = { workspace = true }
 
 [features]
 runtime-benchmarks = [
-  "cumulus-pallet-parachain-system/runtime-benchmarks",
-  "cumulus-pallet-weight-reclaim/runtime-benchmarks",
-  "cumulus-primitives-core/runtime-benchmarks",
-  "cumulus-test-client/runtime-benchmarks",
-  "frame-system/runtime-benchmarks",
-  "pallet-timestamp/runtime-benchmarks",
-  "pallet-transaction-payment/runtime-benchmarks",
-  "polkadot-cli/runtime-benchmarks",
-  "polkadot-primitives/runtime-benchmarks",
-  "polkadot-service/runtime-benchmarks",
-  "polkadot-test-service/runtime-benchmarks",
-  "sc-service/runtime-benchmarks",
-  "sp-runtime/runtime-benchmarks",
+	"cumulus-pallet-parachain-system/runtime-benchmarks",
+	"cumulus-pallet-weight-reclaim/runtime-benchmarks",
+	"cumulus-primitives-core/runtime-benchmarks",
+	"cumulus-test-client/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"pallet-timestamp/runtime-benchmarks",
+	"pallet-transaction-payment/runtime-benchmarks",
+	"polkadot-cli/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"polkadot-service/runtime-benchmarks",
+	"polkadot-test-service/runtime-benchmarks",
+	"sc-service/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
 ]
 
 [[bench]]

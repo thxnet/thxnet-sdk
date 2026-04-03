@@ -20,9 +20,9 @@ serde = { features = ["derive"], workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
 thiserror = { workspace = true }
 tokio = { features = [
-  "macros",
-  "net",
-  "rt-multi-thread",
-  "sync",
+	"macros",
+	"net",
+	"rt-multi-thread",
+	"sync",
 ], workspace = true }
 tokio-tungstenite = { workspace = true }

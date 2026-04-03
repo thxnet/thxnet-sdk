@@ -28,9 +28,9 @@ substrate-wasm-builder.workspace = true
 [features]
 default = ["std"]
 std = [
-  "codec/std",
-  "log/std",
-  "polkadot-parachain-primitives/std",
-  "polkadot-primitives/std",
-  "sp-io/std",
+	"codec/std",
+	"log/std",
+	"polkadot-parachain-primitives/std",
+	"polkadot-primitives/std",
+	"sp-io/std",
 ]

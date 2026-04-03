@@ -32,16 +32,16 @@ array-bytes = { workspace = true, default-features = true }
 [features]
 default = ["std"]
 std = [
-  "codec/std",
-  "dep:thiserror",
-  "log/std",
-  "mmr-lib/std",
-  "scale-info/std",
-  "serde/std",
-  "sp-api/std",
-  "sp-core/std",
-  "sp-debug-derive/std",
-  "sp-runtime/std",
+	"codec/std",
+	"dep:thiserror",
+	"log/std",
+	"mmr-lib/std",
+	"scale-info/std",
+	"serde/std",
+	"sp-api/std",
+	"sp-core/std",
+	"sp-debug-derive/std",
+	"sp-runtime/std",
 ]
 
 # Serde support without relying on std features.

@@ -30,8 +30,8 @@ strum = { features = ["derive"], workspace = true, default-features = true }
 tempfile = { workspace = true }
 thiserror = { workspace = true }
 tokio = { features = [
-  "fs",
-  "process",
+	"fs",
+	"process",
 ], workspace = true, default-features = true }
 
 codec = { features = ["derive"], workspace = true }
@@ -57,17 +57,17 @@ sp-maybe-compressed-blob = { optional = true, workspace = true, default-features
 [dev-dependencies]
 assert_matches = { workspace = true }
 criterion = { features = [
-  "async_tokio",
-  "cargo_bench_support",
+	"async_tokio",
+	"cargo_bench_support",
 ], workspace = true }
 
 polkadot-node-core-pvf-common = { features = [
-  "test-utils",
+	"test-utils",
 ], default-features = true, workspace = true }
 polkadot-node-subsystem-test-helpers = { workspace = true }
 # For benches and integration tests, depend on ourselves with the test-utils feature.
 polkadot-node-core-pvf = { features = [
-  "test-utils",
+	"test-utils",
 ], default-features = true, workspace = true }
 rococo-runtime = { workspace = true }
 
@@ -85,8 +85,8 @@ ci-only-tests = []
 jemalloc-allocator = ["polkadot-node-core-pvf-common/jemalloc-allocator"]
 # This feature is used to export test code to other crates without putting it in the production build.
 test-utils = [
-  "dep:is_executable",
-  "dep:polkadot-node-core-pvf-execute-worker",
-  "dep:polkadot-node-core-pvf-prepare-worker",
-  "dep:sp-maybe-compressed-blob",
+	"dep:is_executable",
+	"dep:polkadot-node-core-pvf-execute-worker",
+	"dep:polkadot-node-core-pvf-prepare-worker",
+	"dep:sp-maybe-compressed-blob",
 ]

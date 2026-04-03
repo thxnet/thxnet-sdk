@@ -43,8 +43,8 @@ people-rococo-runtime.workspace = true
 people-westend-runtime.workspace = true
 polkadot-jemalloc-shim = { workspace = true }
 polkadot-omni-node-lib = { features = [
-  "rococo-native",
-  "westend-native",
+	"rococo-native",
+	"westend-native",
 ], workspace = true }
 rococo-parachain-runtime.workspace = true
 sc-chain-spec.default-features = true
@@ -79,45 +79,45 @@ substrate-build-script-utils.workspace = true
 default = []
 jemalloc-allocator = ["polkadot-jemalloc-shim/jemalloc-allocator"]
 runtime-benchmarks = [
-  "cumulus-primitives-core/runtime-benchmarks",
-  "parachains-common/runtime-benchmarks",
-  "polkadot-omni-node-lib/runtime-benchmarks",
-  "sc-service/runtime-benchmarks",
+	"cumulus-primitives-core/runtime-benchmarks",
+	"parachains-common/runtime-benchmarks",
+	"polkadot-omni-node-lib/runtime-benchmarks",
+	"sc-service/runtime-benchmarks",
 
-  "asset-hub-rococo-runtime/runtime-benchmarks",
-  "asset-hub-westend-runtime/runtime-benchmarks",
-  "bridge-hub-rococo-runtime/runtime-benchmarks",
-  "bridge-hub-westend-runtime/runtime-benchmarks",
-  "collectives-westend-runtime/runtime-benchmarks",
-  "coretime-rococo-runtime/runtime-benchmarks",
-  "coretime-westend-runtime/runtime-benchmarks",
-  "glutton-westend-runtime/runtime-benchmarks",
-  "penpal-runtime/runtime-benchmarks",
-  "people-rococo-runtime/runtime-benchmarks",
-  "people-westend-runtime/runtime-benchmarks",
-  "rococo-parachain-runtime/runtime-benchmarks",
-  "xcm/runtime-benchmarks",
-  "yet-another-parachain-runtime/runtime-benchmarks",
+	"asset-hub-rococo-runtime/runtime-benchmarks",
+	"asset-hub-westend-runtime/runtime-benchmarks",
+	"bridge-hub-rococo-runtime/runtime-benchmarks",
+	"bridge-hub-westend-runtime/runtime-benchmarks",
+	"collectives-westend-runtime/runtime-benchmarks",
+	"coretime-rococo-runtime/runtime-benchmarks",
+	"coretime-westend-runtime/runtime-benchmarks",
+	"glutton-westend-runtime/runtime-benchmarks",
+	"penpal-runtime/runtime-benchmarks",
+	"people-rococo-runtime/runtime-benchmarks",
+	"people-westend-runtime/runtime-benchmarks",
+	"rococo-parachain-runtime/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
+	"yet-another-parachain-runtime/runtime-benchmarks",
 ]
 try-runtime = [
-  "polkadot-omni-node-lib/try-runtime",
+	"polkadot-omni-node-lib/try-runtime",
 
-  "asset-hub-rococo-runtime/try-runtime",
-  "asset-hub-westend-runtime/try-runtime",
-  "bridge-hub-rococo-runtime/try-runtime",
-  "bridge-hub-westend-runtime/try-runtime",
-  "collectives-westend-runtime/try-runtime",
-  "coretime-rococo-runtime/try-runtime",
-  "coretime-westend-runtime/try-runtime",
-  "glutton-westend-runtime/try-runtime",
-  "parachains-common/try-runtime",
-  "penpal-runtime/try-runtime",
-  "people-rococo-runtime/try-runtime",
-  "people-westend-runtime/try-runtime",
+	"asset-hub-rococo-runtime/try-runtime",
+	"asset-hub-westend-runtime/try-runtime",
+	"bridge-hub-rococo-runtime/try-runtime",
+	"bridge-hub-westend-runtime/try-runtime",
+	"collectives-westend-runtime/try-runtime",
+	"coretime-rococo-runtime/try-runtime",
+	"coretime-westend-runtime/try-runtime",
+	"glutton-westend-runtime/try-runtime",
+	"parachains-common/try-runtime",
+	"penpal-runtime/try-runtime",
+	"people-rococo-runtime/try-runtime",
+	"people-westend-runtime/try-runtime",
 ]
 fast-runtime = [
-  "bridge-hub-rococo-runtime/fast-runtime",
-  "bridge-hub-westend-runtime/fast-runtime",
-  "coretime-rococo-runtime/fast-runtime",
-  "coretime-westend-runtime/fast-runtime",
+	"bridge-hub-rococo-runtime/fast-runtime",
+	"bridge-hub-westend-runtime/fast-runtime",
+	"coretime-rococo-runtime/fast-runtime",
+	"coretime-westend-runtime/fast-runtime",
 ]

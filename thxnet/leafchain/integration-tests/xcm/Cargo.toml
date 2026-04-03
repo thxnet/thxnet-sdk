@@ -15,7 +15,7 @@ xcm-emulator = { package = "thxnet-xcm-emulator", path = "../../xcm/xcm-emulator
 
 # Rootchain runtime (in thxnet/ dir within monorepo)
 thxnet-runtime = { path = "../../../runtime/thxnet", default-features = false, features = [
-  "std",
+	"std",
 ] }
 
 # XCM

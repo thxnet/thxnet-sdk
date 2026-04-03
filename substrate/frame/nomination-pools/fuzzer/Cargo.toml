@@ -27,7 +27,7 @@ frame-system.default-features = true
 frame-system.workspace = true
 honggfuzz = { workspace = true }
 pallet-nomination-pools = { features = [
-  "fuzzing",
+	"fuzzing",
 ], workspace = true, default-features = true }
 sp-io.default-features = true
 sp-io.workspace = true

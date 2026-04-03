@@ -69,7 +69,7 @@ substrate-test-runtime-client = { workspace = true }
 # This feature adds BLS crypto primitives. It should not be used in production since
 # the BLS implementation and interface may still be subject to significant change.
 bls-experimental = [
-  "sp-application-crypto/bls-experimental",
-  "sp-consensus-beefy/bls-experimental",
-  "sp-core/bls-experimental",
+	"sp-application-crypto/bls-experimental",
+	"sp-consensus-beefy/bls-experimental",
+	"sp-core/bls-experimental",
 ]

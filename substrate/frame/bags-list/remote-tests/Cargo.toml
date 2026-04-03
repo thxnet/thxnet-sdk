@@ -23,7 +23,7 @@ frame-support.workspace = true
 frame-system.default-features = true
 frame-system.workspace = true
 pallet-bags-list = { features = [
-  "fuzz",
+	"fuzz",
 ], workspace = true, default-features = true }
 pallet-staking.default-features = true
 pallet-staking.workspace = true

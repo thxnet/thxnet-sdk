@@ -27,12 +27,12 @@ sp-mixnet.workspace = true
 [features]
 default = ["std"]
 std = [
-  "codec/std",
-  "frame/std",
-  "log/std",
-  "scale-info/std",
-  "serde/std",
-  "sp-application-crypto/std",
-  "sp-mixnet/std",
+	"codec/std",
+	"frame/std",
+	"log/std",
+	"scale-info/std",
+	"serde/std",
+	"sp-application-crypto/std",
+	"sp-mixnet/std",
 ]
 try-runtime = ["frame/try-runtime"]

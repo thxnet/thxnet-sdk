@@ -32,20 +32,20 @@ pallet-balances = { default-features = true, workspace = true }
 [features]
 default = ["std"]
 std = [
-  "codec/std",
-  "frame-support/std",
-  "frame-system/std",
-  "log/std",
-  "scale-info/std",
-  "sp-api/std",
-  "sp-core/std",
-  "sp-io/std",
-  "sp-runtime/std",
-  "sp-statement-store/std",
+	"codec/std",
+	"frame-support/std",
+	"frame-system/std",
+	"log/std",
+	"scale-info/std",
+	"sp-api/std",
+	"sp-core/std",
+	"sp-io/std",
+	"sp-runtime/std",
+	"sp-statement-store/std",
 ]
 try-runtime = [
-  "frame-support/try-runtime",
-  "frame-system/try-runtime",
-  "pallet-balances/try-runtime",
-  "sp-runtime/try-runtime",
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"pallet-balances/try-runtime",
+	"sp-runtime/try-runtime",
 ]

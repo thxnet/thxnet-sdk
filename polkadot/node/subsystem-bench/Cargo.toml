@@ -36,7 +36,7 @@ polkadot-availability-bitfield-distribution.workspace = true
 polkadot-availability-distribution.default-features = true
 polkadot-availability-distribution.workspace = true
 polkadot-availability-recovery = { features = [
-  "subsystem-benchmarks",
+	"subsystem-benchmarks",
 ], workspace = true, default-features = true }
 polkadot-dispute-distribution.default-features = true
 polkadot-dispute-distribution.workspace = true
@@ -71,13 +71,13 @@ sp-keystore.default-features = true
 sp-keystore.workspace = true
 sp-tracing.workspace = true
 tikv-jemallocator = { features = [
-  "profiling",
-  "unprefixed_malloc_on_supported_platforms",
+	"profiling",
+	"unprefixed_malloc_on_supported_platforms",
 ], workspace = true, optional = true }
 
 codec = { features = [
-  "derive",
-  "std",
+	"derive",
+	"std",
 ], workspace = true, default-features = true }
 itertools = { workspace = true }
 polkadot-approval-distribution.default-features = true
@@ -114,8 +114,8 @@ sp-runtime.workspace = true
 sp-timestamp.default-features = true
 sp-timestamp.workspace = true
 tokio = { features = [
-  "parking_lot",
-  "rt-multi-thread",
+	"parking_lot",
+	"rt-multi-thread",
 ], workspace = true, default-features = true }
 
 orchestra = { features = ["futures_channel"], workspace = true }

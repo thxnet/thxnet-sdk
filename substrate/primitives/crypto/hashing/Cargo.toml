@@ -37,10 +37,10 @@ sp-crypto-hashing-proc-macro = { default-features = true, workspace = true }
 [features]
 default = ["std"]
 std = [
-  "blake2b_simd/std",
-  "byteorder/std",
-  "digest/std",
-  "sha2/std",
-  "sha3/std",
-  "twox-hash/std",
+	"blake2b_simd/std",
+	"byteorder/std",
+	"digest/std",
+	"sha2/std",
+	"sha3/std",
+	"twox-hash/std",
 ]

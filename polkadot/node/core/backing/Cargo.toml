@@ -41,7 +41,7 @@ assert_matches = { workspace = true }
 futures = { features = ["thread-pool"], workspace = true }
 polkadot-node-subsystem-test-helpers = { workspace = true }
 polkadot-primitives = { features = [
-  "test",
+	"test",
 ], workspace = true, default-features = false }
 polkadot-primitives-test-helpers = { workspace = true }
 sc-keystore = { default-features = true, workspace = true }

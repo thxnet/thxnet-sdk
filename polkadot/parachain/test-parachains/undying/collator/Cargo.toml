@@ -31,7 +31,7 @@ polkadot-node-subsystem.workspace = true
 polkadot-primitives.default-features = true
 polkadot-primitives.workspace = true
 polkadot-service = { features = [
-  "rococo-native",
+	"rococo-native",
 ], workspace = true, default-features = true }
 sc-cli.default-features = true
 sc-cli.workspace = true
@@ -45,7 +45,7 @@ test-parachain-undying.workspace = true
 
 [dev-dependencies]
 polkadot-node-core-pvf = { features = [
-  "test-utils",
+	"test-utils",
 ], default-features = true, workspace = true }
 polkadot-parachain-primitives = { default-features = true, workspace = true }
 polkadot-test-service = { workspace = true }

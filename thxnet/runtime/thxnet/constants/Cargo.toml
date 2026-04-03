@@ -20,10 +20,10 @@ sp-weights = { path = "../../../../substrate/primitives/weights", default-featur
 default = ["std"]
 fast-runtime = []
 std = [
-  "frame-support/std",
-  "primitives/std",
-  "runtime-common/std",
-  "sp-core/std",
-  "sp-runtime/std",
-  "sp-weights/std",
+	"frame-support/std",
+	"primitives/std",
+	"runtime-common/std",
+	"sp-core/std",
+	"sp-runtime/std",
+	"sp-weights/std",
 ]

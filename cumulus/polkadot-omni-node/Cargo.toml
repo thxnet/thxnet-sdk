@@ -16,8 +16,8 @@ workspace = true
 color-eyre = { workspace = true }
 polkadot-jemalloc-shim.workspace = true
 polkadot-omni-node-lib = { workspace = true, features = [
-  "rococo-native",
-  "westend-native",
+	"rococo-native",
+	"westend-native",
 ] }
 
 [target.'cfg(target_os = "linux")'.dependencies]

@@ -36,26 +36,26 @@ cumulus-primitives-proof-size-hostfunction = { workspace = true, default-feature
 [features]
 default = ["std"]
 std = [
-  "codec/std",
-  "cumulus-primitives-proof-size-hostfunction/std",
-  "cumulus-primitives-storage-weight-reclaim/std",
-  "frame-benchmarking?/std",
-  "frame-support/std",
-  "frame-system/std",
-  "log/std",
-  "scale-info/std",
-  "sp-io/std",
-  "sp-runtime/std",
-  "sp-trie/std",
+	"codec/std",
+	"cumulus-primitives-proof-size-hostfunction/std",
+	"cumulus-primitives-storage-weight-reclaim/std",
+	"frame-benchmarking?/std",
+	"frame-support/std",
+	"frame-system/std",
+	"log/std",
+	"scale-info/std",
+	"sp-io/std",
+	"sp-runtime/std",
+	"sp-trie/std",
 ]
 runtime-benchmarks = [
-  "frame-benchmarking/runtime-benchmarks",
-  "frame-support/runtime-benchmarks",
-  "frame-system/runtime-benchmarks",
-  "sp-runtime/runtime-benchmarks",
+	"frame-benchmarking/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
-  "frame-support/try-runtime",
-  "frame-system/try-runtime",
-  "sp-runtime/try-runtime",
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"sp-runtime/try-runtime",
 ]

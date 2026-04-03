@@ -32,20 +32,20 @@ sp-runtime-interface = { optional = true, workspace = true }
 [features]
 default = ["std"]
 std = [
-  "ark-bls12-377-ext?/std",
-  "ark-bls12-377?/std",
-  "ark-bls12-381-ext?/std",
-  "ark-bls12-381?/std",
-  "ark-bw6-761-ext?/std",
-  "ark-bw6-761?/std",
-  "ark-ec?/parallel",
-  "ark-ec?/std",
-  "ark-ed-on-bls12-377-ext?/std",
-  "ark-ed-on-bls12-377?/std",
-  "ark-ed-on-bls12-381-bandersnatch-ext?/std",
-  "ark-ed-on-bls12-381-bandersnatch?/std",
-  "ark-scale?/std",
-  "sp-runtime-interface?/std",
+	"ark-bls12-377-ext?/std",
+	"ark-bls12-377?/std",
+	"ark-bls12-381-ext?/std",
+	"ark-bls12-381?/std",
+	"ark-bw6-761-ext?/std",
+	"ark-bw6-761?/std",
+	"ark-ec?/parallel",
+	"ark-ec?/std",
+	"ark-ed-on-bls12-377-ext?/std",
+	"ark-ed-on-bls12-377?/std",
+	"ark-ed-on-bls12-381-bandersnatch-ext?/std",
+	"ark-ed-on-bls12-381-bandersnatch?/std",
+	"ark-scale?/std",
+	"sp-runtime-interface?/std",
 ]
 common = ["ark-ec", "ark-scale", "sp-runtime-interface"]
 bls12-377 = ["ark-bls12-377", "ark-bls12-377-ext", "common"]
@@ -53,14 +53,14 @@ bls12-381 = ["ark-bls12-381", "ark-bls12-381-ext", "common"]
 bw6-761 = ["ark-bw6-761", "ark-bw6-761-ext", "common"]
 ed-on-bls12-377 = ["ark-ed-on-bls12-377", "ark-ed-on-bls12-377-ext", "common"]
 ed-on-bls12-381-bandersnatch = [
-  "ark-ed-on-bls12-381-bandersnatch",
-  "ark-ed-on-bls12-381-bandersnatch-ext",
-  "common",
+	"ark-ed-on-bls12-381-bandersnatch",
+	"ark-ed-on-bls12-381-bandersnatch-ext",
+	"common",
 ]
 all-curves = [
-  "bls12-377",
-  "bls12-381",
-  "bw6-761",
-  "ed-on-bls12-377",
-  "ed-on-bls12-381-bandersnatch",
+	"bls12-377",
+	"bls12-381",
+	"bw6-761",
+	"ed-on-bls12-377",
+	"ed-on-bls12-381-bandersnatch",
 ]

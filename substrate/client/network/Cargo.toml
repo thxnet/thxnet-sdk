@@ -37,18 +37,18 @@ futures = { workspace = true }
 futures-timer = { workspace = true }
 ip_network = { workspace = true }
 libp2p = { features = [
-  "dns",
-  "identify",
-  "kad",
-  "macros",
-  "mdns",
-  "noise",
-  "ping",
-  "request-response",
-  "tcp",
-  "tokio",
-  "websocket",
-  "yamux",
+	"dns",
+	"identify",
+	"kad",
+	"macros",
+	"mdns",
+	"noise",
+	"ping",
+	"request-response",
+	"tcp",
+	"tokio",
+	"websocket",
+	"yamux",
 ], workspace = true }
 linked_hash_set = { workspace = true }
 litep2p = { workspace = true }
@@ -83,13 +83,13 @@ sp-runtime.default-features = true
 sp-runtime.workspace = true
 thiserror = { workspace = true }
 tokio = { features = [
-  "macros",
-  "sync",
+	"macros",
+	"sync",
 ], workspace = true, default-features = true }
 tokio-stream = { workspace = true }
 unsigned-varint = { features = [
-  "asynchronous_codec",
-  "futures",
+	"asynchronous_codec",
+	"futures",
 ], workspace = true }
 void = { workspace = true }
 wasm-timer = { workspace = true }
@@ -107,13 +107,13 @@ substrate-test-runtime = { workspace = true }
 substrate-test-runtime-client = { workspace = true }
 tempfile = { workspace = true }
 tokio = { features = [
-  "macros",
-  "rt-multi-thread",
+	"macros",
+	"rt-multi-thread",
 ], workspace = true, default-features = true }
 tokio-util = { features = ["compat"], workspace = true }
 
 criterion = { workspace = true, default-features = true, features = [
-  "async_tokio",
+	"async_tokio",
 ] }
 
 [build-dependencies]

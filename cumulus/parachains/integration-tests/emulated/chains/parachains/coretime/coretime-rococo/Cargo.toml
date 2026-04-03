@@ -20,5 +20,5 @@ parachains-common.default-features = true
 parachains-common.workspace = true
 sp-core.workspace = true
 testnet-parachains-constants = { features = [
-  "rococo",
+	"rococo",
 ], workspace = true, default-features = true }

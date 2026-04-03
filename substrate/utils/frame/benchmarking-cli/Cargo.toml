@@ -118,15 +118,15 @@ westend-runtime = { default-features = true, workspace = true }
 [features]
 default = []
 runtime-benchmarks = [
-  "frame-benchmarking/runtime-benchmarks",
-  "frame-storage-access-test-runtime/runtime-benchmarks",
-  "frame-support/runtime-benchmarks",
-  "frame-system/runtime-benchmarks",
-  "polkadot-parachain-primitives/runtime-benchmarks",
-  "polkadot-primitives/runtime-benchmarks",
-  "sc-client-db/runtime-benchmarks",
-  "sc-service/runtime-benchmarks",
-  "sp-runtime/runtime-benchmarks",
-  "westend-runtime/runtime-benchmarks",
+	"frame-benchmarking/runtime-benchmarks",
+	"frame-storage-access-test-runtime/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"polkadot-parachain-primitives/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"sc-client-db/runtime-benchmarks",
+	"sc-service/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"westend-runtime/runtime-benchmarks",
 ]
 rocksdb = ["sc-cli/rocksdb", "sc-client-db/rocksdb"]

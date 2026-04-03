@@ -29,19 +29,19 @@ sc-executor-common.workspace = true
 sp-runtime-interface.default-features = true
 sp-runtime-interface.workspace = true
 sp-wasm-interface = { features = [
-  "wasmtime",
+	"wasmtime",
 ], workspace = true, default-features = true }
 wasmtime = { features = [
-  "addr2line",
-  "cache",
-  "cranelift",
-  "demangle",
-  "gc",
-  "gc-null",
-  "parallel-compilation",
-  "pooling-allocator",
-  "profiling",
-  "threads",
+	"addr2line",
+	"cache",
+	"cranelift",
+	"demangle",
+	"gc",
+	"gc-null",
+	"parallel-compilation",
+	"pooling-allocator",
+	"profiling",
+	"threads",
 ], workspace = true }
 
 # Here we include the rustix crate in the exactly same semver-compatible version as used by
@@ -51,11 +51,11 @@ wasmtime = { features = [
 # this doesn't have any actual benefits for us besides making it harder to debug memory
 # problems (since then `mmap` etc. cannot be easily hooked into).
 rustix = { features = [
-  "fs",
-  "mm",
-  "param",
-  "std",
-  "use-libc",
+	"fs",
+	"mm",
+	"param",
+	"std",
+	"use-libc",
 ], workspace = true }
 
 [dev-dependencies]

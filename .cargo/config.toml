@@ -1,16 +1,16 @@
 [build]
 rustflags = ["--cfg", "curve25519_dalek_backend=\"serial\""]
 rustdocflags = [
-  "-Dwarnings",
-  "-Arustdoc::redundant_explicit_links", # stylistic
+	"-Dwarnings",
+	"-Arustdoc::redundant_explicit_links", # stylistic
 ]
 
 [target.x86_64-unknown-linux-gnu]
 rustflags = [
-  "--cfg",
-  "curve25519_dalek_backend=\"serial\"",
-  "-C",
-  "link-arg=-fuse-ld=lld",
+	"--cfg",
+	"curve25519_dalek_backend=\"serial\"",
+	"-C",
+	"link-arg=-fuse-ld=lld",
 ]
 
 [env]

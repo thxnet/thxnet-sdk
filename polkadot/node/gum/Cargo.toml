@@ -16,6 +16,6 @@ coarsetime = { workspace = true }
 gum-proc-macro.default-features = true
 gum-proc-macro.workspace = true
 polkadot-primitives = { features = [
-  "std",
+	"std",
 ], workspace = true, default-features = true }
 tracing = { workspace = true, default-features = true }

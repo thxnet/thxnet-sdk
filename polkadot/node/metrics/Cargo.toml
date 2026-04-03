@@ -43,7 +43,7 @@ tokio = { workspace = true, default-features = true }
 default = []
 runtime-metrics = []
 runtime-benchmarks = [
-  "polkadot-primitives/runtime-benchmarks",
-  "polkadot-test-service/runtime-benchmarks",
-  "sc-service/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"polkadot-test-service/runtime-benchmarks",
+	"sc-service/runtime-benchmarks",
 ]

@@ -25,9 +25,9 @@ sp-weights.workspace = true
 [features]
 default = ["std"]
 std = [
-  "codec/std",
-  "pallet-transaction-payment/std",
-  "sp-api/std",
-  "sp-runtime/std",
-  "sp-weights/std",
+	"codec/std",
+	"pallet-transaction-payment/std",
+	"sp-api/std",
+	"sp-runtime/std",
+	"sp-weights/std",
 ]

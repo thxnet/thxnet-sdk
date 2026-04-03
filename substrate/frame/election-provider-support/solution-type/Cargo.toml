@@ -31,7 +31,7 @@ sp-arithmetic = { default-features = true, workspace = true }
 # NOTE: we have to explicitly specify `std` because of trybuild
 # https://github.com/paritytech/polkadot-sdk/pull/5167
 frame-election-provider-support = { default-features = true, features = [
-  "std",
+	"std",
 ], workspace = true }
 frame-support = { default-features = true, workspace = true }
 trybuild = { workspace = true }

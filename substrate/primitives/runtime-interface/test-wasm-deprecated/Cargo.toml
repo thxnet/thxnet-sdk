@@ -26,8 +26,8 @@ substrate-wasm-builder = { optional = true, workspace = true, default-features =
 [features]
 default = ["std"]
 std = [
-  "sp-core/std",
-  "sp-io/std",
-  "sp-runtime-interface/std",
-  "substrate-wasm-builder",
+	"sp-core/std",
+	"sp-io/std",
+	"sp-runtime-interface/std",
+	"substrate-wasm-builder",
 ]

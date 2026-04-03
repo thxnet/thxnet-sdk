@@ -29,15 +29,15 @@ hex-literal = { workspace = true, default-features = true }
 [features]
 default = ["std"]
 std = [
-  "bp-header-chain/std",
-  "bp-messages/std",
-  "bp-parachains/std",
-  "bp-runtime/std",
-  "codec/std",
-  "frame-support/std",
-  "frame-system/std",
-  "pallet-utility/std",
-  "scale-info/std",
-  "sp-runtime/std",
-  "sp-std/std",
+	"bp-header-chain/std",
+	"bp-messages/std",
+	"bp-parachains/std",
+	"bp-runtime/std",
+	"codec/std",
+	"frame-support/std",
+	"frame-system/std",
+	"pallet-utility/std",
+	"scale-info/std",
+	"sp-runtime/std",
+	"sp-std/std",
 ]

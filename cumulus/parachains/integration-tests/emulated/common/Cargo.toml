@@ -43,7 +43,7 @@ pallet-message-queue.workspace = true
 pallet-whitelist.default-features = true
 pallet-whitelist.workspace = true
 pallet-xcm = { features = [
-  "test-utils",
+	"test-utils",
 ], workspace = true, default-features = true }
 pallet-xcm-bridge-hub.default-features = true
 pallet-xcm-bridge-hub.workspace = true

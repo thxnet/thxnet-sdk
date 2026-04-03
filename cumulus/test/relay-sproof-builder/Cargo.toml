@@ -27,12 +27,12 @@ proptest = { workspace = true }
 [features]
 default = ["std"]
 std = [
-  "codec/std",
-  "cumulus-primitives-core/std",
-  "polkadot-primitives/std",
-  "sp-consensus-babe/std",
-  "sp-core/std",
-  "sp-runtime/std",
-  "sp-state-machine/std",
-  "sp-trie/std",
+	"codec/std",
+	"cumulus-primitives-core/std",
+	"polkadot-primitives/std",
+	"sp-consensus-babe/std",
+	"sp-core/std",
+	"sp-runtime/std",
+	"sp-state-machine/std",
+	"sp-trie/std",
 ]

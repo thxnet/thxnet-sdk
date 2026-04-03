@@ -20,7 +20,7 @@ codec = { features = ["derive"], workspace = true, default-features = true }
 log = { workspace = true }
 parking_lot = { workspace = true, default-features = true }
 scale-info = { features = [
-  "derive",
+	"derive",
 ], workspace = true, default-features = true }
 
 sp-core = { default-features = true, workspace = true }
@@ -45,16 +45,16 @@ pallet-timestamp = { default-features = true, workspace = true }
 
 [features]
 try-runtime = [
-  "frame-election-provider-support/try-runtime",
-  "frame-support/try-runtime",
-  "frame-system/try-runtime",
-  "pallet-bags-list/try-runtime",
-  "pallet-balances/try-runtime",
-  "pallet-delegated-staking/try-runtime",
-  "pallet-election-provider-multi-phase/try-runtime",
-  "pallet-nomination-pools/try-runtime",
-  "pallet-session/try-runtime",
-  "pallet-staking/try-runtime",
-  "pallet-timestamp/try-runtime",
-  "sp-runtime/try-runtime",
+	"frame-election-provider-support/try-runtime",
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"pallet-bags-list/try-runtime",
+	"pallet-balances/try-runtime",
+	"pallet-delegated-staking/try-runtime",
+	"pallet-election-provider-multi-phase/try-runtime",
+	"pallet-nomination-pools/try-runtime",
+	"pallet-session/try-runtime",
+	"pallet-staking/try-runtime",
+	"pallet-timestamp/try-runtime",
+	"sp-runtime/try-runtime",
 ]

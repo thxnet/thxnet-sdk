@@ -27,9 +27,9 @@ sp-trie.workspace = true
 trie-db = { workspace = true, default-features = true }
 
 jsonrpsee = { features = [
-  "client-core",
-  "macros",
-  "server-core",
+	"client-core",
+	"macros",
+	"server-core",
 ], workspace = true }
 sc-client-api.default-features = true
 sc-client-api.workspace = true
