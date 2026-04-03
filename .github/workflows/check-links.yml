@@ -1,6 +1,17 @@
 name: Check links
 
 on:
+  push:
+    branches:
+      - main
+      - develop
+      - release/*
+      - upgrade/*
+      - experiment/*
+    paths:
+      - "**/*.rs"
+      - "**/*.md"
+      - "**/*.toml"
   pull_request:
     paths:
       - "**/*.rs"

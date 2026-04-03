@@ -1,17 +1,24 @@
 # Semver compatibility check for thxnet-sdk library crates.
 # Uses cargo-semver-checks to compare public API of pallets and runtime-api
-# crates against the master branch baseline. Catches unintended breaking
+# crates against the main branch baseline. Catches unintended breaking
 # changes in crate APIs before merge.
 #
 # NOTE: continue-on-error is enabled during the v0.9.40 → v1.12.0 upgrade
 # since nearly all APIs have intentional breaking changes. Remove once the
-# upgrade lands and the new baseline is established on master.
+# upgrade lands and the new baseline is established on main.
 #
 # cf. polkadot-sdk .github/workflows/check-semver.yml
 
 name: Check Semver
 
 on:
+  push:
+    branches:
+      - main
+      - develop
+      - release/*
+      - upgrade/*
+      - experiment/*
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
   merge_group:
