@@ -1,4 +1,4 @@
-Description: THXNet cross-parachain XCM — verify HRMP messaging infrastructure and document reserve transfer limitation (E-63)
+Description: THXNET. cross-parachain XCM — verify HRMP messaging infrastructure and document reserve transfer limitation (E-63)
 Network: ./scripts/zombienet-local.toml
 Creds: config
 

@@ -1,4 +1,4 @@
-Description: THXNet upgrade smoke test — verify relay chain and parachains produce blocks
+Description: THXNET. upgrade smoke test — verify relay chain and parachains produce blocks
 Network: ./scripts/zombienet-local.toml
 Creds: config
 

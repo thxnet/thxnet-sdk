@@ -111,8 +111,8 @@ mod weights;
 
 mod bag_thresholds;
 
-// THXNet uses Gov V1, not OpenGov. Define simple type aliases for origins.
-// These replace the OpenGov custom origins with EnsureRoot for THXNet.
+// THXNET. uses Gov V1, not OpenGov. Define simple type aliases for origins.
+// These replace the OpenGov custom origins with EnsureRoot for THXNET.
 pub type AuctionAdmin = frame_system::EnsureRoot<AccountId>;
 pub type FellowshipAdmin = frame_system::EnsureRoot<AccountId>;
 pub type GeneralAdmin = frame_system::EnsureRoot<AccountId>;
@@ -1411,7 +1411,7 @@ impl frame_support::traits::OnRuntimeUpgrade for InitiateNominationPools {
 	}
 }
 
-// --- THXNet Gov V1 pallet configurations ---
+// --- THXNET. Gov V1 pallet configurations ---
 
 parameter_types! {
 	pub const LaunchPeriod: BlockNumber = 28 * DAYS;
@@ -1537,7 +1537,7 @@ impl pallet_membership::Config<pallet_membership::Instance1> for Runtime {
 	type WeightInfo = weights::pallet_membership::WeightInfo<Runtime>;
 }
 
-// --- THXNet-specific pallet configurations ---
+// --- THXNET.-specific pallet configurations ---
 
 impl pallet_sudo::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
@@ -1757,7 +1757,7 @@ construct_runtime! {
 		// Generalized message queue
 		MessageQueue: pallet_message_queue::{Pallet, Call, Storage, Event<T>} = 59,
 
-		// THXNet-specific pallets.
+		// THXNET.-specific pallets.
 		AssetTxPayment: pallet_asset_tx_payment::{Pallet, Storage, Event<T>} = 131,
 		Assets: pallet_assets::{Pallet, Call, Storage, Event<T>} = 132,
 		Nfts: pallet_nfts::{Pallet, Call, Storage, Event<T>} = 133,
@@ -1902,9 +1902,9 @@ pub mod migrations {
 	/// Force-stamp pallet_bounties StorageVersion to v4.
 	///
 	/// Context: `pallet_bounties` declares `STORAGE_VERSION = StorageVersion::new(4)` in code.
-	/// On-chain StorageVersion is NULL (reads as 0) because THXNet never ran the upstream
+	/// On-chain StorageVersion is NULL (reads as 0) because THXNET. never ran the upstream
 	/// v4 migration (which was a prefix rename from `Treasury` to `Bounties` — irrelevant
-	/// since THXNet always used `Bounties` as the pallet name at index 34).
+	/// since THXNET. always used `Bounties` as the pallet name at index 34).
 	///
 	/// Without this stamp, try-runtime will assert fail: on-chain 0 != in-code 4.
 	/// Safety: No data transformation — purely a metadata correction.
@@ -1946,7 +1946,7 @@ pub mod migrations {
 	/// Force-stamp parachains_disputes StorageVersion to v1.
 	///
 	/// Context: `parachains_disputes` declares `STORAGE_VERSION = StorageVersion::new(1)` in code.
-	/// On-chain StorageVersion is 0 because THXNet never ran the upstream v0→v1 migration.
+	/// On-chain StorageVersion is 0 because THXNET. never ran the upstream v0→v1 migration.
 	///
 	/// Without this stamp, try-runtime will assert fail: on-chain 0 != in-code 1.
 	/// Safety: No data transformation — purely a metadata correction.
@@ -2176,7 +2176,7 @@ pub mod migrations {
 	type MigrationsEarly = (
 		// v0.9.40 → v1.1.0 (ImOnline migration skipped — pallet fully removed in Phase 4)
 		pallet_offences::migration::v1::MigrateToV1<Runtime>,
-		// THXNet rootchain is at configuration StorageVersion v4. The v5 and v6 migrations
+		// THXNET. rootchain is at configuration StorageVersion v4. The v5 and v6 migrations
 		// were removed from polkadot-sdk after v1.0.0 (Polkadot/Kusama already ran them).
 		// We port them here so the chain v4 → v5 → v6 → v7 is unbroken.
 		parachains_configuration::migration::v5::MigrateToV5<Runtime>,
@@ -2186,7 +2186,7 @@ pub mod migrations {
 		parachains_configuration::migration::v9::MigrateToV9<Runtime>,
 		paras_registrar::migration::MigrateToV1<Runtime, ParachainsToUnlock>,
 		// v1.2.0 → v1.3.0
-		// THXNet rootchain is at nomination_pools StorageVersion v4. The original MigrateToV5
+		// THXNET. rootchain is at nomination_pools StorageVersion v4. The original MigrateToV5
 		// has a broken guard (`in_code == 5`) that never fires in v1.12.0. We use the
 		// VersionedMigration wrapper which correctly checks `on_chain == 4`.
 		pallet_nomination_pools::migration::versioned::V4toV5<Runtime>,
@@ -2196,7 +2196,7 @@ pub mod migrations {
 		// NOTE: Replaced upstream MigrateToV14 (guarded by `in_code==14`, dead in v1.12.0)
 		// with custom VersionedMigration bridge that correctly checks `on_chain==13`.
 		StakingBridgeV13ToV14,
-		// THXNet-specific: GRANDPA finality deadlock fix (originally spec 94000004).
+		// THXNET.-specific: GRANDPA finality deadlock fix (originally spec 94000004).
 		// Already executed on mainnet — no-op when block > 14_250_000.
 		// Must run BEFORE MigrateV4ToV5 (matches real mainnet execution order).
 		FixGrandpaFinalityDeadlock,
@@ -2231,9 +2231,9 @@ pub mod migrations {
 		// v1.9.0 → v1.10.0
 		parachains_inclusion::migration::MigrateToV1<Runtime>,
 		crowdloan::migration::MigrateToTrackInactiveV2<Runtime>,
-		// THXNet-specific: Stamp pallet_bounties to v4 (prefix rename was always a noop)
+		// THXNET.-specific: Stamp pallet_bounties to v4 (prefix rename was always a noop)
 		StampBountiesV4,
-		// THXNet-specific: Stamp parachains_disputes to v1 (upstream v0→v1 never ran)
+		// THXNET.-specific: Stamp parachains_disputes to v1 (upstream v0→v1 never ran)
 		StampParasDisputesV1,
 		// v1.11.0 → v1.12.0
 		pallet_staking::migrations::v15::MigrateV14ToV15<Runtime>,
@@ -3125,7 +3125,7 @@ mod test_fees {
 	}
 
 	#[test]
-	#[ignore = "SignedDepositBase is now GeometricDepositBase (not a Get<Balance>), and THXNet is zero-fee"]
+	#[ignore = "SignedDepositBase is now GeometricDepositBase (not a Get<Balance>), and THXNET. is zero-fee"]
 	fn signed_deposit_is_sensible() {
 		// Broken upstream — SignedDepositBase changed from parameter_types to
 		// GeometricDepositBase which is not a Get<Balance>.
@@ -3315,7 +3315,7 @@ mod multiplier_tests {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-// Migration correctness tests for THXNet TESTNET v0.9.40 → v1.12.0 upgrade.
+// Migration correctness tests for THXNET. TESTNET v0.9.40 → v1.12.0 upgrade.
 // ════════════════════════════════════════════════════════════════════════════
 #[cfg(test)]
 mod migration_tests {

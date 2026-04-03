@@ -16,7 +16,7 @@
 
 //! Migration from V4 to V5 of the `parachains_configuration` pallet.
 //!
-//! THXNet rootchain is live at StorageVersion v4. Polkadot-sdk removed this migration
+//! THXNET. rootchain is live at StorageVersion v4. Polkadot-sdk removed this migration
 //! after v1.0.0 because Polkadot/Kusama had already executed it. We port it here so
 //! the upgrade chain v4 → v5 → v6 → v7 → ... is unbroken.
 //!
@@ -39,7 +39,7 @@ use sp_std::vec::Vec;
 use sp_std::prelude::*;
 
 // ---------------------------------------------------------------------------
-// V4 host configuration — the struct that is on-chain NOW on THXNet rootchain.
+// V4 host configuration — the struct that is on-chain NOW on THXNET. rootchain.
 // Copied from polkadot v1.0.0 @ de9e147 with Weight already using 2D representation.
 // ---------------------------------------------------------------------------
 #[derive(parity_scale_codec::Encode, parity_scale_codec::Decode, Debug, Clone)]

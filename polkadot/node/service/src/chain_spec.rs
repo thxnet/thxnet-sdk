@@ -726,7 +726,7 @@ pub fn versi_local_testnet_config() -> Result<RococoChainSpec, String> {
 	.with_protocol_id("versi")
 	.build())
 }
-// --- THXNet chain spec functions ---
+// --- THXNET. chain spec functions ---
 
 #[cfg(feature = "thxnet-native")]
 fn thxnet_session_keys(
@@ -824,14 +824,14 @@ fn thxnet_development_config_genesis() -> serde_json::Value {
 	)
 }
 
-/// THXnet development config (single validator Alice)
+/// THXNET. development config (single validator Alice)
 #[cfg(feature = "thxnet-native")]
 pub fn thxnet_development_config() -> Result<ThxnetChainSpec, String> {
 	Ok(ThxnetChainSpec::builder(
-		thxnet::WASM_BINARY.ok_or("THXnet development wasm not available")?,
+		thxnet::WASM_BINARY.ok_or("THXNET. development wasm not available")?,
 		Default::default(),
 	)
-	.with_name("THXnet Development")
+	.with_name("THXNET. Development")
 	.with_id("thxnet_dev")
 	.with_chain_type(ChainType::Development)
 	.with_genesis_config_patch(thxnet_development_config_genesis())
@@ -852,14 +852,14 @@ fn thxnet_local_testnet_genesis() -> serde_json::Value {
 	)
 }
 
-/// THXnet local testnet config (multivalidator Alice + Bob)
+/// THXNET. local testnet config (multivalidator Alice + Bob)
 #[cfg(feature = "thxnet-native")]
 pub fn thxnet_local_testnet_config() -> Result<ThxnetChainSpec, String> {
 	Ok(ThxnetChainSpec::builder(
-		thxnet::WASM_BINARY.ok_or("THXnet development wasm not available")?,
+		thxnet::WASM_BINARY.ok_or("THXNET. development wasm not available")?,
 		Default::default(),
 	)
-	.with_name("THXnet Local Testnet")
+	.with_name("THXNET. Local Testnet")
 	.with_id("thxnet_local")
 	.with_chain_type(ChainType::Local)
 	.with_genesis_config_patch(thxnet_local_testnet_genesis())

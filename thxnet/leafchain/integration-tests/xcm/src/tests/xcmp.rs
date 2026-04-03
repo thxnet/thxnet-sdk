@@ -12,7 +12,7 @@ use xcm_emulator::bx;
 /// Test reserve transfer between two parachains
 #[test]
 fn reserve_transfer_between_parachains() {
-	THXnetNetwork::reset();
+	THXNETNetwork::reset();
 
 	let transfer_amount: Balance = 20_000_000_000_000; // 20_000 tokens
 
@@ -51,7 +51,7 @@ fn reserve_transfer_between_parachains() {
 /// Test bidirectional XCMP transfers
 #[test]
 fn bidirectional_xcmp_transfers() {
-	THXnetNetwork::reset();
+	THXNETNetwork::reset();
 
 	let amount_a_to_b: Balance = 10_000_000_000_000;
 	let amount_b_to_a: Balance = 5_000_000_000_000;
@@ -112,7 +112,7 @@ fn bidirectional_xcmp_transfers() {
 /// Test sending custom XCM between parachains
 #[test]
 fn send_custom_xcm_between_parachains() {
-	THXnetNetwork::reset();
+	THXNETNetwork::reset();
 
 	LeafchainA::execute_with(|| {
 		let dest = Location::new(1, [Parachain(leafchain_b::PARA_ID)]);
@@ -137,7 +137,7 @@ fn send_custom_xcm_between_parachains() {
 /// Test XCMP channel between multiple parachains with different para IDs
 #[test]
 fn xcmp_channel_establishment() {
-	THXnetNetwork::reset();
+	THXNETNetwork::reset();
 
 	// Verify both parachains have correct para IDs
 	LeafchainA::execute_with(|| {
@@ -182,7 +182,7 @@ fn xcmp_channel_establishment() {
 /// Test sovereign account interactions
 #[test]
 fn sovereign_account_on_sibling_chain() {
-	THXnetNetwork::reset();
+	THXNETNetwork::reset();
 
 	// Get LeafchainA's sovereign account on LeafchainB
 	LeafchainB::execute_with(|| {

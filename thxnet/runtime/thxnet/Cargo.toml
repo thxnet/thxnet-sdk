@@ -8,8 +8,13 @@ license.workspace = true
 
 [dependencies]
 bitvec = { version = "1.0.0", default-features = false, features = ["alloc"] }
-parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive", "max-encoded-len"] }
-scale-info = { version = "2.5.0", default-features = false, features = ["derive"] }
+parity-scale-codec = { version = "3.6.1", default-features = false, features = [
+	"derive",
+	"max-encoded-len",
+] }
+scale-info = { version = "2.5.0", default-features = false, features = [
+	"derive",
+] }
 log = { version = "0.4.17", default-features = false }
 rustc-hex = { version = "2.1.0", default-features = false }
 serde = { version = "1.0.188", default-features = false }
@@ -86,7 +91,7 @@ frame-election-provider-support = { path = "../../../substrate/frame/election-pr
 pallet-xcm = { path = "../../../polkadot/xcm/pallet-xcm", default-features = false }
 pallet-xcm-benchmarks = { path = "../../../polkadot/xcm/pallet-xcm-benchmarks", default-features = false, optional = true }
 
-# THXNet-specific pallets
+# THXNET.-specific pallets
 pallet-sudo = { path = "../../../substrate/frame/sudo", default-features = false }
 pallet-dao = { path = "../../pallets/dao", default-features = false }
 pallet-finality-rescue = { path = "../../pallets/finality-rescue", default-features = false }

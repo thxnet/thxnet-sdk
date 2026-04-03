@@ -1,7 +1,7 @@
 //! DMP Tests: Relay Chain -> Parachain (Downward Message Passing)
 //!
 //! These tests verify that messages and assets can be sent from the relay chain
-//! (THXnet) to parachains (Leafchains).
+//! (THXNET) to parachains (Leafchains).
 
 use crate::{
 	constants::{leafchain_a, ALICE, BOB, CHARLIE},
@@ -13,12 +13,12 @@ use xcm_emulator::bx;
 #[test]
 fn reserve_transfer_from_relay_to_parachain() {
 	// Reset network state
-	THXnetNetwork::reset();
+	THXNETNetwork::reset();
 
 	let transfer_amount: Balance = 100_000_000_000_000; // 100_000 tokens
 
 	// Execute on relay chain: send reserve transfer to LeafchainA
-	THXnet::execute_with(|| {
+	THXNET::execute_with(|| {
 		let dest = Location::new(0, [Parachain(leafchain_a::PARA_ID)]);
 		let beneficiary = Location::new(
 			0,
@@ -27,7 +27,7 @@ fn reserve_transfer_from_relay_to_parachain() {
 		let assets: Assets = (Here, transfer_amount).into();
 
 		assert_ok!(thxnet_runtime::XcmPallet::reserve_transfer_assets(
-			thxnet_runtime::RuntimeOrigin::signed(THXnet::account_id_of(ALICE)),
+			thxnet_runtime::RuntimeOrigin::signed(THXNET::account_id_of(ALICE)),
 			bx!(dest.into()),
 			bx!(beneficiary.into()),
 			bx!(assets.into()),
@@ -35,7 +35,7 @@ fn reserve_transfer_from_relay_to_parachain() {
 		));
 
 		// Verify Alice's balance decreased
-		let alice_balance = thxnet_runtime::Balances::free_balance(THXnet::account_id_of(ALICE));
+		let alice_balance = thxnet_runtime::Balances::free_balance(THXNET::account_id_of(ALICE));
 		assert!(alice_balance < constants::INITIAL_BALANCE);
 	});
 
@@ -52,11 +52,11 @@ fn reserve_transfer_from_relay_to_parachain() {
 /// Test limited reserve transfer with weight limit
 #[test]
 fn limited_reserve_transfer_from_relay_to_parachain() {
-	THXnetNetwork::reset();
+	THXNETNetwork::reset();
 
 	let transfer_amount: Balance = 50_000_000_000_000; // 50_000 tokens
 
-	THXnet::execute_with(|| {
+	THXNET::execute_with(|| {
 		let dest = Location::new(0, [Parachain(leafchain_a::PARA_ID)]);
 		let beneficiary = Location::new(
 			0,
@@ -65,7 +65,7 @@ fn limited_reserve_transfer_from_relay_to_parachain() {
 		let assets: Assets = (Here, transfer_amount).into();
 
 		assert_ok!(thxnet_runtime::XcmPallet::limited_reserve_transfer_assets(
-			thxnet_runtime::RuntimeOrigin::signed(THXnet::account_id_of(ALICE)),
+			thxnet_runtime::RuntimeOrigin::signed(THXNET::account_id_of(ALICE)),
 			bx!(dest.into()),
 			bx!(beneficiary.into()),
 			bx!(assets.into()),
@@ -85,11 +85,11 @@ fn limited_reserve_transfer_from_relay_to_parachain() {
 /// Test teleport from relay to parachain (if enabled)
 #[test]
 fn teleport_from_relay_to_parachain() {
-	THXnetNetwork::reset();
+	THXNETNetwork::reset();
 
 	let transfer_amount: Balance = 25_000_000_000_000; // 25_000 tokens
 
-	THXnet::execute_with(|| {
+	THXNET::execute_with(|| {
 		let dest = Location::new(0, [Parachain(leafchain_a::PARA_ID)]);
 		let beneficiary = Location::new(
 			0,
@@ -99,7 +99,7 @@ fn teleport_from_relay_to_parachain() {
 
 		// Note: This may fail if teleportation is not enabled in XCM config
 		let result = thxnet_runtime::XcmPallet::limited_teleport_assets(
-			thxnet_runtime::RuntimeOrigin::signed(THXnet::account_id_of(ALICE)),
+			thxnet_runtime::RuntimeOrigin::signed(THXNET::account_id_of(ALICE)),
 			bx!(dest.into()),
 			bx!(beneficiary.into()),
 			bx!(assets.into()),

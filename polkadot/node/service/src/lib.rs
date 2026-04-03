@@ -273,7 +273,7 @@ pub enum Chain {
 	Rococo,
 	/// Westend.
 	Westend,
-	/// THXNet.
+	/// THXNET.
 	Thxnet,
 	/// Unknown chain?
 	Unknown,
@@ -302,10 +302,10 @@ pub trait IdentifyVariant {
 	/// Returns true if this configuration is for a development network.
 	fn is_dev(&self) -> bool;
 
-	/// Returns if this is a configuration for the `THXnet` network.
+	/// Returns if this is a configuration for the `THXNET.` network.
 	fn is_thxnet(&self) -> bool;
 
-	/// Returns if this is a configuration for the `THXnet` mainnet specifically.
+	/// Returns if this is a configuration for the `THXNET.` mainnet specifically.
 	/// Use this (not `is_thxnet()`) for mainnet-only code like GRANDPA hard forks.
 	fn is_thxnet_mainnet(&self) -> bool;
 

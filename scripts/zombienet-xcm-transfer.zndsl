@@ -1,4 +1,4 @@
-Description: THXNet XCM reserve transfer — verify DMP relay-to-parachain token transfer via XCM
+Description: THXNET. XCM reserve transfer — verify DMP relay-to-parachain token transfer via XCM
 Network: ./scripts/zombienet-local.toml
 Creds: config
 

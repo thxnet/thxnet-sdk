@@ -1,4 +1,4 @@
-Description: THXNet HRMP channel test — open bidirectional channels and verify from both parachains
+Description: THXNET. HRMP channel test — open bidirectional channels and verify from both parachains
 Network: ./scripts/zombienet-local.toml
 Creds: config
 

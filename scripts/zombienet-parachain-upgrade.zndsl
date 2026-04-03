@@ -1,4 +1,4 @@
-Description: THXNet parachain runtime upgrade — verify leafchain survives upgrade and continues producing blocks
+Description: THXNET. parachain runtime upgrade — verify leafchain survives upgrade and continues producing blocks
 Network: ./scripts/zombienet-local.toml
 Creds: config
 

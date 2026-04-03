@@ -1,4 +1,4 @@
-Description: THXNet parachain offline recovery — verify parachain recovers after all collators go offline
+Description: THXNET. parachain offline recovery — verify parachain recovers after all collators go offline
 Network: ./scripts/zombienet-local.toml
 Creds: config
 

@@ -23,7 +23,7 @@ pub mod pallet_bounties;
 pub mod pallet_child_bounties;
 pub mod pallet_collective_council;
 pub mod pallet_collective_technical_committee;
-// THXNet uses Gov V1, so use council weights for pallet_collective
+// THXNET. uses Gov V1, so use council weights for pallet_collective
 pub use pallet_collective_council as pallet_collective;
 pub mod pallet_democracy;
 pub mod pallet_election_provider_multi_phase;

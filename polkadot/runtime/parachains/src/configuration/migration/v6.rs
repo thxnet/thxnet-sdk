@@ -16,7 +16,7 @@
 
 //! Contains the V6 storage definition of the host configuration, plus the V5 → V6 migration.
 //!
-//! THXNet rootchain needs this migration because polkadot-sdk removed it after v1.0.0
+//! THXNET. rootchain needs this migration because polkadot-sdk removed it after v1.0.0
 //! (Polkadot/Kusama had already executed it). The v5 → v6 migration removes:
 //!   - `ump_service_total_weight`
 //!   - `ump_max_individual_weight`

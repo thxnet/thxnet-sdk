@@ -1,4 +1,4 @@
-Description: THXNet full integration test — HRMP channels, DMP transfer, runtime upgrade
+Description: THXNET. full integration test — HRMP channels, DMP transfer, runtime upgrade
 Network: ./scripts/zombienet-local.toml
 Creds: config
 

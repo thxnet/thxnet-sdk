@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# try-runtime migration verification for THXNet v1.12.0 upgrade
+# try-runtime migration verification for THXNET. v1.12.0 upgrade
 # =============================================================================
 #
 # Validates the entire migration chain against live chain state by:

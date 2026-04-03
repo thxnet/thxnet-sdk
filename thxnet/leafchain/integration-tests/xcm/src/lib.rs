@@ -1,4 +1,4 @@
-//! XCM Integration Tests for THXnet Rootchain + Leafchains
+//! XCM Integration Tests for THXNET Rootchain + Leafchains
 //!
 //! This module provides xcm-emulator based tests for:
 //! - DMP: Downward Message Passing (Relay -> Parachain)
@@ -27,10 +27,10 @@ pub use xcm_executor::traits::ConvertLocation;
 pub type Balance = u128;
 
 // =============================================================================
-// Relay Chain: THXnet
+// Relay Chain: THXNET
 // =============================================================================
 decl_test_relay_chains! {
-	pub struct THXnet {
+	pub struct THXNET {
 		genesis = constants::thxnet::genesis(),
 		on_init = (),
 		runtime = {
@@ -97,11 +97,11 @@ decl_test_parachains! {
 }
 
 // =============================================================================
-// Network: THXnet + 2 Leafchains
+// Network: THXNET + 2 Leafchains
 // =============================================================================
 decl_test_networks! {
-	pub struct THXnetNetwork {
-		relay_chain = THXnet,
+	pub struct THXNETNetwork {
+		relay_chain = THXNET,
 		parachains = vec![
 			LeafchainA,
 			LeafchainB,

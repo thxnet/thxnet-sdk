@@ -1,7 +1,7 @@
 //! UMP Tests: Parachain -> Relay Chain (Upward Message Passing)
 //!
 //! These tests verify that messages and assets can be sent from parachains
-//! (Leafchains) to the relay chain (THXnet).
+//! (Leafchains) to the relay chain (THXNET).
 
 use crate::{
 	constants::{leafchain_a, ALICE, BOB, CHARLIE},
@@ -12,15 +12,15 @@ use xcm_emulator::bx;
 /// Test reserve transfer from parachain to relay chain
 #[test]
 fn reserve_transfer_from_parachain_to_relay() {
-	THXnetNetwork::reset();
+	THXNETNetwork::reset();
 
 	let transfer_amount: Balance = 10_000_000_000_000; // 10_000 tokens
 
 	// First, fund the parachain sovereign account on relay
 	// This is needed because reserve transfers require the sovereign account to have funds
-	THXnet::execute_with(|| {
+	THXNET::execute_with(|| {
 		let para_sovereign =
-			THXnet::sovereign_account_id_of(Location::new(0, [Parachain(leafchain_a::PARA_ID)]));
+			THXNET::sovereign_account_id_of(Location::new(0, [Parachain(leafchain_a::PARA_ID)]));
 
 		// Fund the sovereign account
 		assert_ok!(thxnet_runtime::Balances::force_set_balance(
@@ -35,7 +35,7 @@ fn reserve_transfer_from_parachain_to_relay() {
 		let dest = Location::parent();
 		let beneficiary = Location::new(
 			0,
-			[AccountId32 { network: None, id: THXnet::account_id_of(BOB).into() }],
+			[AccountId32 { network: None, id: THXNET::account_id_of(BOB).into() }],
 		);
 		let assets: Assets = (Parent, transfer_amount).into();
 
@@ -57,16 +57,16 @@ fn reserve_transfer_from_parachain_to_relay() {
 	// Verify on relay chain
 	// Note: In the xcm-emulator, UMP message queues are not fully processed
 	// end-to-end, so the balance may not reflect the transfer.
-	THXnet::execute_with(|| {
-		let bob_balance = thxnet_runtime::Balances::free_balance(THXnet::account_id_of(BOB));
-		log::info!("Bob's balance on THXnet relay: {:?}", bob_balance);
+	THXNET::execute_with(|| {
+		let bob_balance = thxnet_runtime::Balances::free_balance(THXNET::account_id_of(BOB));
+		log::info!("Bob's balance on THXNET relay: {:?}", bob_balance);
 	});
 }
 
 /// Test sending a custom XCM message from parachain to relay
 #[test]
 fn send_xcm_from_parachain_to_relay() {
-	THXnetNetwork::reset();
+	THXNETNetwork::reset();
 
 	LeafchainA::execute_with(|| {
 		let dest = Location::parent();
@@ -86,7 +86,7 @@ fn send_xcm_from_parachain_to_relay() {
 				assets: AllCounted(1).into(),
 				beneficiary: Location::new(
 					0,
-					[AccountId32 { network: None, id: THXnet::account_id_of(BOB).into() }],
+					[AccountId32 { network: None, id: THXNET::account_id_of(BOB).into() }],
 				),
 			},
 		]);
@@ -104,7 +104,7 @@ fn send_xcm_from_parachain_to_relay() {
 /// Test teleport from parachain to relay (if configured)
 #[test]
 fn teleport_from_parachain_to_relay() {
-	THXnetNetwork::reset();
+	THXNETNetwork::reset();
 
 	let transfer_amount: Balance = 5_000_000_000_000; // 5_000 tokens
 
@@ -112,7 +112,7 @@ fn teleport_from_parachain_to_relay() {
 		let dest = Location::parent();
 		let beneficiary = Location::new(
 			0,
-			[AccountId32 { network: None, id: THXnet::account_id_of(CHARLIE).into() }],
+			[AccountId32 { network: None, id: THXNET::account_id_of(CHARLIE).into() }],
 		);
 		let assets: Assets = (Parent, transfer_amount).into();
 

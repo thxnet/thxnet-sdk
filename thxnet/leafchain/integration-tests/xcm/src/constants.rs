@@ -1,6 +1,6 @@
 //! Constants and genesis configurations for XCM integration tests
 //!
-//! NOTE: The relay chain (THXnet) requires a complex genesis setup with validators,
+//! NOTE: The relay chain (THXNET) requires a complex genesis setup with validators,
 //! session keys, and staking. For integration testing, consider using a simpler
 //! test runtime or mocking the relay chain behavior.
 
@@ -29,7 +29,7 @@ fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public
 		.public()
 }
 
-/// THXnet Relay Chain genesis configuration
+/// THXNET Relay Chain genesis configuration
 pub mod thxnet {
 	use super::*;
 	use pallet_staking::Forcing;

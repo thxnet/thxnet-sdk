@@ -1,4 +1,4 @@
-Description: THXNet resilience test — collator restart after upgrade, continued block production
+Description: THXNET. resilience test — collator restart after upgrade, continued block production
 Network: ./scripts/zombienet-local.toml
 Creds: config
 

@@ -40,7 +40,7 @@ runtime/wasm/target/
 substrate.code-workspace
 target/
 
-# THXNet
+# THXNET.
 **/chains/
 target
 

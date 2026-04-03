@@ -171,6 +171,9 @@ jobs:
       contents: read
       packages: write
     steps:
+      - name: Clean workspace
+        run: rm -rf "$GITHUB_WORKSPACE" && mkdir -p "$GITHUB_WORKSPACE"
+
       - uses: actions/checkout@v5
 
       - name: Download binaries
@@ -224,6 +227,9 @@ jobs:
       contents: read
       packages: write
     steps:
+      - name: Clean workspace
+        run: rm -rf "$GITHUB_WORKSPACE" && mkdir -p "$GITHUB_WORKSPACE"
+
       - uses: actions/checkout@v5
 
       - name: Download binaries

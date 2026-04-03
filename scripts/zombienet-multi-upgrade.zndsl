@@ -1,4 +1,4 @@
-Description: THXNet multi-parachain upgrade — verify both parachains survive simultaneous dummy upgrades
+Description: THXNET. multi-parachain upgrade — verify both parachains survive simultaneous dummy upgrades
 Network: ./scripts/zombienet-local.toml
 Creds: config
 

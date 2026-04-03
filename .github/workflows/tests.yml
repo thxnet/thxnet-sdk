@@ -73,6 +73,7 @@ jobs:
     env:
       SKIP_WASM_BUILD: 1
       WASM_BUILD_WORKSPACE_HINT: ${{ github.workspace }}
+      OPENSSL_NO_VENDOR: "1"
     steps:
       - uses: actions/checkout@v5
 

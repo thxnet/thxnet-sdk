@@ -1,6 +1,6 @@
-# THXNet SDK
+# THXNET. SDK
 
-Fork of [polkadot-sdk](https://github.com/paritytech/polkadot-sdk) powering the THXNet blockchain network: 2 rootchains (relay chains) and 9+ leafchains (parachains) across testnet and mainnet environments.
+Fork of [polkadot-sdk](https://github.com/paritytech/polkadot-sdk) powering the THXNET. blockchain network: 2 rootchains (relay chains) and 9+ leafchains (parachains) across testnet and mainnet environments.
 
 ---
 
@@ -8,16 +8,16 @@ Fork of [polkadot-sdk](https://github.com/paritytech/polkadot-sdk) powering the 
 
 ### Branches
 
-| Branch | Lifetime | Purpose |
-|--------|----------|---------|
-| `main` | permanent | Production — reflects code that has been **released and deployed** to all chains |
-| `develop` | permanent | Integration — accumulates features and fixes before release |
-| `release/vX.Y.Z` | temporary | Stabilisation, testing, and deployment of a specific version |
-| `upgrade/vX.Y.Z` | temporary | Merging an upstream polkadot-sdk release into THXNet |
-| `feat/*` | temporary | Feature development, branched from and merged back to `develop` |
-| `fix/*` | temporary | Bug fixes or hotfixes |
-| `experiment/*` | temporary | Exploratory work that may or may not land |
-| `upstream/main` | permanent | Mirror of upstream polkadot-sdk (do not commit directly) |
+| Branch           | Lifetime  | Purpose                                                                          |
+| ---------------- | --------- | -------------------------------------------------------------------------------- |
+| `main`           | permanent | Production — reflects code that has been **released and deployed** to all chains |
+| `develop`        | permanent | Integration — accumulates features and fixes before release                      |
+| `release/vX.Y.Z` | temporary | Stabilisation, testing, and deployment of a specific version                     |
+| `upgrade/vX.Y.Z` | temporary | Merging an upstream polkadot-sdk release into THXNET.                            |
+| `feat/*`         | temporary | Feature development, branched from and merged back to `develop`                  |
+| `fix/*`          | temporary | Bug fixes or hotfixes                                                            |
+| `experiment/*`   | temporary | Exploratory work that may or may not land                                        |
+| `upstream/main`  | permanent | Mirror of upstream polkadot-sdk (do not commit directly)                         |
 
 ### Day-to-day development
 
@@ -39,7 +39,7 @@ feat/my-feature ──PR──> develop
 git fetch upstream
 git checkout -b upgrade/v1.13.0 main
 git merge upstream/polkadot-v1.13.0
-# resolve conflicts, adapt THXNet code, fix migration gaps
+# resolve conflicts, adapt THXNET. code, fix migration gaps
 # PR to develop or directly to the release branch
 ```
 
@@ -119,37 +119,37 @@ PR: fix/critical-bug -> develop        # keep develop in sync
 
 ### Tag conventions
 
-| Pattern | Example | Purpose |
-|---------|---------|---------|
-| `thxnet-v*` | `thxnet-v1.13.0` | Production release (triggers release workflow) |
-| `thxnet-v*-rc*` | `thxnet-v1.13.0-rc1` | Release candidate (manual testing) |
-| `archive/upgrade-v*` | `archive/upgrade-v1.11.0` | Historical upgrade branch preservation |
+| Pattern              | Example                   | Purpose                                        |
+| -------------------- | ------------------------- | ---------------------------------------------- |
+| `thxnet-v*`          | `thxnet-v1.13.0`          | Production release (triggers release workflow) |
+| `thxnet-v*-rc*`      | `thxnet-v1.13.0-rc1`      | Release candidate (manual testing)             |
+| `archive/upgrade-v*` | `archive/upgrade-v1.11.0` | Historical upgrade branch preservation         |
 
 ### What not to do
 
-| Action | Why |
-|--------|-----|
-| Push directly to `main` | Bypasses all CI gates; 11 live chains depend on this |
-| Tag on `main` before deploying | `main` should reflect deployed state, not pending state |
-| Merge release to `main` before all chains are upgraded | Creates ambiguity about what is actually in production |
-| Upgrade testnet and mainnet simultaneously | Testnet is your canary; let it run first |
-| Delete a release branch before merging to both `main` and `develop` | Loses release-phase hotfixes |
-| Use `v*` tags (without `thxnet-` prefix) | Conflicts with upstream polkadot-sdk tag namespace |
+| Action                                                              | Why                                                     |
+| ------------------------------------------------------------------- | ------------------------------------------------------- |
+| Push directly to `main`                                             | Bypasses all CI gates; 11 live chains depend on this    |
+| Tag on `main` before deploying                                      | `main` should reflect deployed state, not pending state |
+| Merge release to `main` before all chains are upgraded              | Creates ambiguity about what is actually in production  |
+| Upgrade testnet and mainnet simultaneously                          | Testnet is your canary; let it run first                |
+| Delete a release branch before merging to both `main` and `develop` | Loses release-phase hotfixes                            |
+| Use `v*` tags (without `thxnet-` prefix)                            | Conflicts with upstream polkadot-sdk tag namespace      |
 
 ---
 
 ## CI Workflows
 
-| Workflow | Trigger | What it does |
-|----------|---------|--------------|
-| **ci.yml** | Push to `main`/`develop`/`release/*`/`upgrade/*`/`experiment/*`, PRs | Build binaries, Docker images, WASM OCI push, upgrade tests |
-| **fmt-check.yml** | Same branches + PRs | `cargo fmt`, `taplo` (TOML), `zepter` (feature propagation) |
-| **rust.yml** | Same branches + PRs | `cargo check` for all THXNet crates |
-| **tests.yml** | Same branches + PRs | `cargo nextest`, benchmark compilation, syscall validation |
-| **check-features.yml** | Push to active branches + PRs | `cargo-featalign` per-runtime feature alignment |
-| **check-links.yml** | Push/PR (path-filtered: `*.rs`, `*.md`, `*.toml`) | Lychee dead-link checker |
-| **check-semver.yml** | Push to active branches + PRs | `cargo-semver-checks` API compatibility against `main` |
-| **release.yml** | Tag `thxnet-v*` or manual dispatch | Build WASMs, Docker images, publish GitHub Release |
+| Workflow               | Trigger                                                              | What it does                                                |
+| ---------------------- | -------------------------------------------------------------------- | ----------------------------------------------------------- |
+| **ci.yml**             | Push to `main`/`develop`/`release/*`/`upgrade/*`/`experiment/*`, PRs | Build binaries, Docker images, WASM OCI push, upgrade tests |
+| **fmt-check.yml**      | Same branches + PRs                                                  | `cargo fmt`, `taplo` (TOML), `zepter` (feature propagation) |
+| **rust.yml**           | Same branches + PRs                                                  | `cargo check` for all THXNET. crates                        |
+| **tests.yml**          | Same branches + PRs                                                  | `cargo nextest`, benchmark compilation, syscall validation  |
+| **check-features.yml** | Push to active branches + PRs                                        | `cargo-featalign` per-runtime feature alignment             |
+| **check-links.yml**    | Push/PR (path-filtered: `*.rs`, `*.md`, `*.toml`)                    | Lychee dead-link checker                                    |
+| **check-semver.yml**   | Push to active branches + PRs                                        | `cargo-semver-checks` API compatibility against `main`      |
+| **release.yml**        | Tag `thxnet-v*` or manual dispatch                                   | Build WASMs, Docker images, publish GitHub Release          |
 
 ### Upgrade tests (conditional)
 
@@ -180,6 +180,7 @@ blockchain platform that enables different blockchains to interoperate and share
 way. The Polkadot SDK comprises three main pieces of software:
 
 ## [Polkadot](./polkadot/)
+
 [![PolkadotForum](https://img.shields.io/badge/Polkadot_Forum-e6007a?logo=polkadot)](https://forum.polkadot.network/)
 [![Polkadot-license](https://img.shields.io/badge/License-GPL3-blue)](./polkadot/LICENSE)
 
@@ -189,14 +190,16 @@ are located in the [`runtimes`](https://github.com/polkadot-fellows/runtimes/) r
 [the Polkadot Technical Fellowship](https://polkadot-fellows.github.io/dashboard/#/overview).
 
 ## [Substrate](./substrate/)
- [![SubstrateRustDocs](https://img.shields.io/badge/Rust_Docs-Substrate-24CC85?logo=rust)](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/polkadot_sdk/substrate/index.html)
- [![Substrate-license](https://img.shields.io/badge/License-GPL3%2FApache2.0-blue)](./substrate/README.md#LICENSE)
+
+[![SubstrateRustDocs](https://img.shields.io/badge/Rust_Docs-Substrate-24CC85?logo=rust)](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/polkadot_sdk/substrate/index.html)
+[![Substrate-license](https://img.shields.io/badge/License-GPL3%2FApache2.0-blue)](./substrate/README.md#LICENSE)
 
 Substrate is the primary blockchain SDK used by developers to create the parachains that make up the Polkadot network.
 Additionally, it allows for the development of self-sovereign blockchains that operate completely independently of
 Polkadot.
 
 ## [Cumulus](./cumulus/)
+
 [![CumulusRustDocs](https://img.shields.io/badge/Rust_Docs-Cumulus-222222?logo=rust)](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/polkadot_sdk/cumulus/index.html)
 [![Cumulus-license](https://img.shields.io/badge/License-GPL3-blue)](./cumulus/LICENSE)
 
