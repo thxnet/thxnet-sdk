@@ -9,6 +9,13 @@
 name: Check Features
 
 on:
+  push:
+    branches:
+      - main
+      - develop
+      - release/*
+      - upgrade/*
+      - experiment/*
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
   merge_group:

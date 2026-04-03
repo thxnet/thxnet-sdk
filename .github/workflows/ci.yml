@@ -5,6 +5,9 @@ on:
     branches:
       - main
       - develop
+      - release/*
+      - upgrade/*
+      - experiment/*
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
   merge_group:
@@ -336,7 +339,8 @@ jobs:
       startsWith(github.head_ref || github.ref_name, 'release/') ||
       startsWith(github.head_ref || github.ref_name, 'experiment/') ||
       startsWith(github.head_ref || github.ref_name, 'feat/endgame') ||
-      github.ref_name == 'main'
+      github.ref_name == 'main' ||
+      github.ref_name == 'develop'
     runs-on: [self-hosted, hetzner-thxnet]
     container:
       image: docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
@@ -564,7 +568,8 @@ jobs:
       startsWith(github.head_ref || github.ref_name, 'release/') ||
       startsWith(github.head_ref || github.ref_name, 'experiment/') ||
       startsWith(github.head_ref || github.ref_name, 'feat/endgame') ||
-      github.ref_name == 'main'
+      github.ref_name == 'main' ||
+      github.ref_name == 'develop'
     steps:
       - uses: actions/checkout@v5
 
@@ -616,7 +621,8 @@ jobs:
       startsWith(github.head_ref || github.ref_name, 'release/') ||
       startsWith(github.head_ref || github.ref_name, 'experiment/') ||
       startsWith(github.head_ref || github.ref_name, 'feat/endgame') ||
-      github.ref_name == 'main'
+      github.ref_name == 'main' ||
+      github.ref_name == 'develop'
     runs-on: [self-hosted, hetzner-thxnet]
     container:
       image: docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
