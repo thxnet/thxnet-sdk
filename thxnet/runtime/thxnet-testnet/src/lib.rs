@@ -2543,10 +2543,7 @@ pub mod migrations {
 		fn post_upgrade(_state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
 			// Verify TVL was set, but skip the strict TVL <= member_balances check.
 			let tvl = pallet_nomination_pools::TotalValueLocked::<Runtime>::get();
-			log::info!(
-				"ThxnetNominationPoolsV6ToV7::post_upgrade: TVL = {}",
-				tvl
-			);
+			log::info!("ThxnetNominationPoolsV6ToV7::post_upgrade: TVL = {}", tvl);
 			Ok(())
 		}
 	}

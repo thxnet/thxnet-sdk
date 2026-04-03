@@ -2540,10 +2540,7 @@ pub mod migrations {
 		#[cfg(feature = "try-runtime")]
 		fn post_upgrade(_state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
 			let tvl = pallet_nomination_pools::TotalValueLocked::<Runtime>::get();
-			log::info!(
-				"ThxnetNominationPoolsV6ToV7::post_upgrade: TVL = {}",
-				tvl
-			);
+			log::info!("ThxnetNominationPoolsV6ToV7::post_upgrade: TVL = {}", tvl);
 			Ok(())
 		}
 	}

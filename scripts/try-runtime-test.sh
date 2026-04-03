@@ -363,6 +363,8 @@ run_try_runtime() {
     #   weight limit checks.
 
     local start_time exit_code
+    local logfile
+    logfile=$(mktemp /tmp/try-runtime-XXXXXX.log)
     start_time=$(date +%s)
 
     if [[ "${DRY_RUN}" == "1" ]]; then
@@ -381,7 +383,8 @@ run_try_runtime() {
             --blocktime "${blocktime}" \
             "${COMMON_MIGRATION_FLAGS[@]}" \
             live --uri "${uri}" \
-            && exit_code=0 || exit_code=$?
+            2>&1 | tee "${logfile}" \
+            && exit_code=0 || exit_code=${PIPESTATUS[0]:-$?}
     fi
 
     local elapsed=$(( $(date +%s) - start_time ))
@@ -395,16 +398,17 @@ run_try_runtime() {
         # drain MBMs (upstream bug paritytech/try-runtime-cli#101). The global storage
         # version check sees v1 vs v2 and fails. This is the ONLY expected failure.
         # On a real chain, pallet_migrations drains it in 1-2 blocks automatically.
-        if [[ -f "${logfile:-/dev/null}" ]] && \
-           grep -q "Identity.*storage version.*doesn't match" "${logfile}" && \
-           ! grep -q "MIGRATION FAILED\|TVL is greater\|ClaimQueue.*correct length" "${logfile}"; then
+        if grep -q "Identity.*storage version.*doesn't match" "${logfile}" && \
+           ! grep -q "TVL is greater\|ClaimQueue.*correct length" "${logfile}"; then
             log_warn "${name}: Identity MBM storage version mismatch (expected, safe — MBM drains on real chain)"
             log_success "${name}: ALL MIGRATIONS PASSED (${elapsed}s, Identity MBM excluded)"
         else
             log_error "${name}: MIGRATION FAILED (exit code ${exit_code}, ${elapsed}s)"
+            rm -f "${logfile}"
             return ${exit_code}
         fi
     fi
+    rm -f "${logfile}"
 }
 
 test_rootchain_testnet() {

@@ -35,7 +35,9 @@ use frame_support::{
 	weights::{constants::WEIGHT_REF_TIME_PER_MILLIS, Weight},
 };
 use frame_system::pallet_prelude::BlockNumberFor;
-use polkadot_primitives::{AsyncBackingParams, Balance, ExecutorParams, SessionIndex, MAX_POV_SIZE};
+use polkadot_primitives::{
+	AsyncBackingParams, Balance, ExecutorParams, SessionIndex, MAX_POV_SIZE,
+};
 
 // ---------------------------------------------------------------------------
 // V4 host configuration — the struct that is on-chain NOW on THXNet rootchain.
