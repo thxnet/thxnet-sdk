@@ -44,6 +44,10 @@ target/
 **/chains/
 target
 
+# AI agent memory (not for version control)
+.claude/agent-memory/
+AI_MEMORIES/
+
 # Local working notes (not for version control)
 CRITICAL_001.md
 CRITICAL_002.md
