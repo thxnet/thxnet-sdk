@@ -28,7 +28,9 @@ env:
   GIT_CONFIG_VALUE_0: "*"
   RUSTC_WRAPPER: sccache
   CARGO_INCREMENTAL: "0"
-  SCCACHE_DIR: /home/runner/.cache/sccache
+  # release/* branches use an isolated sccache directory to prevent cross-branch
+  # WASM contamination (e.g., upgrade/stable2512 caching different pallet versions).
+  SCCACHE_DIR: ${{ startsWith(github.ref, 'refs/heads/release/') && '/home/runner/.cache/sccache-release' || '/home/runner/.cache/sccache' }}
   SCCACHE_CACHE_SIZE: 300G
 
 concurrency:
