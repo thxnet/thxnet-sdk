@@ -45,6 +45,26 @@ jobs:
     runs-on: [self-hosted, hetzner-thxnet]
     timeout-minutes: 2
     steps:
+      # Container jobs (root UID 0) leave root-owned files that block subsequent
+      # bare-metal jobs (runner UID 1001). Fix ownership BEFORE anything else.
+      - name: Fix file ownership from previous container jobs
+        run: |
+          echo "Fixing workspace ownership..."
+          for dir in \
+            "${{ github.workspace }}" \
+            "/home/runner/.cache/sccache-bin" \
+            "/home/runner/.cache/cargo-registry" \
+            "/home/runner/.cache/cargo-git"; do
+            if [ -d "${dir}" ] || [ -f "${dir}" ]; then
+              sudo chown -R "$(id -u):$(id -g)" "${dir}" 2>/dev/null || true
+            fi
+          done
+          # Also fix /data/ runner path if it exists (second runner instance)
+          if [ -d "/data/actions-runner-work" ]; then
+            sudo chown -R "$(id -u):$(id -g)" /data/actions-runner-work 2>/dev/null || true
+          fi
+          echo "Done."
+
       - name: Verify runner environment
         run: |
           set +e
@@ -679,6 +699,8 @@ jobs:
             /home/runner/.cache/cargo-registry
             /home/runner/.cache/cargo-git
             /home/runner/.cache/sccache
+            /home/runner/.cache/sccache-release
+            /home/runner/.cache/sccache-bin
           )
 
           for dir in "${CACHE_DIRS[@]}"; do
