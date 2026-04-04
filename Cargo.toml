@@ -663,4 +663,10 @@ uint = { opt-level = 3 }
 wasmi = { opt-level = 3 }
 x25519-dalek = { opt-level = 3 }
 yamux = { opt-level = 3 }
+
 zeroize = { opt-level = 3 }
+
+# w3f/fflonk repo was transferred to paritytech/fflonk; old URL is dead.
+# Redirect the transitive dependency (via ring-vrf → bandersnatch_vrfs) to the new location.
+[patch."https://github.com/w3f/fflonk"]
+fflonk = { git = "https://github.com/paritytech/fflonk", rev = "1e854f35e9a65d08b11a86291405cdc95baa0a35" }
