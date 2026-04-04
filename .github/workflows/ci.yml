@@ -404,7 +404,7 @@ jobs:
     runs-on: [self-hosted, hetzner-thxnet]
     permissions:
       contents: read
-    timeout-minutes: 60
+    timeout-minutes: 120
     env:
       SNAPSHOT_DIR: /home/runner/.cache/try-runtime-snapshots
       SNAPSHOT_MAX_AGE_HOURS: "24"
