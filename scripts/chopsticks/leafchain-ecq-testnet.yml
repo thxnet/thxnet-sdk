@@ -1,0 +1,5 @@
+endpoint: wss://node.ecq.testnet.thxnet.org/archive-001/ws
+port: 8106
+mock-signature-host: true
+db: ./chopsticks-db/leafchain-ecq-testnet.sqlite
+runtime-log-level: 3
