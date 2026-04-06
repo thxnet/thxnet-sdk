@@ -17,7 +17,8 @@ env:
   GIT_CONFIG_VALUE_0: "*"
   RUSTC_WRAPPER: sccache
   CARGO_INCREMENTAL: "0"
-  SCCACHE_DIR: /home/runner/.cache/sccache
+  # Branch-isolated sccache to prevent stale artifacts leaking between branches.
+  SCCACHE_DIR: /home/runner/.cache/sccache/${{ github.head_ref || github.ref_name }}
   SCCACHE_CACHE_SIZE: 300G
 
 permissions: {}
