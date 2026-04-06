@@ -32,6 +32,12 @@ jobs:
     runs-on: [self-hosted, hetzner-thxnet-light]
     timeout-minutes: 10
     steps:
+      - name: Clean workspace
+        run: |
+          echo "uid=$(id -u) user=$(whoami)"
+          sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE" 2>/dev/null || true
+          rm -rf "$GITHUB_WORKSPACE" && mkdir -p "$GITHUB_WORKSPACE"
+
       - uses: actions/checkout@v5
 
       - name: Restore lychee cache
