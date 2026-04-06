@@ -2,7 +2,7 @@ version:
   format: 1
   # Minimum version of the binary that is expected to work. This is just for printing a nice error
   # message when someone tries to use an older version.
-  binary: 0.13.2
+  binary: 1.82.1
 
 # The examples in this file assume crate `A` to have a dependency on crate `B`.
 workflows:
@@ -30,9 +30,22 @@ workflows:
         '--show-path',
         '--quiet',
       ]
-  # Same as `check`, but with the `--fix` flag.
+    - [
+        'lint',
+        # Check that dependencies are not duplicated between normal and dev sections.
+        'duplicate-deps',
+        '--offline',
+        '--locked',
+        '--quiet',
+      ]
+
+  # The umbrella crate uses more features, so we need to check those too:
+  check_umbrella:
+    - [ $check.0, '--features=serde,experimental,runtime,with-tracing,tuples-96,with-tracing', '-p=polkadot-sdk' ]
+  # Same as `check_*`, but with the `--fix` flag.
   default:
     - [ $check.0, '--fix' ]
+    - [ $check_umbrella.0, '--fix' ]
 
 # Will be displayed when any workflow fails:
 help:

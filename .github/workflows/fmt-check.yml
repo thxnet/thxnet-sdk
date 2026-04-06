@@ -64,5 +64,10 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      # Install latest zepter — the container's bundled zepter 1.78.2 is older
+      # than the required 1.82.1 and doesn't support the `duplicate-deps` lint.
+      - name: Install zepter
+        run: cargo install zepter --version 1.82.1 --locked --quiet
+
       - name: Check feature propagation
         run: zepter run check
