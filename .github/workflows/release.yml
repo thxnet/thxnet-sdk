@@ -30,6 +30,9 @@ defaults:
     shell: bash
 
 jobs:
+  # File ownership cleanup is handled by the runner-level job-started hook
+  # (ACTIONS_RUNNER_HOOK_JOB_STARTED) — no per-workflow pre-cleanup needed.
+
   build-runtimes:
     name: Build runtime WASMs
     runs-on: [self-hosted, hetzner-thxnet]
