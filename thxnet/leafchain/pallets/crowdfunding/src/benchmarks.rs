@@ -133,6 +133,15 @@ benchmarks! {
 		frame_system::Pallet::<T>::set_block_number(campaign.config.deadline + 1u32.into());
 	}: _(RawOrigin::Signed(creator), id)
 
+	force_finalize_campaign {
+		let (id, _creator, _investor) = setup_invested_campaign::<T>();
+		// No need to advance past deadline — force_finalize bypasses it.
+	}: _(RawOrigin::Root, id)
+	verify {
+		let c = Campaigns::<T>::get(id).unwrap();
+		assert!(matches!(c.status, CampaignStatus::Succeeded));
+	}
+
 	claim_funds {
 		let (id, creator, _investor) = setup_invested_campaign::<T>();
 		let campaign = Campaigns::<T>::get(id).unwrap();
