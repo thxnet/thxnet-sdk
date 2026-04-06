@@ -8,8 +8,8 @@ rustdocflags = [
 [target.x86_64-unknown-linux-gnu]
 rustflags = [
 	"--cfg",
-	"-C",
 	"curve25519_dalek_backend=\"serial\"",
+	"-C",
 	"link-arg=-fuse-ld=lld",
 ]
 

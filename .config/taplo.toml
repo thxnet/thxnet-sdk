@@ -30,7 +30,7 @@ reorder_arrays = false
 # don't re-order order-dependent rustflags
 [[rule]]
 include = [".cargo/config.toml"]
-keys = ["build"]
+keys = ["build", "target"]
 
 [rule.formatting]
 reorder_arrays = false
