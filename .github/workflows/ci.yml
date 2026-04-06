@@ -30,7 +30,7 @@ env:
   CARGO_INCREMENTAL: "0"
   # release/* branches use an isolated sccache directory to prevent cross-branch
   # WASM contamination (e.g., upgrade/stable2512 caching different pallet versions).
-  SCCACHE_DIR: ${{ startsWith(github.ref, 'refs/heads/release/') && '/home/runner/.cache/sccache-release' || '/home/runner/.cache/sccache' }}
+  SCCACHE_DIR: /home/runner/.cache/sccache/${{ github.head_ref || github.ref_name }}
   SCCACHE_CACHE_SIZE: 300G
 
 concurrency:
@@ -694,7 +694,6 @@ jobs:
             /home/runner/.cache/cargo-registry
             /home/runner/.cache/cargo-git
             /home/runner/.cache/sccache
-            /home/runner/.cache/sccache-release
             /home/runner/.cache/sccache-bin
           )
 
