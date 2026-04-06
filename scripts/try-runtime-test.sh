@@ -377,14 +377,16 @@ run_try_runtime() {
         echo "    live --uri ${uri}"
         exit_code=0
     else
+        set +e
         "${TRY_RUNTIME_BIN}" \
             --runtime "${wasm_path}" \
             on-runtime-upgrade \
             --blocktime "${blocktime}" \
             "${COMMON_MIGRATION_FLAGS[@]}" \
             live --uri "${uri}" \
-            2>&1 | tee "${logfile}" \
-            && exit_code=0 || exit_code=${PIPESTATUS[0]:-$?}
+            2>&1 | tee "${logfile}"
+        exit_code=${PIPESTATUS[0]}
+        set -e
     fi
 
     local elapsed=$(( $(date +%s) - start_time ))
