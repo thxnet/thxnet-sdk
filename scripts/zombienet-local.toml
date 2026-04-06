@@ -24,7 +24,7 @@ default_command = "{{RELAY_BIN}}"
 default_args = ["-lparachain=debug"]
 
 [relaychain.genesis.runtimeGenesis.patch.configuration.config.scheduler_params]
-  num_cores = 2
+num_cores = 2
 
 [[relaychain.nodes]]
 name = "alice"
