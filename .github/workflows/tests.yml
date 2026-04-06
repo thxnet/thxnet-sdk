@@ -28,24 +28,11 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  pre-cleanup:
-    name: Fix file ownership
-    runs-on: [self-hosted, hetzner-thxnet]
-    timeout-minutes: 2
-    steps:
-      - name: Fix root-owned files from previous container jobs
-        run: |
-          for dir in "${{ github.workspace }}" \
-            "/home/runner/.cache/sccache-bin" \
-            "/home/runner/.cache/cargo-registry" \
-            "/home/runner/.cache/cargo-git"; do
-            [ -e "${dir}" ] && sudo chown -R "$(id -u):$(id -g)" "${dir}" 2>/dev/null || true
-          done
-          [ -d "/data/actions-runner-work" ] && sudo chown -R "$(id -u):$(id -g)" /data/actions-runner-work 2>/dev/null || true
+  # File ownership cleanup is handled by the runner-level job-started hook
+  # (ACTIONS_RUNNER_HOOK_JOB_STARTED) — no per-workflow pre-cleanup needed.
 
   nextest:
     name: Cargo nextest
-    needs: [pre-cleanup]
     runs-on: [self-hosted, hetzner-thxnet]
     timeout-minutes: 120
     container:
