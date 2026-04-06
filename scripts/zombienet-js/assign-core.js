@@ -21,9 +21,14 @@ async function run(nodeName, networkInfo, args) {
   const keyring = new zombie.Keyring({ type: "sr25519" });
   const alice = keyring.addFromUri("//Alice");
 
+  // Use sudoUncheckedWeight to bypass block weight limits — coretime.assignCore
+  // has a high weight calculation that exceeds the block max when wrapped in sudo.
   await new Promise(async (resolve, reject) => {
     const unsub = await api.tx.sudo
-      .sudo(api.tx.coretime.assignCore(core, 0, assignments, null))
+      .sudoUncheckedWeight(
+        api.tx.coretime.assignCore(core, 0, assignments, null),
+        { refTime: 1, proofSize: 1 }
+      )
       .signAndSend(alice, ({ status, isError }) => {
         if (status.isInBlock) {
           console.log(
