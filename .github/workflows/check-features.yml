@@ -43,5 +43,8 @@ jobs:
         with:
           crate: ${{ matrix.crate }}
           features: std,runtime-benchmarks,try-runtime
-          ignore: sc-executor
+          # sc-executor: not a dependency we control
+          # wasmtime: sp-wasm-interface doesn't propagate std to wasmtime (upstream issue).
+          # Safe to ignore — wasmtime is host-only, not WASM runtime.
+          ignore: sc-executor,wasmtime
           default-std: true
