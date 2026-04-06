@@ -18,7 +18,7 @@ env:
   GIT_CONFIG_VALUE_0: "*"
   RUSTC_WRAPPER: sccache
   CARGO_INCREMENTAL: "0"
-  SCCACHE_DIR: ${{ startsWith(github.ref, 'refs/heads/release/') && '/home/runner/.cache/sccache-release' || '/home/runner/.cache/sccache' }}
+  SCCACHE_DIR: /home/runner/.cache/sccache/${{ github.head_ref || github.ref_name }}
   SCCACHE_CACHE_SIZE: 300G
 
 permissions: {}
