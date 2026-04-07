@@ -1,6 +1,15 @@
 # ARC Runner Scale Set: heavy builds
 # Label: hetzner-thxnet (same as existing runners — zero workflow changes)
 # Docs: https://docs.github.com/en/actions/hosting-your-own-runners/managing-self-hosted-runners-with-actions-runner-controller
+#
+# Custom DinD template (no containerMode set) so we can add hostPath volumes
+# to the dind sidecar. Workflow container.volumes: paths are resolved by
+# the dind Docker daemon, so we mount host caches INTO the dind container
+# at the same paths the workflows expect (/home/runner/.cache/...).
+#
+# ARC docs: "When containerMode is set, automatic configuration is injected
+# and cannot be overridden. To customize beyond the preset, comment out
+# containerMode.type and define the full template manually."
 
 githubConfigUrl: "https://github.com/thxnet"
 githubConfigSecret: github-app-secret
@@ -9,34 +18,63 @@ runnerScaleSetName: "hetzner-thxnet"
 maxRunners: 6
 minRunners: 0
 
-# NO containerMode — we mount the host Docker socket directly.
-# Workflow container.volumes: paths are resolved by the HOST Docker daemon,
-# so they map to host filesystem paths (e.g., /home/runner/.cache/sccache).
-#
-# Why not DinD:
-#   - DinD runs dockerd inside the pod; container.volumes: would reference
-#     the dind container's filesystem, not the host
-#   - ARC injects auto-config that "cannot be overridden" when containerMode is set
-#   - DinD requires privileged: true
-#
-# Why not Kubernetes mode:
-#   - Bare-host jobs (try-runtime, zombienet, chopsticks) don't use container: key
-#   - Would require rewriting all workflows
-#
-# containerMode:
-#   type: "dind"
+# containerMode is NOT set — we define the full DinD template manually
+# so we can add hostPath volumes to both runner and dind containers.
 
 template:
   spec:
-    securityContext:
-      # Match host runner user (uid=1000, gid=1000)
-      # so hostPath volume files are readable/writable
-      runAsUser: 1000
-      runAsGroup: 1000
-      fsGroup: 1000
-      # Docker socket on host is owned by group 'docker' (gid=988).
-      # supplementalGroups grants the runner process access to it.
-      supplementalGroups: [988]
+    # ── Init containers ──────────────────────────────────────────────
+    initContainers:
+      # Copy runner externals (node.js for actions) to shared volume
+      - name: init-dind-externals
+        image: ghcr.io/actions/actions-runner:latest
+        command: ["cp", "-r", "/home/runner/externals/.", "/home/runner/tmpDir/"]
+        volumeMounts:
+          - name: dind-externals
+            mountPath: /home/runner/tmpDir
+
+      # DinD sidecar (native sidecar for K8s >= 1.29)
+      - name: dind
+        image: docker:dind
+        args:
+          - dockerd
+          - --host=unix:///var/run/docker.sock
+          - --group=123
+        securityContext:
+          privileged: true
+        restartPolicy: Always
+        startupProbe:
+          exec:
+            command: ["docker", "info"]
+          initialDelaySeconds: 0
+          failureThreshold: 24
+          periodSeconds: 5
+        volumeMounts:
+          - name: work
+            mountPath: /home/runner/_work
+          - name: dind-sock
+            mountPath: /var/run
+          - name: dind-externals
+            mountPath: /home/runner/externals
+          # Host cache paths — these must match the paths in workflow
+          # container.volumes: so dind's dockerd can bind-mount them
+          # into job containers.
+          - name: sccache
+            mountPath: /home/runner/.cache/sccache
+          - name: cargo-registry
+            mountPath: /home/runner/.cache/cargo-registry
+          - name: cargo-git
+            mountPath: /home/runner/.cache/cargo-git
+          - name: sccache-bin
+            mountPath: /home/runner/.cache/sccache-bin
+            readOnly: true
+          - name: try-runtime-snapshots
+            mountPath: /home/runner/.cache/try-runtime-snapshots
+          - name: cargo-bin
+            mountPath: /home/runner/.cargo/bin
+            readOnly: true
+
+    # ── Main container ───────────────────────────────────────────────
     containers:
       - name: runner
         image: ghcr.io/actions/actions-runner:latest
@@ -44,6 +82,8 @@ template:
         env:
           - name: DOCKER_HOST
             value: unix:///var/run/docker.sock
+          - name: RUNNER_WAIT_FOR_DOCKER_IN_SECONDS
+            value: "120"
           # Allow bare-host jobs (try-runtime, zombienet, chopsticks)
           - name: ACTIONS_RUNNER_REQUIRE_JOB_CONTAINER
             value: "false"
@@ -59,10 +99,10 @@ template:
         volumeMounts:
           - name: work
             mountPath: /home/runner/_work
-          - name: docker-sock
-            mountPath: /var/run/docker.sock
-          # sccache: per-branch isolation is handled by SCCACHE_DIR env var
-          # in workflow YAML, not by the mount path
+          - name: dind-sock
+            mountPath: /var/run
+          # Host caches — for bare-host jobs that run inside the runner
+          # container directly (try-runtime, zombienet, chopsticks)
           - name: sccache
             mountPath: /home/runner/.cache/sccache
           - name: cargo-registry
@@ -77,15 +117,15 @@ template:
           - name: cargo-bin
             mountPath: /home/runner/.cargo/bin
             readOnly: true
+
+    # ── Volumes ──────────────────────────────────────────────────────
     volumes:
       - name: work
         emptyDir: {}
-      # Host Docker socket — passed through k3d via --volume flag.
-      # k3d maps /var/run/docker.sock → /host-docker.sock in the k3d node.
-      - name: docker-sock
-        hostPath:
-          path: /host-docker.sock
-          type: Socket
+      - name: dind-sock
+        emptyDir: {}
+      - name: dind-externals
+        emptyDir: {}
       # All cache volumes are hostPath — k3d maps /home/runner/.cache → /host-cache.
       # These persist across ephemeral pod lifecycles on the host NVMe SSD.
       - name: sccache
