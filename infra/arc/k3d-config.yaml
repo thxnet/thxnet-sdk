@@ -1,0 +1,22 @@
+apiVersion: k3d.io/v1alpha5
+kind: Simple
+metadata:
+  name: ci
+servers: 1
+agents: 0
+volumes:
+  - volume: /home/runner/.cache:/host-cache
+    nodeFilters:
+      - all
+  - volume: /home/runner/.cargo/bin:/host-cargo-bin:ro
+    nodeFilters:
+      - all
+  - volume: /var/run/docker.sock:/host-docker.sock
+    nodeFilters:
+      - all
+options:
+  k3s:
+    extraArgs:
+      - arg: --disable=traefik,servicelb,metrics-server
+        nodeFilters:
+          - server:0

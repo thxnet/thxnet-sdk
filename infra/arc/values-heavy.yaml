@@ -1,0 +1,111 @@
+# ARC Runner Scale Set: heavy builds
+# Label: hetzner-thxnet (same as existing runners — zero workflow changes)
+# Docs: https://docs.github.com/en/actions/hosting-your-own-runners/managing-self-hosted-runners-with-actions-runner-controller
+
+githubConfigUrl: "https://github.com/thxnet"
+githubConfigSecret: github-app-secret
+
+runnerScaleSetName: "hetzner-thxnet"
+maxRunners: 6
+minRunners: 0
+
+# NO containerMode — we mount the host Docker socket directly.
+# Workflow container.volumes: paths are resolved by the HOST Docker daemon,
+# so they map to host filesystem paths (e.g., /home/runner/.cache/sccache).
+#
+# Why not DinD:
+#   - DinD runs dockerd inside the pod; container.volumes: would reference
+#     the dind container's filesystem, not the host
+#   - ARC injects auto-config that "cannot be overridden" when containerMode is set
+#   - DinD requires privileged: true
+#
+# Why not Kubernetes mode:
+#   - Bare-host jobs (try-runtime, zombienet, chopsticks) don't use container: key
+#   - Would require rewriting all workflows
+#
+# containerMode:
+#   type: "dind"
+
+template:
+  spec:
+    securityContext:
+      # Match host runner user (uid=1000, gid=1000)
+      # so hostPath volume files are readable/writable
+      runAsUser: 1000
+      runAsGroup: 1000
+      fsGroup: 1000
+    containers:
+      - name: runner
+        image: ghcr.io/actions/actions-runner:latest
+        command: ["/home/runner/run.sh"]
+        env:
+          - name: DOCKER_HOST
+            value: unix:///var/run/docker.sock
+          # Allow bare-host jobs (try-runtime, zombienet, chopsticks)
+          - name: ACTIONS_RUNNER_REQUIRE_JOB_CONTAINER
+            value: "false"
+        resources:
+          # requests control K8s scheduling — 6 CPU + 12Gi means max 2 concurrent
+          # heavy pods on a 16-core / 30GB machine (~15 cores / ~28GB available)
+          requests:
+            cpu: "6"
+            memory: "12Gi"
+          limits:
+            cpu: "14"
+            memory: "26Gi"
+        volumeMounts:
+          - name: work
+            mountPath: /home/runner/_work
+          - name: docker-sock
+            mountPath: /var/run/docker.sock
+          # sccache: per-branch isolation is handled by SCCACHE_DIR env var
+          # in workflow YAML, not by the mount path
+          - name: sccache
+            mountPath: /home/runner/.cache/sccache
+          - name: cargo-registry
+            mountPath: /home/runner/.cache/cargo-registry
+          - name: cargo-git
+            mountPath: /home/runner/.cache/cargo-git
+          - name: sccache-bin
+            mountPath: /home/runner/.cache/sccache-bin
+            readOnly: true
+          - name: try-runtime-snapshots
+            mountPath: /home/runner/.cache/try-runtime-snapshots
+          - name: cargo-bin
+            mountPath: /home/runner/.cargo/bin
+            readOnly: true
+    volumes:
+      - name: work
+        emptyDir: {}
+      # Host Docker socket — passed through k3d via --volume flag.
+      # k3d maps /var/run/docker.sock → /host-docker.sock in the k3d node.
+      - name: docker-sock
+        hostPath:
+          path: /host-docker.sock
+          type: Socket
+      # All cache volumes are hostPath — k3d maps /home/runner/.cache → /host-cache.
+      # These persist across ephemeral pod lifecycles on the host NVMe SSD.
+      - name: sccache
+        hostPath:
+          path: /host-cache/sccache
+          type: DirectoryOrCreate
+      - name: cargo-registry
+        hostPath:
+          path: /host-cache/cargo-registry
+          type: DirectoryOrCreate
+      - name: cargo-git
+        hostPath:
+          path: /host-cache/cargo-git
+          type: DirectoryOrCreate
+      - name: sccache-bin
+        hostPath:
+          path: /host-cache/sccache-bin
+          type: Directory
+      - name: try-runtime-snapshots
+        hostPath:
+          path: /host-cache/try-runtime-snapshots
+          type: DirectoryOrCreate
+      - name: cargo-bin
+        hostPath:
+          path: /host-cargo-bin
+          type: Directory
