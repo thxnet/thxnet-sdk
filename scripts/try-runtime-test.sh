@@ -32,6 +32,9 @@
 #   test-leafchain-lmt-mainnet   Run migrations against leafchain LMT (mainnet)
 #   test-leafchain-ecq-testnet   Run migrations against leafchain ECQ (testnet)
 #   test-leafchain-ecq-mainnet   Run migrations against leafchain ECQ (mainnet)
+#   test-leafchain-thx-testnet   Run migrations against leafchain THX (testnet)
+#   test-leafchain-thx-mainnet   Run migrations against leafchain THX (mainnet)
+#   test-leafchain-izutsuya-testnet  Run migrations against leafchain Izutsuya (testnet)
 #   test-all-testnet         Run all testnet chains (rootchain + leafchain)
 #   test-all                 Run all chains (testnet first, then mainnet)
 #   test-idempotency-rootchain-testnet   Idempotency test: rootchain testnet
@@ -42,6 +45,9 @@
 #   test-idempotency-leafchain-lmt-mainnet  Idempotency test: leafchain LMT mainnet
 #   test-idempotency-leafchain-ecq-testnet  Idempotency test: leafchain ECQ testnet
 #   test-idempotency-leafchain-ecq-mainnet  Idempotency test: leafchain ECQ mainnet
+#   test-idempotency-leafchain-thx-testnet  Idempotency test: leafchain THX testnet
+#   test-idempotency-leafchain-thx-mainnet  Idempotency test: leafchain THX mainnet
+#   test-idempotency-leafchain-izutsuya-testnet  Idempotency test: leafchain Izutsuya testnet
 #   test-idempotency-all-testnet             Idempotency test: all testnet chains
 #   test-idempotency-all                 Idempotency test: all chains
 #   create-snapshot-rootchain-testnet    Save rootchain testnet state as snapshot
@@ -52,6 +58,9 @@
 #   create-snapshot-leafchain-lmt-mainnet   Save leafchain LMT mainnet state as snapshot
 #   create-snapshot-leafchain-ecq-testnet   Save leafchain ECQ testnet state as snapshot
 #   create-snapshot-leafchain-ecq-mainnet   Save leafchain ECQ mainnet state as snapshot
+#   create-snapshot-leafchain-thx-testnet   Save leafchain THX testnet state as snapshot
+#   create-snapshot-leafchain-thx-mainnet   Save leafchain THX mainnet state as snapshot
+#   create-snapshot-leafchain-izutsuya-testnet   Save leafchain Izutsuya testnet state as snapshot
 #   create-snapshot-all-testnet              Save all testnet chain snapshots
 #   create-snapshot-all                  Save all chain snapshots
 #   list-snapshots           List all saved snapshots with name, size, date
@@ -64,6 +73,9 @@
 #   test-from-snapshot-leafchain-lmt-mainnet [path] Test leafchain LMT mainnet from snapshot
 #   test-from-snapshot-leafchain-ecq-testnet [path] Test leafchain ECQ testnet from snapshot
 #   test-from-snapshot-leafchain-ecq-mainnet [path] Test leafchain ECQ mainnet from snapshot
+#   test-from-snapshot-leafchain-thx-testnet [path] Test leafchain THX testnet from snapshot
+#   test-from-snapshot-leafchain-thx-mainnet [path] Test leafchain THX mainnet from snapshot
+#   test-from-snapshot-leafchain-izutsuya-testnet [path] Test leafchain Izutsuya testnet from snapshot
 #   test-from-snapshot-all-testnet                   Test all testnet chains from snapshots
 #   test-from-snapshot-all                       Test all chains from snapshots
 #   test-pallet <pallet> <chain>     Test single pallet migration on chain
@@ -326,9 +338,24 @@ resolve_chain_params() {
             _uri="${LEAFCHAIN_ECQ_MAINNET_URI}"
             _blocktime="${BLOCKTIME_LEAF}"
             ;;
+        leafchain-thx-testnet)
+            _wasm_path="${LEAFCHAIN_WASM}"
+            _uri="${LEAFCHAIN_THX_TESTNET_URI}"
+            _blocktime="${BLOCKTIME_LEAF}"
+            ;;
+        leafchain-thx-mainnet)
+            _wasm_path="${LEAFCHAIN_WASM}"
+            _uri="${LEAFCHAIN_THX_MAINNET_URI}"
+            _blocktime="${BLOCKTIME_LEAF}"
+            ;;
+        leafchain-izutsuya-testnet)
+            _wasm_path="${LEAFCHAIN_WASM}"
+            _uri="${LEAFCHAIN_IZUTSUYA_TESTNET_URI}"
+            _blocktime="${BLOCKTIME_LEAF}"
+            ;;
         *)
             log_error "Unknown chain: ${chain}"
-            echo "  Valid chains: rootchain-testnet, rootchain-mainnet, leafchain-sand-testnet, leafchain-avatect-mainnet, leafchain-lmt-testnet, leafchain-lmt-mainnet, leafchain-ecq-testnet, leafchain-ecq-mainnet"
+            echo "  Valid chains: rootchain-testnet, rootchain-mainnet, leafchain-sand-testnet, leafchain-avatect-mainnet, leafchain-lmt-testnet, leafchain-lmt-mainnet, leafchain-ecq-testnet, leafchain-ecq-mainnet, leafchain-thx-testnet, leafchain-thx-mainnet, leafchain-izutsuya-testnet"
             return 1
             ;;
     esac
@@ -501,6 +528,30 @@ test_leafchain_ecq_mainnet() {
         "${BLOCKTIME_LEAF}"
 }
 
+test_leafchain_thx_testnet() {
+    run_try_runtime \
+        "leafchain-thx-testnet" \
+        "${LEAFCHAIN_WASM}" \
+        "${LEAFCHAIN_THX_TESTNET_URI}" \
+        "${BLOCKTIME_LEAF}"
+}
+
+test_leafchain_thx_mainnet() {
+    run_try_runtime \
+        "leafchain-thx-mainnet" \
+        "${LEAFCHAIN_WASM}" \
+        "${LEAFCHAIN_THX_MAINNET_URI}" \
+        "${BLOCKTIME_LEAF}"
+}
+
+test_leafchain_izutsuya_testnet() {
+    run_try_runtime \
+        "leafchain-izutsuya-testnet" \
+        "${LEAFCHAIN_WASM}" \
+        "${LEAFCHAIN_IZUTSUYA_TESTNET_URI}" \
+        "${BLOCKTIME_LEAF}"
+}
+
 test_all_testnet() {
     log_step "Running try-runtime against all TESTNET chains"
 
@@ -527,6 +578,18 @@ test_all_testnet() {
     test_leafchain_ecq_testnet || failed=1
     if [[ ${failed} -ne 0 ]]; then
         log_error "Leafchain ECQ testnet failed"
+        return 1
+    fi
+
+    test_leafchain_thx_testnet || failed=1
+    if [[ ${failed} -ne 0 ]]; then
+        log_error "Leafchain THX testnet failed"
+        return 1
+    fi
+
+    test_leafchain_izutsuya_testnet || failed=1
+    if [[ ${failed} -ne 0 ]]; then
+        log_error "Leafchain Izutsuya testnet failed"
         return 1
     fi
 
@@ -563,6 +626,18 @@ test_all() {
         return 1
     fi
 
+    test_leafchain_thx_testnet || failed=1
+    if [[ ${failed} -ne 0 ]]; then
+        log_error "Leafchain THX testnet failed — aborting"
+        return 1
+    fi
+
+    test_leafchain_izutsuya_testnet || failed=1
+    if [[ ${failed} -ne 0 ]]; then
+        log_error "Leafchain Izutsuya testnet failed — aborting"
+        return 1
+    fi
+
     log_success "Testnet chains passed, proceeding to mainnet..."
     echo ""
 
@@ -588,6 +663,12 @@ test_all() {
     test_leafchain_ecq_mainnet || failed=1
     if [[ ${failed} -ne 0 ]]; then
         log_error "Leafchain ECQ mainnet failed"
+        return 1
+    fi
+
+    test_leafchain_thx_mainnet || failed=1
+    if [[ ${failed} -ne 0 ]]; then
+        log_error "Leafchain THX mainnet failed"
         return 1
     fi
 
@@ -901,6 +982,30 @@ test_idempotency_leafchain_ecq_mainnet() {
         "${BLOCKTIME_LEAF}"
 }
 
+test_idempotency_leafchain_thx_testnet() {
+    test_idempotency \
+        "leafchain-thx-testnet" \
+        "${LEAFCHAIN_WASM}" \
+        "${LEAFCHAIN_THX_TESTNET_URI}" \
+        "${BLOCKTIME_LEAF}"
+}
+
+test_idempotency_leafchain_thx_mainnet() {
+    test_idempotency \
+        "leafchain-thx-mainnet" \
+        "${LEAFCHAIN_WASM}" \
+        "${LEAFCHAIN_THX_MAINNET_URI}" \
+        "${BLOCKTIME_LEAF}"
+}
+
+test_idempotency_leafchain_izutsuya_testnet() {
+    test_idempotency \
+        "leafchain-izutsuya-testnet" \
+        "${LEAFCHAIN_WASM}" \
+        "${LEAFCHAIN_IZUTSUYA_TESTNET_URI}" \
+        "${BLOCKTIME_LEAF}"
+}
+
 test_idempotency_all_testnet() {
     log_step "Running idempotency tests against all TESTNET chains"
 
@@ -927,6 +1032,18 @@ test_idempotency_all_testnet() {
     test_idempotency_leafchain_ecq_testnet || failed=1
     if [[ ${failed} -ne 0 ]]; then
         log_error "Leafchain ECQ testnet idempotency failed"
+        return 1
+    fi
+
+    test_idempotency_leafchain_thx_testnet || failed=1
+    if [[ ${failed} -ne 0 ]]; then
+        log_error "Leafchain THX testnet idempotency failed"
+        return 1
+    fi
+
+    test_idempotency_leafchain_izutsuya_testnet || failed=1
+    if [[ ${failed} -ne 0 ]]; then
+        log_error "Leafchain Izutsuya testnet idempotency failed"
         return 1
     fi
 
@@ -963,6 +1080,18 @@ test_idempotency_all() {
         return 1
     fi
 
+    test_idempotency_leafchain_thx_testnet || failed=1
+    if [[ ${failed} -ne 0 ]]; then
+        log_error "Leafchain THX testnet idempotency failed — aborting"
+        return 1
+    fi
+
+    test_idempotency_leafchain_izutsuya_testnet || failed=1
+    if [[ ${failed} -ne 0 ]]; then
+        log_error "Leafchain Izutsuya testnet idempotency failed — aborting"
+        return 1
+    fi
+
     log_success "Testnet idempotency passed, proceeding to mainnet..."
     echo ""
 
@@ -988,6 +1117,12 @@ test_idempotency_all() {
     test_idempotency_leafchain_ecq_mainnet || failed=1
     if [[ ${failed} -ne 0 ]]; then
         log_error "Leafchain ECQ mainnet idempotency failed"
+        return 1
+    fi
+
+    test_idempotency_leafchain_thx_mainnet || failed=1
+    if [[ ${failed} -ne 0 ]]; then
+        log_error "Leafchain THX mainnet idempotency failed"
         return 1
     fi
 
@@ -1166,6 +1301,30 @@ create_snapshot_leafchain_ecq_mainnet() {
         "${BLOCKTIME_LEAF}"
 }
 
+create_snapshot_leafchain_thx_testnet() {
+    create_snapshot \
+        "leafchain-thx-testnet" \
+        "${LEAFCHAIN_WASM}" \
+        "${LEAFCHAIN_THX_TESTNET_URI}" \
+        "${BLOCKTIME_LEAF}"
+}
+
+create_snapshot_leafchain_thx_mainnet() {
+    create_snapshot \
+        "leafchain-thx-mainnet" \
+        "${LEAFCHAIN_WASM}" \
+        "${LEAFCHAIN_THX_MAINNET_URI}" \
+        "${BLOCKTIME_LEAF}"
+}
+
+create_snapshot_leafchain_izutsuya_testnet() {
+    create_snapshot \
+        "leafchain-izutsuya-testnet" \
+        "${LEAFCHAIN_WASM}" \
+        "${LEAFCHAIN_IZUTSUYA_TESTNET_URI}" \
+        "${BLOCKTIME_LEAF}"
+}
+
 create_snapshot_all_testnet() {
     log_step "Creating snapshots for all TESTNET chains"
 
@@ -1192,6 +1351,18 @@ create_snapshot_all_testnet() {
     create_snapshot_leafchain_ecq_testnet || failed=1
     if [[ ${failed} -ne 0 ]]; then
         log_error "Leafchain ECQ testnet snapshot failed"
+        return 1
+    fi
+
+    create_snapshot_leafchain_thx_testnet || failed=1
+    if [[ ${failed} -ne 0 ]]; then
+        log_error "Leafchain THX testnet snapshot failed"
+        return 1
+    fi
+
+    create_snapshot_leafchain_izutsuya_testnet || failed=1
+    if [[ ${failed} -ne 0 ]]; then
+        log_error "Leafchain Izutsuya testnet snapshot failed"
         return 1
     fi
 
@@ -1228,6 +1399,18 @@ create_snapshot_all() {
         return 1
     fi
 
+    create_snapshot_leafchain_thx_testnet || failed=1
+    if [[ ${failed} -ne 0 ]]; then
+        log_error "Leafchain THX testnet snapshot failed — aborting"
+        return 1
+    fi
+
+    create_snapshot_leafchain_izutsuya_testnet || failed=1
+    if [[ ${failed} -ne 0 ]]; then
+        log_error "Leafchain Izutsuya testnet snapshot failed — aborting"
+        return 1
+    fi
+
     log_success "Testnet snapshots created, proceeding to mainnet..."
     echo ""
 
@@ -1253,6 +1436,12 @@ create_snapshot_all() {
     create_snapshot_leafchain_ecq_mainnet || failed=1
     if [[ ${failed} -ne 0 ]]; then
         log_error "Leafchain ECQ mainnet snapshot failed"
+        return 1
+    fi
+
+    create_snapshot_leafchain_thx_mainnet || failed=1
+    if [[ ${failed} -ne 0 ]]; then
+        log_error "Leafchain THX mainnet snapshot failed"
         return 1
     fi
 
@@ -1597,6 +1786,48 @@ test_from_snapshot_leafchain_ecq_mainnet() {
         "${BLOCKTIME_LEAF}"
 }
 
+test_from_snapshot_leafchain_thx_testnet() {
+    local snapshot_path="${1:-}"
+
+    if [[ -z "${snapshot_path}" ]]; then
+        snapshot_path=$(resolve_snapshot "leafchain-thx-testnet") || return 1
+    fi
+
+    test_from_snapshot \
+        "leafchain-thx-testnet" \
+        "${LEAFCHAIN_WASM}" \
+        "${snapshot_path}" \
+        "${BLOCKTIME_LEAF}"
+}
+
+test_from_snapshot_leafchain_thx_mainnet() {
+    local snapshot_path="${1:-}"
+
+    if [[ -z "${snapshot_path}" ]]; then
+        snapshot_path=$(resolve_snapshot "leafchain-thx-mainnet") || return 1
+    fi
+
+    test_from_snapshot \
+        "leafchain-thx-mainnet" \
+        "${LEAFCHAIN_WASM}" \
+        "${snapshot_path}" \
+        "${BLOCKTIME_LEAF}"
+}
+
+test_from_snapshot_leafchain_izutsuya_testnet() {
+    local snapshot_path="${1:-}"
+
+    if [[ -z "${snapshot_path}" ]]; then
+        snapshot_path=$(resolve_snapshot "leafchain-izutsuya-testnet") || return 1
+    fi
+
+    test_from_snapshot \
+        "leafchain-izutsuya-testnet" \
+        "${LEAFCHAIN_WASM}" \
+        "${snapshot_path}" \
+        "${BLOCKTIME_LEAF}"
+}
+
 test_from_snapshot_all_testnet() {
     log_step "Running snapshot tests against all TESTNET chains"
 
@@ -1623,6 +1854,18 @@ test_from_snapshot_all_testnet() {
     test_from_snapshot_leafchain_ecq_testnet || failed=1
     if [[ ${failed} -ne 0 ]]; then
         log_error "Leafchain ECQ testnet snapshot test failed"
+        return 1
+    fi
+
+    test_from_snapshot_leafchain_thx_testnet || failed=1
+    if [[ ${failed} -ne 0 ]]; then
+        log_error "Leafchain THX testnet snapshot test failed"
+        return 1
+    fi
+
+    test_from_snapshot_leafchain_izutsuya_testnet || failed=1
+    if [[ ${failed} -ne 0 ]]; then
+        log_error "Leafchain Izutsuya testnet snapshot test failed"
         return 1
     fi
 
@@ -1659,6 +1902,18 @@ test_from_snapshot_all() {
         return 1
     fi
 
+    test_from_snapshot_leafchain_thx_testnet || failed=1
+    if [[ ${failed} -ne 0 ]]; then
+        log_error "Leafchain THX testnet snapshot test failed — aborting"
+        return 1
+    fi
+
+    test_from_snapshot_leafchain_izutsuya_testnet || failed=1
+    if [[ ${failed} -ne 0 ]]; then
+        log_error "Leafchain Izutsuya testnet snapshot test failed — aborting"
+        return 1
+    fi
+
     log_success "Testnet snapshot tests passed, proceeding to mainnet..."
     echo ""
 
@@ -1684,6 +1939,12 @@ test_from_snapshot_all() {
     test_from_snapshot_leafchain_ecq_mainnet || failed=1
     if [[ ${failed} -ne 0 ]]; then
         log_error "Leafchain ECQ mainnet snapshot test failed"
+        return 1
+    fi
+
+    test_from_snapshot_leafchain_thx_mainnet || failed=1
+    if [[ ${failed} -ne 0 ]]; then
+        log_error "Leafchain THX mainnet snapshot test failed"
         return 1
     fi
 
@@ -2019,6 +2280,9 @@ abbreviate_chain() {
         leafchain-lmt-mainnet)      echo "lc-lmt-m" ;;
         leafchain-ecq-testnet)      echo "lc-ecq-t" ;;
         leafchain-ecq-mainnet)      echo "lc-ecq-m" ;;
+        leafchain-thx-testnet)      echo "lc-thx-t" ;;
+        leafchain-thx-mainnet)      echo "lc-thx-m" ;;
+        leafchain-izutsuya-testnet) echo "lc-izut" ;;
         *)
             # Generic abbreviation: take first 2 chars of each hyphen-delimited part
             echo "${chain}" | awk -F'-' '{for(i=1;i<=NF;i++) printf "%s", substr($i,1,4); print ""}'
@@ -2454,6 +2718,9 @@ verify_ci_readiness() {
             "leafchain-lmt-mainnet:${LEAFCHAIN_LMT_MAINNET_URI}"
             "leafchain-ecq-testnet:${LEAFCHAIN_ECQ_TESTNET_URI}"
             "leafchain-ecq-mainnet:${LEAFCHAIN_ECQ_MAINNET_URI}"
+            "leafchain-thx-testnet:${LEAFCHAIN_THX_TESTNET_URI}"
+            "leafchain-thx-mainnet:${LEAFCHAIN_THX_MAINNET_URI}"
+            "leafchain-izutsuya-testnet:${LEAFCHAIN_IZUTSUYA_TESTNET_URI}"
         )
 
         for entry in "${endpoints[@]}"; do
@@ -2522,22 +2789,30 @@ verify_ci_readiness() {
         test-leafchain-sand-testnet test-leafchain-avatect-mainnet
         test-leafchain-lmt-testnet test-leafchain-lmt-mainnet
         test-leafchain-ecq-testnet test-leafchain-ecq-mainnet
+        test-leafchain-thx-testnet test-leafchain-thx-mainnet
+        test-leafchain-izutsuya-testnet
         test-all-testnet test-all
         test-idempotency-rootchain-testnet test-idempotency-rootchain-mainnet
         test-idempotency-leafchain-sand-testnet test-idempotency-leafchain-avatect-mainnet
         test-idempotency-leafchain-lmt-testnet test-idempotency-leafchain-lmt-mainnet
         test-idempotency-leafchain-ecq-testnet test-idempotency-leafchain-ecq-mainnet
+        test-idempotency-leafchain-thx-testnet test-idempotency-leafchain-thx-mainnet
+        test-idempotency-leafchain-izutsuya-testnet
         test-idempotency-all-testnet test-idempotency-all
         create-snapshot-rootchain-testnet create-snapshot-rootchain-mainnet
         create-snapshot-leafchain-sand-testnet create-snapshot-leafchain-avatect-mainnet
         create-snapshot-leafchain-lmt-testnet create-snapshot-leafchain-lmt-mainnet
         create-snapshot-leafchain-ecq-testnet create-snapshot-leafchain-ecq-mainnet
+        create-snapshot-leafchain-thx-testnet create-snapshot-leafchain-thx-mainnet
+        create-snapshot-leafchain-izutsuya-testnet
         create-snapshot-all-testnet create-snapshot-all
         list-snapshots clean-snapshots
         test-from-snapshot-rootchain-testnet test-from-snapshot-rootchain-mainnet
         test-from-snapshot-leafchain-sand-testnet test-from-snapshot-leafchain-avatect-mainnet
         test-from-snapshot-leafchain-lmt-testnet test-from-snapshot-leafchain-lmt-mainnet
         test-from-snapshot-leafchain-ecq-testnet test-from-snapshot-leafchain-ecq-mainnet
+        test-from-snapshot-leafchain-thx-testnet test-from-snapshot-leafchain-thx-mainnet
+        test-from-snapshot-leafchain-izutsuya-testnet
         test-from-snapshot-all-testnet test-from-snapshot-all
         test-pallet test-pallet-critical test-pallet-matrix
         check checklist verify-ci-readiness
@@ -2804,6 +3079,9 @@ show_help() {
     echo "  test-leafchain-lmt-mainnet       Run migrations against leafchain LMT mainnet"
     echo "  test-leafchain-ecq-testnet       Run migrations against leafchain ECQ testnet"
     echo "  test-leafchain-ecq-mainnet       Run migrations against leafchain ECQ mainnet"
+    echo "  test-leafchain-thx-testnet       Run migrations against leafchain THX testnet"
+    echo "  test-leafchain-thx-mainnet       Run migrations against leafchain THX mainnet"
+    echo "  test-leafchain-izutsuya-testnet  Run migrations against leafchain Izutsuya testnet"
     echo "  test-all-testnet                 Run all testnet chains"
     echo "  test-all                         Run all chains (testnet first, then mainnet)"
     echo ""
@@ -2816,6 +3094,9 @@ show_help() {
     echo "  test-idempotency-leafchain-lmt-mainnet Dual-pass deterministic test: leafchain LMT mainnet"
     echo "  test-idempotency-leafchain-ecq-testnet Dual-pass deterministic test: leafchain ECQ testnet"
     echo "  test-idempotency-leafchain-ecq-mainnet Dual-pass deterministic test: leafchain ECQ mainnet"
+    echo "  test-idempotency-leafchain-thx-testnet Dual-pass deterministic test: leafchain THX testnet"
+    echo "  test-idempotency-leafchain-thx-mainnet Dual-pass deterministic test: leafchain THX mainnet"
+    echo "  test-idempotency-leafchain-izutsuya-testnet Dual-pass deterministic test: leafchain Izutsuya testnet"
     echo "  test-idempotency-all-testnet             Dual-pass deterministic test: all testnet chains"
     echo "  test-idempotency-all                 Dual-pass deterministic test: all chains"
     echo ""
@@ -2828,6 +3109,9 @@ show_help() {
     echo "  create-snapshot-leafchain-lmt-mainnet   Save leafchain LMT mainnet state as snapshot"
     echo "  create-snapshot-leafchain-ecq-testnet   Save leafchain ECQ testnet state as snapshot"
     echo "  create-snapshot-leafchain-ecq-mainnet   Save leafchain ECQ mainnet state as snapshot"
+    echo "  create-snapshot-leafchain-thx-testnet   Save leafchain THX testnet state as snapshot"
+    echo "  create-snapshot-leafchain-thx-mainnet   Save leafchain THX mainnet state as snapshot"
+    echo "  create-snapshot-leafchain-izutsuya-testnet   Save leafchain Izutsuya testnet state as snapshot"
     echo "  create-snapshot-all-testnet               Save all testnet chain snapshots"
     echo "  create-snapshot-all                   Save all chain snapshots"
     echo "  list-snapshots                        List all saved snapshots (name, size, date)"
@@ -2841,6 +3125,9 @@ show_help() {
     echo "  test-from-snapshot-leafchain-lmt-mainnet [path] Test from snapshot: leafchain LMT mainnet"
     echo "  test-from-snapshot-leafchain-ecq-testnet [path] Test from snapshot: leafchain ECQ testnet"
     echo "  test-from-snapshot-leafchain-ecq-mainnet [path] Test from snapshot: leafchain ECQ mainnet"
+    echo "  test-from-snapshot-leafchain-thx-testnet [path] Test from snapshot: leafchain THX testnet"
+    echo "  test-from-snapshot-leafchain-thx-mainnet [path] Test from snapshot: leafchain THX mainnet"
+    echo "  test-from-snapshot-leafchain-izutsuya-testnet [path] Test from snapshot: leafchain Izutsuya testnet"
     echo "  test-from-snapshot-all-testnet                    Test all testnet chains from snapshots"
     echo "  test-from-snapshot-all                        Test all chains from snapshots"
     echo ""
@@ -2851,7 +3138,7 @@ show_help() {
     echo "                                        Matrix test: pallets x chains grid"
     echo "                                        Also reads MATRIX_CHAINS / MATRIX_PALLETS"
     echo ""
-    echo "  Valid chains: rootchain-testnet, rootchain-mainnet, leafchain-sand-testnet, leafchain-avatect-mainnet, leafchain-lmt-testnet, leafchain-lmt-mainnet, leafchain-ecq-testnet, leafchain-ecq-mainnet"
+    echo "  Valid chains: rootchain-testnet, rootchain-mainnet, leafchain-sand-testnet, leafchain-avatect-mainnet, leafchain-lmt-testnet, leafchain-lmt-mainnet, leafchain-ecq-testnet, leafchain-ecq-mainnet, leafchain-thx-testnet, leafchain-thx-mainnet, leafchain-izutsuya-testnet"
     echo ""
     echo "Utility commands:"
     echo "  verify-ci-readiness              Comprehensive pre-flight check for CI pipeline"
@@ -2927,6 +3214,9 @@ main() {
         test-leafchain-lmt-mainnet)   test_leafchain_lmt_mainnet ;;
         test-leafchain-ecq-testnet)   test_leafchain_ecq_testnet ;;
         test-leafchain-ecq-mainnet)   test_leafchain_ecq_mainnet ;;
+        test-leafchain-thx-testnet)   test_leafchain_thx_testnet ;;
+        test-leafchain-thx-mainnet)   test_leafchain_thx_mainnet ;;
+        test-leafchain-izutsuya-testnet)  test_leafchain_izutsuya_testnet ;;
         test-all-testnet)         test_all_testnet ;;
         test-all)                 test_all ;;
         # ── Snapshot-dependent commands (gated by SNAPSHOT_SUPPORTED) ──────
@@ -2957,6 +3247,15 @@ main() {
         test-idempotency-leafchain-ecq-mainnet)
             require_snapshot_support "${cmd}" || exit 0
             test_idempotency_leafchain_ecq_mainnet ;;
+        test-idempotency-leafchain-thx-testnet)
+            require_snapshot_support "${cmd}" || exit 0
+            test_idempotency_leafchain_thx_testnet ;;
+        test-idempotency-leafchain-thx-mainnet)
+            require_snapshot_support "${cmd}" || exit 0
+            test_idempotency_leafchain_thx_mainnet ;;
+        test-idempotency-leafchain-izutsuya-testnet)
+            require_snapshot_support "${cmd}" || exit 0
+            test_idempotency_leafchain_izutsuya_testnet ;;
         test-idempotency-all-testnet)
             require_snapshot_support "${cmd}" || exit 0
             test_idempotency_all_testnet ;;
@@ -2987,6 +3286,15 @@ main() {
         create-snapshot-leafchain-ecq-mainnet)
             require_snapshot_support "${cmd}" || exit 0
             create_snapshot_leafchain_ecq_mainnet ;;
+        create-snapshot-leafchain-thx-testnet)
+            require_snapshot_support "${cmd}" || exit 0
+            create_snapshot_leafchain_thx_testnet ;;
+        create-snapshot-leafchain-thx-mainnet)
+            require_snapshot_support "${cmd}" || exit 0
+            create_snapshot_leafchain_thx_mainnet ;;
+        create-snapshot-leafchain-izutsuya-testnet)
+            require_snapshot_support "${cmd}" || exit 0
+            create_snapshot_leafchain_izutsuya_testnet ;;
         create-snapshot-all-testnet)
             require_snapshot_support "${cmd}" || exit 0
             create_snapshot_all_testnet ;;
@@ -3003,6 +3311,9 @@ main() {
         test-from-snapshot-leafchain-lmt-mainnet)  test_from_snapshot_leafchain_lmt_mainnet "${2:-}" ;;
         test-from-snapshot-leafchain-ecq-testnet)  test_from_snapshot_leafchain_ecq_testnet "${2:-}" ;;
         test-from-snapshot-leafchain-ecq-mainnet)  test_from_snapshot_leafchain_ecq_mainnet "${2:-}" ;;
+        test-from-snapshot-leafchain-thx-testnet)  test_from_snapshot_leafchain_thx_testnet "${2:-}" ;;
+        test-from-snapshot-leafchain-thx-mainnet)  test_from_snapshot_leafchain_thx_mainnet "${2:-}" ;;
+        test-from-snapshot-leafchain-izutsuya-testnet)  test_from_snapshot_leafchain_izutsuya_testnet "${2:-}" ;;
         test-from-snapshot-all-testnet)        test_from_snapshot_all_testnet ;;
         test-from-snapshot-all)                test_from_snapshot_all ;;
         test-pallet)
@@ -3012,7 +3323,7 @@ main() {
             if [[ -z "${pallet_arg}" || -z "${chain_arg}" ]]; then
                 log_error "Usage: $0 test-pallet <pallet_name> <chain>"
                 echo "  Example: $0 test-pallet nomination_pools rootchain-testnet"
-                echo "  Chains: rootchain-testnet, rootchain-mainnet, leafchain-sand-testnet, leafchain-avatect-mainnet, leafchain-lmt-testnet, leafchain-lmt-mainnet, leafchain-ecq-testnet, leafchain-ecq-mainnet"
+                echo "  Chains: rootchain-testnet, rootchain-mainnet, leafchain-sand-testnet, leafchain-avatect-mainnet, leafchain-lmt-testnet, leafchain-lmt-mainnet, leafchain-ecq-testnet, leafchain-ecq-mainnet, leafchain-thx-testnet, leafchain-thx-mainnet, leafchain-izutsuya-testnet"
                 exit 1
             fi
             local _wasm_path _uri _blocktime
@@ -3025,7 +3336,7 @@ main() {
             if [[ -z "${chain_arg}" ]]; then
                 log_error "Usage: $0 test-pallet-critical <chain>"
                 echo "  Example: $0 test-pallet-critical rootchain-testnet"
-                echo "  Chains: rootchain-testnet, rootchain-mainnet, leafchain-sand-testnet, leafchain-avatect-mainnet, leafchain-lmt-testnet, leafchain-lmt-mainnet, leafchain-ecq-testnet, leafchain-ecq-mainnet"
+                echo "  Chains: rootchain-testnet, rootchain-mainnet, leafchain-sand-testnet, leafchain-avatect-mainnet, leafchain-lmt-testnet, leafchain-lmt-mainnet, leafchain-ecq-testnet, leafchain-ecq-mainnet, leafchain-thx-testnet, leafchain-thx-mainnet, leafchain-izutsuya-testnet"
                 exit 1
             fi
             local _wasm_path _uri _blocktime

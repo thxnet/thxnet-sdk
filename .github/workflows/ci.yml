@@ -422,8 +422,11 @@ jobs:
       LEAFCHAIN_AVATECT_MAINNET_URI: ${{ secrets.LEAFCHAIN_MAINNET_RPC_URL }}
       LEAFCHAIN_LMT_TESTNET_URI: ${{ secrets.LEAFCHAIN_LMT_TESTNET_RPC_URL }}
       LEAFCHAIN_LMT_MAINNET_URI: ${{ secrets.LEAFCHAIN_LMT_MAINNET_RPC_URL }}
+      LEAFCHAIN_THX_TESTNET_URI: ${{ secrets.LEAFCHAIN_THX_TESTNET_RPC_URL }}
+      LEAFCHAIN_THX_MAINNET_URI: ${{ secrets.LEAFCHAIN_THX_MAINNET_RPC_URL }}
       LEAFCHAIN_ECQ_TESTNET_URI: ${{ secrets.LEAFCHAIN_ECQ_TESTNET_RPC_URL }}
       LEAFCHAIN_ECQ_MAINNET_URI: ${{ secrets.LEAFCHAIN_ECQ_MAINNET_RPC_URL }}
+      LEAFCHAIN_IZUTSUYA_TESTNET_URI: ${{ secrets.LEAFCHAIN_IZUTSUYA_TESTNET_RPC_URL }}
     steps:
       - uses: actions/checkout@v5
 
@@ -490,25 +493,13 @@ jobs:
         run: scripts/try-runtime-test.sh create-snapshot-all
 
       # ── Idempotency tests ─────────────────────────────────────────────
-      - name: "Idempotency test (testnet only)"
-        if: github.event_name == 'pull_request'
-        run: scripts/try-runtime-test.sh test-idempotency-all-testnet
-
       - name: "Idempotency test (all chains)"
-        if: github.event_name != 'pull_request'
         run: scripts/try-runtime-test.sh test-idempotency-all
 
       # ── Pallet-level critical migration matrix ─────────────────────────
-      - name: "Pallet migration matrix (testnet)"
-        if: github.event_name == 'pull_request'
-        env:
-          MATRIX_CHAINS: "rootchain-testnet leafchain-sand-testnet leafchain-lmt-testnet leafchain-ecq-testnet"
-        run: scripts/try-runtime-test.sh test-pallet-matrix
-
       - name: "Pallet migration matrix (all chains)"
-        if: github.event_name != 'pull_request'
         env:
-          MATRIX_CHAINS: "rootchain-testnet rootchain-mainnet leafchain-sand-testnet leafchain-avatect-mainnet leafchain-lmt-testnet leafchain-lmt-mainnet leafchain-ecq-testnet leafchain-ecq-mainnet"
+          MATRIX_CHAINS: "rootchain-testnet rootchain-mainnet leafchain-thx-testnet leafchain-thx-mainnet leafchain-sand-testnet leafchain-avatect-mainnet leafchain-lmt-testnet leafchain-lmt-mainnet leafchain-ecq-testnet leafchain-ecq-mainnet leafchain-izutsuya-testnet"
         run: scripts/try-runtime-test.sh test-pallet-matrix
 
       # ── Cleanup & artifacts ────────────────────────────────────────────
