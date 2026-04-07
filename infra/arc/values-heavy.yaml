@@ -91,11 +91,13 @@ template:
           - name: ACTIONS_RUNNER_REQUIRE_JOB_CONTAINER
             value: "false"
         resources:
-          # requests control K8s scheduling — 6 CPU + 12Gi means max 2 concurrent
-          # heavy pods on a 16-core / 30GB machine (~15 cores / ~28GB available)
+          # requests control K8s scheduling — 3 CPU + 6Gi allows 4 concurrent
+          # heavy pods on a 16-core / 30GB machine (~15 cores / ~28GB available).
+          # DinD privileged job containers bypass pod limits anyway, so actual
+          # resource usage is managed by the OS (same as before with 3 persistent runners).
           requests:
-            cpu: "6"
-            memory: "12Gi"
+            cpu: "3"
+            memory: "6Gi"
           limits:
             cpu: "14"
             memory: "26Gi"
