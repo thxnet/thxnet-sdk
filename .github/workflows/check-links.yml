@@ -29,7 +29,7 @@ concurrency:
 jobs:
   check-links:
     name: Lychee link checker
-    runs-on: [self-hosted, hetzner-thxnet-light]
+    runs-on: hetzner-thxnet-light
     timeout-minutes: 10
     steps:
       # File ownership cleanup is handled by the runner-level job-started hook.

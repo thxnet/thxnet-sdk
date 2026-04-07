@@ -33,7 +33,7 @@ jobs:
 
   nextest:
     name: Cargo nextest
-    runs-on: [self-hosted, hetzner-thxnet]
+    runs-on: hetzner-thxnet
     timeout-minutes: 120
     container:
       image: docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
@@ -64,7 +64,7 @@ jobs:
 
   bench-check:
     name: Benchmark compilation check
-    runs-on: [self-hosted, hetzner-thxnet]
+    runs-on: hetzner-thxnet
     timeout-minutes: 60
     container:
       image: docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
@@ -108,7 +108,7 @@ jobs:
   #     > polkadot/scripts/list-syscalls/prepare-worker-syscalls
   test-syscalls:
     name: Syscalls validation
-    runs-on: [self-hosted, hetzner-thxnet]
+    runs-on: hetzner-thxnet
     timeout-minutes: 60
     continue-on-error: true
     container:

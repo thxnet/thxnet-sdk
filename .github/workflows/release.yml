@@ -35,7 +35,7 @@ jobs:
 
   build-runtimes:
     name: Build runtime WASMs
-    runs-on: [self-hosted, hetzner-thxnet]
+    runs-on: hetzner-thxnet
     timeout-minutes: 90
     container:
       image: docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
@@ -98,7 +98,7 @@ jobs:
   rootchain-image:
     name: Build rootchain image
     needs: build-runtimes
-    runs-on: [self-hosted, hetzner-thxnet-light]
+    runs-on: hetzner-thxnet-light
     timeout-minutes: 15
     permissions:
       contents: read
@@ -150,7 +150,7 @@ jobs:
   leafchain-image:
     name: Build leafchain image
     needs: build-runtimes
-    runs-on: [self-hosted, hetzner-thxnet-light]
+    runs-on: hetzner-thxnet-light
     timeout-minutes: 15
     permissions:
       contents: read
@@ -202,7 +202,7 @@ jobs:
   publish:
     name: Publish release
     needs: build-runtimes
-    runs-on: [self-hosted, hetzner-thxnet]
+    runs-on: hetzner-thxnet
     timeout-minutes: 15
     permissions:
       contents: write
