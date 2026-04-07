@@ -39,7 +39,10 @@ template:
         args:
           - dockerd
           - --host=unix:///var/run/docker.sock
-          - --group=123
+          - --group=$(DOCKER_GROUP_GID)
+        env:
+          - name: DOCKER_GROUP_GID
+            value: "123"
         securityContext:
           privileged: true
         restartPolicy: Always
