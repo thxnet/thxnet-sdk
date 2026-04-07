@@ -1,6 +1,9 @@
 name: ARC Runner Validation
 
 on:
+  push:
+    branches: [release/*]
+    paths: [.github/workflows/arc-test.yml]
   workflow_dispatch:
 
 permissions: {}
