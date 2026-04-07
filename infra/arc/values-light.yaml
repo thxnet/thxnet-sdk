@@ -14,6 +14,7 @@ template:
       runAsUser: 1000
       runAsGroup: 1000
       fsGroup: 1000
+      supplementalGroups: [988]   # docker group on host
     containers:
       - name: runner
         image: ghcr.io/actions/actions-runner:latest

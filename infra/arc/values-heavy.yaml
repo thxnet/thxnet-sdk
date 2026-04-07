@@ -34,6 +34,9 @@ template:
       runAsUser: 1000
       runAsGroup: 1000
       fsGroup: 1000
+      # Docker socket on host is owned by group 'docker' (gid=988).
+      # supplementalGroups grants the runner process access to it.
+      supplementalGroups: [988]
     containers:
       - name: runner
         image: ghcr.io/actions/actions-runner:latest
