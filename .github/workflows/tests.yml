@@ -45,6 +45,16 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      - name: Sanitize cargo registry source cache
+        # See ci.yml for rationale.
+        run: |
+          set -euo pipefail
+          if [ -d /usr/local/cargo/registry/src ]; then
+            echo "Wiping registry/src/ to force re-extraction from cached tarballs"
+            rm -rf /usr/local/cargo/registry/src
+          fi
+          mkdir -p /usr/local/cargo/registry/src
+
       - name: Run tests
         run: |
           cargo nextest run --locked --release \
@@ -73,6 +83,16 @@ jobs:
       WASM_BUILD_WORKSPACE_HINT: ${{ github.workspace }}
     steps:
       - uses: actions/checkout@v5
+
+      - name: Sanitize cargo registry source cache
+        # See ci.yml for rationale.
+        run: |
+          set -euo pipefail
+          if [ -d /usr/local/cargo/registry/src ]; then
+            echo "Wiping registry/src/ to force re-extraction from cached tarballs"
+            rm -rf /usr/local/cargo/registry/src
+          fi
+          mkdir -p /usr/local/cargo/registry/src
 
       - name: Check benchmarks compile
         run: |
@@ -118,6 +138,16 @@ jobs:
       WASM_BUILD_WORKSPACE_HINT: ${{ github.workspace }}
     steps:
       - uses: actions/checkout@v5
+
+      - name: Sanitize cargo registry source cache
+        # See ci.yml for rationale.
+        run: |
+          set -euo pipefail
+          if [ -d /usr/local/cargo/registry/src ]; then
+            echo "Wiping registry/src/ to force re-extraction from cached tarballs"
+            rm -rf /usr/local/cargo/registry/src
+          fi
+          mkdir -p /usr/local/cargo/registry/src
 
       - name: Ensure musl target and ruby are available
         run: |

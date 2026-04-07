@@ -42,6 +42,19 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      - name: Sanitize cargo registry source cache
+        # See ci.yml for rationale: registry/src/ can get partially corrupted
+        # (missing .rs files inside extracted dirs) which sccache trips over.
+        # Wiping it forces cargo to re-extract from the immutable .crate
+        # tarballs in registry/cache/ on demand.
+        run: |
+          set -euo pipefail
+          if [ -d /usr/local/cargo/registry/src ]; then
+            echo "Wiping registry/src/ to force re-extraction from cached tarballs"
+            rm -rf /usr/local/cargo/registry/src
+          fi
+          mkdir -p /usr/local/cargo/registry/src
+
       - name: Cargo check — all thxnet crates
         run: |
           cargo check --locked \

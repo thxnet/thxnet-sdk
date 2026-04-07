@@ -131,6 +131,23 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      - name: Sanitize cargo registry source cache
+        # The shared registry source cache (registry/src/) can get into a partially-
+        # corrupted state where extracted directories exist but individual .rs files
+        # are missing (sccache then fails with "No such file or directory" while
+        # hashing inputs). Cargo only re-extracts when a source directory is missing
+        # ENTIRELY, not when it is partially populated, so the corruption sticks
+        # across runs. We unconditionally wipe registry/src/ — the immutable
+        # .crate tarballs in registry/cache/ remain, so cargo re-extracts from local
+        # disk on demand (tens of seconds, no network).
+        run: |
+          set -euo pipefail
+          if [ -d /usr/local/cargo/registry/src ]; then
+            echo "Wiping registry/src/ to force re-extraction from cached tarballs"
+            rm -rf /usr/local/cargo/registry/src
+          fi
+          mkdir -p /usr/local/cargo/registry/src
+
       - name: Build all binaries & runtime WASMs
         run: cargo build --locked --release -p polkadot -p thxnet-testnet-runtime -p thxnet-leafchain
 
@@ -351,6 +368,15 @@ jobs:
       WASM_BUILD_WORKSPACE_HINT: ${{ github.workspace }}
     steps:
       - uses: actions/checkout@v5
+
+      - name: Sanitize cargo registry source cache
+        run: |
+          set -euo pipefail
+          if [ -d /usr/local/cargo/registry/src ]; then
+            echo "Wiping registry/src/ to force re-extraction from cached tarballs"
+            rm -rf /usr/local/cargo/registry/src
+          fi
+          mkdir -p /usr/local/cargo/registry/src
 
       - name: Build try-runtime WASMs
         run: |
@@ -631,6 +657,15 @@ jobs:
       WASM_BUILD_WORKSPACE_HINT: ${{ github.workspace }}
     steps:
       - uses: actions/checkout@v5
+
+      - name: Sanitize cargo registry source cache
+        run: |
+          set -euo pipefail
+          if [ -d /usr/local/cargo/registry/src ]; then
+            echo "Wiping registry/src/ to force re-extraction from cached tarballs"
+            rm -rf /usr/local/cargo/registry/src
+          fi
+          mkdir -p /usr/local/cargo/registry/src
 
       - name: Run XCM integration tests
         run: cargo test -p xcm-integration-tests --release
