@@ -48,5 +48,4 @@ jobs:
             --exclude 'gnu\.org'
             'thxnet/**/*.rs'
             'thxnet/**/*.md'
-            '*.md'
           fail: true

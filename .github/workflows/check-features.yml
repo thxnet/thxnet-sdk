@@ -46,5 +46,8 @@ jobs:
           # sc-executor: not a dependency we control
           # wasmtime: sp-wasm-interface doesn't propagate std to wasmtime (upstream issue).
           # Safe to ignore — wasmtime is host-only, not WASM runtime.
-          ignore: sc-executor,wasmtime
+          # sp-wasm-interface: featalign's --ignore stops recursion INTO a crate but
+          # still reports the missing feature on the parent. We must ignore the parent
+          # (sp-wasm-interface) so the wasmtime missing-std issue is never raised.
+          ignore: sc-executor,wasmtime,sp-wasm-interface
           default-std: true

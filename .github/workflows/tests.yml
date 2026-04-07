@@ -47,6 +47,7 @@ jobs:
 
       - name: Sanitize cargo registry source cache
         # See ci.yml for rationale.
+        shell: bash
         run: |
           set -euo pipefail
           if [ -d /usr/local/cargo/registry/src ]; then
@@ -86,6 +87,7 @@ jobs:
 
       - name: Sanitize cargo registry source cache
         # See ci.yml for rationale.
+        shell: bash
         run: |
           set -euo pipefail
           if [ -d /usr/local/cargo/registry/src ]; then
@@ -141,6 +143,7 @@ jobs:
 
       - name: Sanitize cargo registry source cache
         # See ci.yml for rationale.
+        shell: bash
         run: |
           set -euo pipefail
           if [ -d /usr/local/cargo/registry/src ]; then

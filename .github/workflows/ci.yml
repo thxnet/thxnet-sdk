@@ -140,6 +140,7 @@ jobs:
         # across runs. We unconditionally wipe registry/src/ — the immutable
         # .crate tarballs in registry/cache/ remain, so cargo re-extracts from local
         # disk on demand (tens of seconds, no network).
+        shell: bash
         run: |
           set -euo pipefail
           if [ -d /usr/local/cargo/registry/src ]; then
@@ -370,6 +371,7 @@ jobs:
       - uses: actions/checkout@v5
 
       - name: Sanitize cargo registry source cache
+        shell: bash
         run: |
           set -euo pipefail
           if [ -d /usr/local/cargo/registry/src ]; then
@@ -659,6 +661,7 @@ jobs:
       - uses: actions/checkout@v5
 
       - name: Sanitize cargo registry source cache
+        shell: bash
         run: |
           set -euo pipefail
           if [ -d /usr/local/cargo/registry/src ]; then

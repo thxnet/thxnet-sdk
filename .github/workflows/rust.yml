@@ -47,6 +47,7 @@ jobs:
         # (missing .rs files inside extracted dirs) which sccache trips over.
         # Wiping it forces cargo to re-extract from the immutable .crate
         # tarballs in registry/cache/ on demand.
+        shell: bash
         run: |
           set -euo pipefail
           if [ -d /usr/local/cargo/registry/src ]; then
