@@ -91,16 +91,16 @@ template:
           - name: ACTIONS_RUNNER_REQUIRE_JOB_CONTAINER
             value: "false"
         resources:
-          # requests control K8s scheduling — 3 CPU + 6Gi allows 4 concurrent
-          # heavy pods on a 16-core / 30GB machine (~15 cores / ~28GB available).
-          # DinD privileged job containers bypass pod limits anyway, so actual
-          # resource usage is managed by the OS (same as before with 3 persistent runners).
+          # Minimal requests for K8s scheduling only. Actual resource usage is
+          # OS-managed: DinD privileged containers bypass pod cgroup limits.
+          # Machine: 16 cores AMD EPYC, 30Gi RAM, 601G disk.
+          # With requests 1 CPU + 2Gi, K8s can schedule up to 6 heavy pods.
           requests:
-            cpu: "3"
-            memory: "6Gi"
-          limits:
-            cpu: "14"
-            memory: "26Gi"
+            cpu: "1"
+            memory: "2Gi"
+          # No limits — let builds use all available host resources.
+          # This matches the previous persistent runner behavior where
+          # 3 runners shared the full machine without cgroup constraints.
         volumeMounts:
           - name: work
             mountPath: /home/runner/_work

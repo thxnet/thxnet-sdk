@@ -61,11 +61,8 @@ template:
             value: "false"
         resources:
           requests:
-            cpu: "2"
-            memory: "4Gi"
-          limits:
-            cpu: "4"
-            memory: "8Gi"
+            cpu: "500m"
+            memory: "1Gi"
         volumeMounts:
           - name: work
             mountPath: /home/runner/_work
