@@ -1,0 +1,58 @@
+# ARC Runner Scale Set: light jobs (fmt, Docker image builds, check-links)
+# Label: hetzner-thxnet-light (same as existing runner — zero workflow changes)
+
+githubConfigUrl: "https://github.com/thxnet"
+githubConfigSecret: github-app-secret
+
+runnerScaleSetName: "hetzner-thxnet-light"
+maxRunners: 2
+minRunners: 0
+
+template:
+  spec:
+    securityContext:
+      runAsUser: 1000
+      runAsGroup: 1000
+      fsGroup: 1000
+    containers:
+      - name: runner
+        image: ghcr.io/actions/actions-runner:latest
+        command: ["/home/runner/run.sh"]
+        env:
+          - name: DOCKER_HOST
+            value: unix:///var/run/docker.sock
+          - name: ACTIONS_RUNNER_REQUIRE_JOB_CONTAINER
+            value: "false"
+        resources:
+          requests:
+            cpu: "2"
+            memory: "4Gi"
+          limits:
+            cpu: "4"
+            memory: "8Gi"
+        volumeMounts:
+          - name: work
+            mountPath: /home/runner/_work
+          - name: docker-sock
+            mountPath: /var/run/docker.sock
+          # Light jobs need cargo-registry for fmt/taplo/zepter (container jobs)
+          # but sccache/snapshots are not needed
+          - name: cargo-registry
+            mountPath: /home/runner/.cache/cargo-registry
+          - name: cargo-git
+            mountPath: /home/runner/.cache/cargo-git
+    volumes:
+      - name: work
+        emptyDir: {}
+      - name: docker-sock
+        hostPath:
+          path: /host-docker.sock
+          type: Socket
+      - name: cargo-registry
+        hostPath:
+          path: /host-cache/cargo-registry
+          type: DirectoryOrCreate
+      - name: cargo-git
+        hostPath:
+          path: /host-cache/cargo-git
+          type: DirectoryOrCreate
