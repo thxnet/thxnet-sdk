@@ -662,52 +662,5 @@ jobs:
         if: always()
         run: sccache --show-stats 2>/dev/null || true
 
-  # ─── Cache ownership cleanup (defense-in-depth) ──────────────────────
-  # Primary cleanup is the runner-level job-started hook
-  # (ACTIONS_RUNNER_HOOK_JOB_STARTED). This post-job cleanup is kept as
-  # a safety net for deep cache dirs the hook's maxdepth-3 scan may miss.
-
-  cache-cleanup:
-    name: Fix cache file ownership
-    needs: [build-binaries, build-upgrade-extras, xcm-tests]
-    if: always()
-    runs-on: [self-hosted, hetzner-thxnet]
-    timeout-minutes: 5
-    steps:
-      - name: Fix ownership of shared cache directories
-        run: |
-          set -euo pipefail
-          TARGET_UID=$(id -u)
-          TARGET_GID=$(id -g)
-          echo "Fixing cache ownership to ${TARGET_UID}:${TARGET_GID}"
-
-          CACHE_DIRS=(
-            /home/runner/.cache/cargo-registry
-            /home/runner/.cache/cargo-git
-            /home/runner/.cache/sccache
-            /home/runner/.cache/sccache-bin
-          )
-
-          for dir in "${CACHE_DIRS[@]}"; do
-            if [[ ! -d "${dir}" ]]; then
-              echo "  [skip] ${dir} does not exist"
-              continue
-            fi
-
-            # Count root-owned files (UID 0) to decide if chown is needed
-            root_count=$( { find "${dir}" -user 0 2>/dev/null || true; } | head -100 | wc -l | tr -d ' ' )
-            if [[ "${root_count}" -eq 0 ]]; then
-              echo "  [ok]   ${dir} — no root-owned files"
-              continue
-            fi
-
-            echo "  [fix]  ${dir} — found root-owned files, fixing..."
-            if command -v sudo &>/dev/null; then
-              sudo chown -R "${TARGET_UID}:${TARGET_GID}" "${dir}"
-            else
-              # Fallback: fix only files we can access (best-effort)
-              find "${dir}" -user 0 -exec chown "${TARGET_UID}:${TARGET_GID}" {} + 2>/dev/null || true
-            fi
-            echo "         done"
-          done
-          echo "Cache ownership check complete."
+  # cache-cleanup job removed — ephemeral ARC runner pods use emptyDir
+  # for workspace, so root-owned file ownership issues cannot occur.
