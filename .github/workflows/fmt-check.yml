@@ -26,7 +26,7 @@ concurrency:
 jobs:
   fmt:
     name: Rustfmt
-    runs-on: [self-hosted, hetzner-thxnet-light]
+    runs-on: hetzner-thxnet-light
     timeout-minutes: 10
     container:
       image: docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
@@ -41,7 +41,7 @@ jobs:
 
   taplo:
     name: TOML format
-    runs-on: [self-hosted, hetzner-thxnet-light]
+    runs-on: hetzner-thxnet-light
     timeout-minutes: 10
     container:
       image: docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
@@ -56,7 +56,7 @@ jobs:
 
   zepter:
     name: Feature propagation
-    runs-on: [self-hosted, hetzner-thxnet-light]
+    runs-on: hetzner-thxnet-light
     timeout-minutes: 10
     container:
       image: docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
