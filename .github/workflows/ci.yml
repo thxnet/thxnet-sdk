@@ -361,7 +361,10 @@ jobs:
             --artifact-type application/wasm \
             "${WASM_FILE}:application/wasm"
 
-  # ─── Upgrade tests (upgrade/*, experiment/*, feat/endgame* branches) ─
+  # ─── Upgrade tests (upgrade/*, experiment/*, feat/endgame*, release/* branches) ─
+  # Also triggers on PRs INTO main or any release/* branch — PRs targeting a
+  # release line are high-stakes and must receive full try-runtime coverage
+  # before merge, not just on the post-merge push.
 
   build-upgrade-extras:
     name: Build try-runtime & fast-runtime
@@ -374,7 +377,8 @@ jobs:
       startsWith(github.head_ref || github.ref_name, 'feat/endgame') ||
       github.ref_name == 'main' ||
       github.ref_name == 'develop' ||
-      github.base_ref == 'main'
+      github.base_ref == 'main' ||
+      startsWith(github.base_ref, 'release/')
     runs-on: hetzner-thxnet
     container:
       image: docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
