@@ -457,7 +457,17 @@ jobs:
           - leafchain-ecq-mainnet
           - leafchain-izutsuya-testnet
     env:
-      SNAPSHOT_DIR: /home/runner/.cache/try-runtime-snapshots/${{ matrix.chain }}
+      # Use /tmp (container-local, always writable, fresh per ephemeral ARC
+      # pod) instead of /home/runner/.cache which is a hostPath mount shared
+      # across pods with leftover ownership from previous runs that the new
+      # ephemeral pod UID cannot write into. The old sequential job silently
+      # tolerated `tee: Permission denied` on the cache path; the parallel
+      # matrix's per-chain `mkdir -p` fails hard on the same condition.
+      #
+      # NOTE: cannot use ${{ runner.temp }} here — `runner.*` context is only
+      # available inside steps, not at job/workflow-level env. `/tmp` at a
+      # fixed path works because ARC pods don't mount the host /tmp.
+      SNAPSHOT_DIR: /tmp/try-runtime-snapshots/${{ matrix.chain }}
       SKIP_BUILD: "1"
       TRY_RUNTIME_BIN: /home/runner/.cargo/bin/try-runtime
       CARGO_TARGET_DIR: /tmp/try-runtime-artifacts
