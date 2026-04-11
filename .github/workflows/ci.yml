@@ -32,6 +32,11 @@ env:
   # WASM contamination (e.g., upgrade/stable2512 caching different pallet versions).
   SCCACHE_DIR: /home/runner/.cache/sccache/${{ github.head_ref || github.ref_name }}
   SCCACHE_CACHE_SIZE: 300G
+  # Stamp every binary with the exact commit it was built from. Without this,
+  # substrate/utils/build-script-utils/src/version.rs falls back to "unknown"
+  # if git is unavailable or .git is missing, producing untraceable binaries
+  # like "Version: 0.5.0-unknown" (see v1.12.0 incident, 2026-04-11).
+  SUBSTRATE_CLI_GIT_COMMIT_HASH: ${{ github.sha }}
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -139,6 +144,29 @@ jobs:
 
       - name: Build all binaries & runtime WASMs
         run: cargo build --locked --release -p polkadot -p thxnet-testnet-runtime -p thxnet-leafchain
+
+      - name: Verify binary version stamps
+        run: |
+          set -eu
+          check_version() {
+            local bin="$1"
+            local out
+            out=$("$bin" --version 2>&1)
+            echo "::group::$(basename "$bin") --version"
+            echo "$out"
+            echo "::endgroup::"
+            if echo "$out" | grep -qiF 'unknown'; then
+              echo "::error::$(basename "$bin") version contains 'unknown' — SUBSTRATE_CLI_GIT_COMMIT_HASH was not honored"
+              exit 1
+            fi
+            if ! echo "$out" | grep -qF -- "-${GITHUB_SHA}"; then
+              echo "::error::$(basename "$bin") version does not contain expected commit hash ${GITHUB_SHA}"
+              exit 1
+            fi
+            echo "[OK] $(basename "$bin") stamped with ${GITHUB_SHA}"
+          }
+          check_version ./target/release/thxnet-leafchain
+          check_version ./target/release/polkadot
 
       - name: sccache stats
         if: always()
