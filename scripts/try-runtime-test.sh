@@ -1108,11 +1108,17 @@ test_idempotency() {
         log_warn "[DRY RUN] Would execute:"
         echo "  ${TRY_RUNTIME_BIN} create-snapshot \\"
         echo "    --uri ${uri} \\"
+        echo "    -- \\"
         echo "    ${snapshot_file}"
         exit_code_snapshot=0
     else
+        # The `-- <path>` separator is required because try-runtime's
+        # --uri takes variadic values (<URI>...) and would otherwise
+        # slurp the positional SNAPSHOT_PATH as another URI, failing
+        # with "not a valid WS(S) url".
         "${TRY_RUNTIME_BIN}" create-snapshot \
             --uri "${uri}" \
+            -- \
             "${snapshot_file}" \
             && exit_code_snapshot=0 || exit_code_snapshot=$?
     fi
@@ -1528,13 +1534,19 @@ create_snapshot() {
         if [[ ${#at_flag[@]} -gt 0 ]]; then
             echo "    ${at_flag[*]} \\"
         fi
+        echo "    -- \\"
         echo "    ${output_path}"
         touch "${output_path}"
         exit_code=0
     else
+        # The `-- <path>` separator is required because try-runtime's
+        # --uri takes variadic values (<URI>...) and would otherwise
+        # slurp the positional SNAPSHOT_PATH as another URI, failing
+        # with "not a valid WS(S) url".
         "${TRY_RUNTIME_BIN}" create-snapshot \
             --uri "${uri}" \
             "${at_flag[@]+"${at_flag[@]}"}" \
+            -- \
             "${output_path}" \
             && exit_code=0 || exit_code=$?
     fi
