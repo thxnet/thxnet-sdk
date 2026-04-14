@@ -11,7 +11,10 @@ LABEL description="Container image for THXNET. leafchain" \
 
 COPY target/release/thxnet-leafchain /usr/local/bin
 
-RUN useradd -m -u 1000 -U -s /bin/sh -d /leafchain thxnet && \
+RUN apt-get update && \
+	DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ca-certificates && \
+	rm -rf /var/lib/apt/lists/* && \
+	useradd -m -u 1000 -U -s /bin/sh -d /leafchain thxnet && \
 	mkdir -p /data /leafchain/.local/share && \
 	chown -R thxnet:thxnet /data && \
 	rm -rf /usr/bin /usr/sbin && \
