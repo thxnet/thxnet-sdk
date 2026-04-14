@@ -152,10 +152,34 @@ async function main(): Promise<void> {
   // Wrap everything including Promise.all in try/finally so providers are always
   // disconnected even if the connection itself throws (e.g. one endpoint is down).
   try {
-    const [relayApi, paraApi] = await Promise.all([
-      ApiPromise.create({ provider: relayProvider }),
-      ApiPromise.create({ provider: paraProvider }),
-    ]);
+    // Wait for WebSocket connections to be open before doing anything.
+    console.log("  Waiting for WebSocket handshake...");
+    await relayProvider.isReady;
+    console.log("  Relay WS ready");
+    await paraProvider.isReady;
+    console.log("  Para WS ready");
+
+    // Kick-start: produce one block on each chain BEFORE creating ApiPromise.
+    // In Chopsticks xcm mode the chains start idle (no inherent drives block
+    // production), which causes polkadot.js's ApiPromise.create to hang for
+    // 60s waiting for the initial chain_subscribeNewHeads notification that
+    // never arrives. Producing an explicit block gives the subscription its
+    // first event and unblocks API init.
+    console.log("  Kick-starting chains via dev_newBlock (pre-API)...");
+    await relayProvider.send("dev_newBlock", [{ count: 1 }]);
+    console.log("  Relay kick-start OK");
+    await paraProvider.send("dev_newBlock", [{ count: 1 }]);
+    console.log("  Para kick-start OK");
+
+    // Create APIs sequentially with individual logging so a hang in either
+    // step is immediately identifiable in CI logs (Promise.all obscures which
+    // of the two is stuck).
+    console.log("  Creating relay API...");
+    const relayApi = await ApiPromise.create({ provider: relayProvider });
+    console.log("  Relay API created");
+    console.log("  Creating para API...");
+    const paraApi = await ApiPromise.create({ provider: paraProvider });
+    console.log("  Para API created");
 
     check(
       "relay.connected",
