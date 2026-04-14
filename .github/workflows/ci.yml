@@ -445,7 +445,12 @@ jobs:
     runs-on: hetzner-thxnet
     permissions:
       contents: read
-    timeout-minutes: 45
+    # Bumped from 45 → 90 after enabling idempotency testing: the previous
+    # 45-min budget assumed idempotency was silently skipped (bug in
+    # snapshot_supported() fixed in Wave 1). On some leafchains the full
+    # sequence (migration + idempotency dual-pass + pallet-matrix) now
+    # clears 45 min. 90 gives headroom without being gratuitous.
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       max-parallel: 11
