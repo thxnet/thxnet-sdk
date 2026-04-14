@@ -1108,12 +1108,12 @@ test_idempotency() {
         log_warn "[DRY RUN] Would execute:"
         echo "  ${TRY_RUNTIME_BIN} create-snapshot \\"
         echo "    --uri ${uri} \\"
-        echo "    --snapshot-path ${snapshot_file}"
+        echo "    ${snapshot_file}"
         exit_code_snapshot=0
     else
         "${TRY_RUNTIME_BIN}" create-snapshot \
             --uri "${uri}" \
-            --snapshot-path "${snapshot_file}" \
+            "${snapshot_file}" \
             && exit_code_snapshot=0 || exit_code_snapshot=$?
     fi
 
@@ -1528,14 +1528,14 @@ create_snapshot() {
         if [[ ${#at_flag[@]} -gt 0 ]]; then
             echo "    ${at_flag[*]} \\"
         fi
-        echo "    --snapshot-path ${output_path}"
+        echo "    ${output_path}"
         touch "${output_path}"
         exit_code=0
     else
         "${TRY_RUNTIME_BIN}" create-snapshot \
             --uri "${uri}" \
             "${at_flag[@]+"${at_flag[@]}"}" \
-            --snapshot-path "${output_path}" \
+            "${output_path}" \
             && exit_code=0 || exit_code=$?
     fi
 
