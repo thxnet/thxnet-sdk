@@ -37,6 +37,19 @@
 #   test-leafchain-izutsuya-testnet  Run migrations against leafchain Izutsuya (testnet)
 #   test-all-testnet         Run all testnet chains (rootchain + leafchain)
 #   test-all                 Run all chains (testnet first, then mainnet)
+#   fast-forward-rootchain-testnet   fast-forward N blocks: rootchain testnet
+#   fast-forward-rootchain-mainnet   fast-forward N blocks: rootchain mainnet
+#   fast-forward-leafchain-sand-testnet      fast-forward N blocks: leafchain Sand
+#   fast-forward-leafchain-avatect-mainnet       fast-forward N blocks: leafchain Avatect
+#   fast-forward-leafchain-lmt-testnet   fast-forward N blocks: leafchain LMT testnet
+#   fast-forward-leafchain-lmt-mainnet   fast-forward N blocks: leafchain LMT mainnet
+#   fast-forward-leafchain-ecq-testnet   fast-forward N blocks: leafchain ECQ testnet
+#   fast-forward-leafchain-ecq-mainnet   fast-forward N blocks: leafchain ECQ mainnet
+#   fast-forward-leafchain-thx-testnet   fast-forward N blocks: leafchain THX testnet
+#   fast-forward-leafchain-thx-mainnet   fast-forward N blocks: leafchain THX mainnet
+#   fast-forward-leafchain-izutsuya-testnet  fast-forward N blocks: leafchain Izutsuya testnet
+#   fast-forward-all-testnet         fast-forward all testnet chains
+#   fast-forward-all                 fast-forward all chains (testnet first, then mainnet)
 #   test-idempotency-rootchain-testnet   Idempotency test: rootchain testnet
 #   test-idempotency-rootchain-mainnet   Idempotency test: rootchain mainnet
 #   test-idempotency-leafchain-sand-testnet      Idempotency test: leafchain Sand
@@ -101,6 +114,8 @@
 #   LEAFCHAIN_ECQ_MAINNET_URI     Override ECQ mainnet leafchain endpoint
 #   BLOCKTIME_ROOT         Rootchain block time in ms (default: 6000)
 #   BLOCKTIME_LEAF         Leafchain block time in ms (default: 12000)
+#   FAST_FORWARD_BLOCKS    Block count for fast-forward tests (overrides per-chain defaults)
+#                            default: 600 for rootchain, 100 for leafchain
 #   SKIP_BUILD             Set to 1 to skip WASM build (use pre-built artifacts)
 #   DRY_RUN                Set to 1 to print try-runtime commands without executing
 #   SNAPSHOT_DIR           Directory for snapshot files (default: target/try-runtime-snapshots)
@@ -141,12 +156,23 @@ LEAFCHAIN_SAND_TESTNET_URI="${LEAFCHAIN_SAND_TESTNET_URI:-wss://node.sand.testne
 LEAFCHAIN_AVATECT_MAINNET_URI="${LEAFCHAIN_AVATECT_MAINNET_URI:-wss://node.avatect.mainnet.thxnet.org/archive-001/ws}"
 LEAFCHAIN_LMT_TESTNET_URI="${LEAFCHAIN_LMT_TESTNET_URI:-wss://node.lmt.testnet.thxnet.org/archive-001/ws}"
 LEAFCHAIN_LMT_MAINNET_URI="${LEAFCHAIN_LMT_MAINNET_URI:-wss://node.lmt.mainnet.thxnet.org/archive-001/ws}"
-LEAFCHAIN_ECQ_TESTNET_URI="${LEAFCHAIN_ECQ_TESTNET_URI:-wss://node.ecq.testnet.thxnet.org/archive-001/ws}"
-LEAFCHAIN_ECQ_MAINNET_URI="${LEAFCHAIN_ECQ_MAINNET_URI:-wss://node.ecq.mainnet.thxnet.org/archive-001/ws}"
+LEAFCHAIN_ECQ_TESTNET_URI="${LEAFCHAIN_ECQ_TESTNET_URI:-wss://node.ecq.testnet.thxnet.org/archive-002/ws}"
+LEAFCHAIN_ECQ_MAINNET_URI="${LEAFCHAIN_ECQ_MAINNET_URI:-wss://node.ecq.mainnet.thxnet.org/archive-002/ws}"
+LEAFCHAIN_THX_TESTNET_URI="${LEAFCHAIN_THX_TESTNET_URI:-wss://node.thx.testnet.thxnet.org/archive-001/ws}"
+LEAFCHAIN_THX_MAINNET_URI="${LEAFCHAIN_THX_MAINNET_URI:-wss://node.thx.mainnet.thxnet.org/archive-001/ws}"
+LEAFCHAIN_IZUTSUYA_TESTNET_URI="${LEAFCHAIN_IZUTSUYA_TESTNET_URI:-wss://node.izutsuya.testnet.thxnet.org/archive-001/ws}"
 
 # Block times (ms)
 BLOCKTIME_ROOT="${BLOCKTIME_ROOT:-6000}"
 BLOCKTIME_LEAF="${BLOCKTIME_LEAF:-12000}"
+
+# fast-forward block counts
+# FAST_FORWARD_BLOCKS overrides both defaults when set.
+# Rootchain default is 600 (covers one full 1-hour session at 6s blocks).
+# Leafchain default is 100 (sessions are inherited from the relay chain;
+# fewer blocks needed to exercise block production logic).
+FAST_FORWARD_BLOCKS_ROOT_DEFAULT=600
+FAST_FORWARD_BLOCKS_LEAF_DEFAULT=100
 
 # Skip build flag
 SKIP_BUILD="${SKIP_BUILD:-0}"
@@ -234,22 +260,24 @@ check_try_runtime_cli() {
 }
 
 # snapshot_supported
-#   Detects whether the installed try-runtime CLI supports --create-snapshot.
-#   try-runtime v0.10.1 does NOT have this flag; future versions may add it.
-#   Checks the `on-runtime-upgrade live` subcommand help where the flag lives.
+#   Detects whether the installed try-runtime CLI supports the `create-snapshot`
+#   top-level subcommand (introduced in try-runtime v0.10.1+).
+#   In v0.10.1, `create-snapshot` is a standalone subcommand, NOT a flag on
+#   `on-runtime-upgrade live`. Checks top-level `--help` for the subcommand token.
 #   Returns 0 (true) if supported, 1 (false) otherwise.
 snapshot_supported() {
     # Guard: if the binary isn't even available, snapshots are not supported
     command -v "${TRY_RUNTIME_BIN}" &>/dev/null || return 1
-    # --help may exit non-zero on some CLIs, so tolerate that
-    "${TRY_RUNTIME_BIN}" on-runtime-upgrade live --help 2>&1 \
-        | grep -q -- '--create-snapshot'
+    # Check top-level help for `create-snapshot` as a subcommand token.
+    # --help may exit non-zero on some CLIs, so tolerate that.
+    "${TRY_RUNTIME_BIN}" --help 2>&1 \
+        | grep -q 'create-snapshot'
 }
 
 # ── Snapshot capability detection ───────────────────────────────────────────
 # Detected once at script load time. Exported so CI (Turn 4) can consume it.
-# When try-runtime is upgraded to support --create-snapshot, this flips
-# automatically — no code changes needed.
+# When try-runtime exposes the `create-snapshot` top-level subcommand, this
+# flips automatically — no code changes needed.
 if snapshot_supported; then
     SNAPSHOT_SUPPORTED=true
 else
@@ -677,6 +705,310 @@ test_all() {
     print_verification_checklist
 }
 
+# ─── Fast-Forward Testing ─────────────────────────────────────────────────────
+#
+# Validates that the runtime can produce N consecutive blocks from live state
+# without panicking. This catches post-migration block production failures and
+# session boundary panics that on-runtime-upgrade cannot detect.
+#
+# Uses `try-runtime fast-forward` (v0.10.1+ CLI). This subcommand does NOT
+# take on-runtime-upgrade flags (--disable-mbm-checks, --disable-spec-version-check,
+# --checks). Its own flags are: --n-blocks, --blocktime, --try-state.
+
+# run_fast_forward <name> <wasm_path> <uri> <blocktime> <n_blocks_default>
+#   Executes `try-runtime fast-forward` against a live chain.
+#   Respects FAST_FORWARD_BLOCKS env var override; falls back to n_blocks_default.
+#   Supports DRY_RUN=1.
+run_fast_forward() {
+    local name="$1"
+    local wasm_path="$2"
+    local uri="$3"
+    local blocktime="$4"
+    local n_blocks_default="$5"
+
+    # Honour FAST_FORWARD_BLOCKS override; fall back to caller-supplied default
+    local n_blocks="${FAST_FORWARD_BLOCKS:-${n_blocks_default}}"
+
+    log_step "fast-forward: ${name}"
+    log_info "WASM:      ${wasm_path}"
+    log_info "Endpoint:  ${uri}"
+    log_info "Blocktime: ${blocktime}ms"
+    log_info "Blocks:    ${n_blocks}"
+    echo ""
+
+    check_wasm_exists "${wasm_path}" "${name}" || return 1
+
+    export RUST_LOG="${RUST_LOG:-remote-ext=debug,runtime=debug}"
+
+    mkdir -p "${SNAPSHOT_DIR}"
+    local log_file="${SNAPSHOT_DIR}/${name}-fast-forward.log"
+
+    local start_time exit_code
+    start_time=$(date +%s)
+
+    if [[ "${DRY_RUN}" == "1" ]]; then
+        log_warn "[DRY RUN] Would execute:"
+        echo "  ${TRY_RUNTIME_BIN} \\"
+        echo "    --runtime ${wasm_path} \\"
+        echo "    fast-forward \\"
+        echo "    --n-blocks ${n_blocks} \\"
+        echo "    --blocktime ${blocktime} \\"
+        echo "    --try-state \\"
+        echo "    live --uri ${uri}"
+        echo "  2>&1 | tee ${log_file}"
+        exit_code=0
+    else
+        # Temporarily disable errexit so a failing pipeline doesn't abort the
+        # script — we need to inspect PIPESTATUS to get the try-runtime exit code
+        # (element 0) rather than tee's (element 1). Neither `|| true` nor
+        # `&& ... || ...` work here: both reset PIPESTATUS before we can read it.
+        set +e
+        "${TRY_RUNTIME_BIN}" \
+            --runtime "${wasm_path}" \
+            fast-forward \
+            --n-blocks "${n_blocks}" \
+            --blocktime "${blocktime}" \
+            --try-state \
+            live --uri "${uri}" \
+            2>&1 | tee "${log_file}"
+        exit_code=${PIPESTATUS[0]}
+        set -e
+    fi
+
+    local elapsed=$(( $(date +%s) - start_time ))
+
+    echo ""
+    if [[ ${exit_code} -eq 0 ]]; then
+        log_success "${name}: FAST-FORWARD PASSED (${n_blocks} blocks, ${elapsed}s)"
+    else
+        log_error "${name}: FAST-FORWARD FAILED (exit code ${exit_code}, ${elapsed}s)"
+        return ${exit_code}
+    fi
+}
+
+fast_forward_rootchain_testnet() {
+    run_fast_forward \
+        "rootchain-testnet" \
+        "${ROOTCHAIN_TESTNET_WASM}" \
+        "${ROOTCHAIN_TESTNET_URI}" \
+        "${BLOCKTIME_ROOT}" \
+        "${FAST_FORWARD_BLOCKS_ROOT_DEFAULT}"
+}
+
+fast_forward_rootchain_mainnet() {
+    run_fast_forward \
+        "rootchain-mainnet" \
+        "${ROOTCHAIN_MAINNET_WASM}" \
+        "${ROOTCHAIN_MAINNET_URI}" \
+        "${BLOCKTIME_ROOT}" \
+        "${FAST_FORWARD_BLOCKS_ROOT_DEFAULT}"
+}
+
+fast_forward_leafchain_sand_testnet() {
+    run_fast_forward \
+        "leafchain-sand-testnet" \
+        "${LEAFCHAIN_WASM}" \
+        "${LEAFCHAIN_SAND_TESTNET_URI}" \
+        "${BLOCKTIME_LEAF}" \
+        "${FAST_FORWARD_BLOCKS_LEAF_DEFAULT}"
+}
+
+fast_forward_leafchain_avatect_mainnet() {
+    run_fast_forward \
+        "leafchain-avatect-mainnet" \
+        "${LEAFCHAIN_WASM}" \
+        "${LEAFCHAIN_AVATECT_MAINNET_URI}" \
+        "${BLOCKTIME_LEAF}" \
+        "${FAST_FORWARD_BLOCKS_LEAF_DEFAULT}"
+}
+
+fast_forward_leafchain_lmt_testnet() {
+    run_fast_forward \
+        "leafchain-lmt-testnet" \
+        "${LEAFCHAIN_WASM}" \
+        "${LEAFCHAIN_LMT_TESTNET_URI}" \
+        "${BLOCKTIME_LEAF}" \
+        "${FAST_FORWARD_BLOCKS_LEAF_DEFAULT}"
+}
+
+fast_forward_leafchain_lmt_mainnet() {
+    run_fast_forward \
+        "leafchain-lmt-mainnet" \
+        "${LEAFCHAIN_WASM}" \
+        "${LEAFCHAIN_LMT_MAINNET_URI}" \
+        "${BLOCKTIME_LEAF}" \
+        "${FAST_FORWARD_BLOCKS_LEAF_DEFAULT}"
+}
+
+fast_forward_leafchain_ecq_testnet() {
+    run_fast_forward \
+        "leafchain-ecq-testnet" \
+        "${LEAFCHAIN_WASM}" \
+        "${LEAFCHAIN_ECQ_TESTNET_URI}" \
+        "${BLOCKTIME_LEAF}" \
+        "${FAST_FORWARD_BLOCKS_LEAF_DEFAULT}"
+}
+
+fast_forward_leafchain_ecq_mainnet() {
+    run_fast_forward \
+        "leafchain-ecq-mainnet" \
+        "${LEAFCHAIN_WASM}" \
+        "${LEAFCHAIN_ECQ_MAINNET_URI}" \
+        "${BLOCKTIME_LEAF}" \
+        "${FAST_FORWARD_BLOCKS_LEAF_DEFAULT}"
+}
+
+fast_forward_leafchain_thx_testnet() {
+    run_fast_forward \
+        "leafchain-thx-testnet" \
+        "${LEAFCHAIN_WASM}" \
+        "${LEAFCHAIN_THX_TESTNET_URI}" \
+        "${BLOCKTIME_LEAF}" \
+        "${FAST_FORWARD_BLOCKS_LEAF_DEFAULT}"
+}
+
+fast_forward_leafchain_thx_mainnet() {
+    run_fast_forward \
+        "leafchain-thx-mainnet" \
+        "${LEAFCHAIN_WASM}" \
+        "${LEAFCHAIN_THX_MAINNET_URI}" \
+        "${BLOCKTIME_LEAF}" \
+        "${FAST_FORWARD_BLOCKS_LEAF_DEFAULT}"
+}
+
+fast_forward_leafchain_izutsuya_testnet() {
+    run_fast_forward \
+        "leafchain-izutsuya-testnet" \
+        "${LEAFCHAIN_WASM}" \
+        "${LEAFCHAIN_IZUTSUYA_TESTNET_URI}" \
+        "${BLOCKTIME_LEAF}" \
+        "${FAST_FORWARD_BLOCKS_LEAF_DEFAULT}"
+}
+
+fast_forward_all_testnet() {
+    log_step "Running fast-forward against all TESTNET chains"
+
+    local failed=0
+
+    fast_forward_rootchain_testnet || failed=1
+    if [[ ${failed} -ne 0 ]]; then
+        log_error "Rootchain testnet fast-forward failed — aborting remaining tests"
+        return 1
+    fi
+
+    fast_forward_leafchain_sand_testnet || failed=1
+    if [[ ${failed} -ne 0 ]]; then
+        log_error "Leafchain Sand fast-forward failed"
+        return 1
+    fi
+
+    fast_forward_leafchain_lmt_testnet || failed=1
+    if [[ ${failed} -ne 0 ]]; then
+        log_error "Leafchain LMT testnet fast-forward failed"
+        return 1
+    fi
+
+    fast_forward_leafchain_ecq_testnet || failed=1
+    if [[ ${failed} -ne 0 ]]; then
+        log_error "Leafchain ECQ testnet fast-forward failed"
+        return 1
+    fi
+
+    fast_forward_leafchain_thx_testnet || failed=1
+    if [[ ${failed} -ne 0 ]]; then
+        log_error "Leafchain THX testnet fast-forward failed"
+        return 1
+    fi
+
+    fast_forward_leafchain_izutsuya_testnet || failed=1
+    if [[ ${failed} -ne 0 ]]; then
+        log_error "Leafchain Izutsuya testnet fast-forward failed"
+        return 1
+    fi
+
+    log_success "All testnet chains fast-forward passed"
+}
+
+fast_forward_all() {
+    log_step "Running fast-forward against ALL chains (testnet first, then mainnet)"
+
+    local failed=0
+
+    # Testnet first (lower risk)
+    fast_forward_rootchain_testnet || failed=1
+    if [[ ${failed} -ne 0 ]]; then
+        log_error "Rootchain testnet fast-forward failed — aborting"
+        return 1
+    fi
+
+    fast_forward_leafchain_sand_testnet || failed=1
+    if [[ ${failed} -ne 0 ]]; then
+        log_error "Leafchain Sand fast-forward failed — aborting"
+        return 1
+    fi
+
+    fast_forward_leafchain_lmt_testnet || failed=1
+    if [[ ${failed} -ne 0 ]]; then
+        log_error "Leafchain LMT testnet fast-forward failed — aborting"
+        return 1
+    fi
+
+    fast_forward_leafchain_ecq_testnet || failed=1
+    if [[ ${failed} -ne 0 ]]; then
+        log_error "Leafchain ECQ testnet fast-forward failed — aborting"
+        return 1
+    fi
+
+    fast_forward_leafchain_thx_testnet || failed=1
+    if [[ ${failed} -ne 0 ]]; then
+        log_error "Leafchain THX testnet fast-forward failed — aborting"
+        return 1
+    fi
+
+    fast_forward_leafchain_izutsuya_testnet || failed=1
+    if [[ ${failed} -ne 0 ]]; then
+        log_error "Leafchain Izutsuya testnet fast-forward failed — aborting"
+        return 1
+    fi
+
+    log_success "Testnet fast-forward passed, proceeding to mainnet..."
+    echo ""
+
+    # Mainnet (higher risk, run after testnet passes)
+    fast_forward_rootchain_mainnet || failed=1
+    if [[ ${failed} -ne 0 ]]; then
+        log_error "Rootchain mainnet fast-forward failed — aborting"
+        return 1
+    fi
+
+    fast_forward_leafchain_avatect_mainnet || failed=1
+    if [[ ${failed} -ne 0 ]]; then
+        log_error "Leafchain Avatect fast-forward failed"
+        return 1
+    fi
+
+    fast_forward_leafchain_lmt_mainnet || failed=1
+    if [[ ${failed} -ne 0 ]]; then
+        log_error "Leafchain LMT mainnet fast-forward failed"
+        return 1
+    fi
+
+    fast_forward_leafchain_ecq_mainnet || failed=1
+    if [[ ${failed} -ne 0 ]]; then
+        log_error "Leafchain ECQ mainnet fast-forward failed"
+        return 1
+    fi
+
+    fast_forward_leafchain_thx_mainnet || failed=1
+    if [[ ${failed} -ne 0 ]]; then
+        log_error "Leafchain THX mainnet fast-forward failed"
+        return 1
+    fi
+
+    echo ""
+    log_step "ALL CHAINS FAST-FORWARD PASSED"
+}
+
 # ─── Idempotency Testing ─────────────────────────────────────────────────────
 #
 # Verifies that migrations are deterministic and safe to re-run by:
@@ -715,14 +1047,14 @@ test_idempotency() {
     log_step "Idempotency test: ${name}"
 
     # ── Capability gate ─────────────────────────────────────────────────
-    # Idempotency testing requires --create-snapshot to capture pre-migration
-    # state (Step 1). Without it, the entire test is non-functional.
+    # Idempotency testing requires the 'create-snapshot' subcommand to capture
+    # pre-migration state (Step 1). Without it, the entire test is non-functional.
     # When try-runtime is upgraded, SNAPSHOT_SUPPORTED will flip to true
     # automatically and this code path will activate without changes.
     if [[ "${SNAPSHOT_SUPPORTED}" != "true" ]]; then
-        log_warn "Skipping idempotency test: --create-snapshot not supported by installed try-runtime"
+        log_warn "Skipping idempotency test: 'create-snapshot' subcommand not supported by installed try-runtime"
         log_info "  SNAPSHOT_SUPPORTED=${SNAPSHOT_SUPPORTED}"
-        log_info "  Upgrade try-runtime CLI to a version that supports --create-snapshot"
+        log_info "  Upgrade try-runtime CLI to a version that supports the 'create-snapshot' subcommand"
         return 0
     fi
 
@@ -765,31 +1097,28 @@ test_idempotency() {
     export RUST_LOG="${RUST_LOG:-remote-ext=debug,runtime=debug}"
 
     # ── Step 1: Create snapshot from live chain ──────────────────────────
+    # `create-snapshot` is a standalone top-level subcommand — it does NOT
+    # run a migration. It only downloads chain state and writes it to disk.
+    # Steps 2 and 3 run the actual migrations against this snapshot.
     log_info "Step 1/4: Creating snapshot from live chain..."
     log_info "  Snapshot path: ${snapshot_file}"
 
     local exit_code_snapshot
     if [[ "${DRY_RUN}" == "1" ]]; then
         log_warn "[DRY RUN] Would execute:"
-        echo "  ${TRY_RUNTIME_BIN} \\"
-        echo "    --runtime ${wasm_path} \\"
-        echo "    on-runtime-upgrade \\"
-        echo "    --blocktime ${blocktime} \\"
-        echo_migration_flags
-        echo "    live --uri ${uri} --create-snapshot ${snapshot_file}"
+        echo "  ${TRY_RUNTIME_BIN} create-snapshot \\"
+        echo "    --uri ${uri} \\"
+        echo "    --snapshot-path ${snapshot_file}"
         exit_code_snapshot=0
     else
-        "${TRY_RUNTIME_BIN}" \
-            --runtime "${wasm_path}" \
-            on-runtime-upgrade \
-            --blocktime "${blocktime}" \
-            "${COMMON_MIGRATION_FLAGS[@]}" \
-            live --uri "${uri}" --create-snapshot "${snapshot_file}" \
+        "${TRY_RUNTIME_BIN}" create-snapshot \
+            --uri "${uri}" \
+            --snapshot-path "${snapshot_file}" \
             && exit_code_snapshot=0 || exit_code_snapshot=$?
     fi
 
     if [[ ${exit_code_snapshot} -ne 0 ]]; then
-        log_error "Snapshot creation + initial migration failed (exit code ${exit_code_snapshot})"
+        log_error "Snapshot creation failed (exit code ${exit_code_snapshot})"
         cleanup_idempotency
         return ${exit_code_snapshot}
     fi
@@ -1133,39 +1462,35 @@ test_idempotency_all() {
 # ─── Snapshot Management ─────────────────────────────────────────────────────
 #
 # Creates offline snapshots of live chain state for reproducible try-runtime
-# testing. The --create-snapshot flag on `live` saves the PRE-migration state
-# fetched from RPC to a local file. Subsequent runs can use `snap --path` to
-# test against this frozen state without network access.
+# testing. The `create-snapshot` top-level subcommand downloads PRE-migration
+# state fetched from RPC to a local file. Subsequent runs can use `snap --path`
+# to test against this frozen state without network access.
 #
-# NOTE: Snapshot creation also runs the full migration (--checks=all), because
-# try-runtime v0.10.1 does not support --checks=none. The snapshot captures
-# the pre-migration state regardless — the migration is a side effect.
+# NOTE: `create-snapshot` is standalone — it does NOT run any migration.
+# It only fetches and saves chain state. Migration runs happen separately
+# in Steps 2 and 3 of test_idempotency().
 
 create_snapshot() {
     local name="$1"
-    local wasm_path="$2"
+    local wasm_path="$2"   # UNUSED — retained for call-site compatibility
     local uri="$3"
-    local blocktime="$4"
+    local blocktime="$4"   # UNUSED — retained for call-site compatibility
     local output_path="${5:-}"
 
     log_step "Create snapshot: ${name}"
 
     # ── Capability gate ─────────────────────────────────────────────────
-    # --create-snapshot is not supported in try-runtime v0.10.1.
+    # The `create-snapshot` subcommand is not present in older try-runtime.
     # When try-runtime is upgraded, SNAPSHOT_SUPPORTED will flip to true
     # automatically and this code path will activate without changes.
     if [[ "${SNAPSHOT_SUPPORTED}" != "true" ]]; then
-        log_warn "Skipping snapshot creation: --create-snapshot not supported by installed try-runtime"
+        log_warn "Skipping snapshot creation: create-snapshot subcommand not supported by installed try-runtime"
         log_info "  SNAPSHOT_SUPPORTED=${SNAPSHOT_SUPPORTED}"
-        log_info "  Upgrade try-runtime CLI to a version that supports --create-snapshot"
+        log_info "  Upgrade try-runtime CLI to a version that supports the create-snapshot subcommand"
         return 0
     fi
 
-    log_info "WASM:      ${wasm_path}"
     log_info "Endpoint:  ${uri}"
-    log_info "Blocktime: ${blocktime}ms"
-
-    check_wasm_exists "${wasm_path}" "${name}" || return 1
 
     # Ensure snapshot directory exists
     mkdir -p "${SNAPSHOT_DIR}"
@@ -1187,10 +1512,8 @@ create_snapshot() {
 
     export RUST_LOG="${RUST_LOG:-remote-ext=debug,runtime=debug}"
 
-    # Common migration flags: see COMMON_MIGRATION_FLAGS definition at top.
-    # NOTE: --checks=all is required because try-runtime v0.10.1 does not
-    #   support --checks=none. The migration runs as a side effect; the
-    #   snapshot captures PRE-migration state fetched from the live chain.
+    # `create-snapshot` is a standalone subcommand — no --runtime, --blocktime,
+    # or migration flags. It only fetches and writes chain state to disk.
     #
     # --at (optional): pins the snapshot to a specific block hash for
     #   reproducibility across CI runs.
@@ -1200,21 +1523,19 @@ create_snapshot() {
 
     if [[ "${DRY_RUN}" == "1" ]]; then
         log_warn "[DRY RUN] Would execute:"
-        echo "  ${TRY_RUNTIME_BIN} \\"
-        echo "    --runtime ${wasm_path} \\"
-        echo "    on-runtime-upgrade \\"
-        echo "    --blocktime ${blocktime} \\"
-        echo_migration_flags
-        echo "    live --uri ${uri} ${at_flag[*]+"${at_flag[*]}"} --create-snapshot ${output_path}"
+        echo "  ${TRY_RUNTIME_BIN} create-snapshot \\"
+        echo "    --uri ${uri} \\"
+        if [[ ${#at_flag[@]} -gt 0 ]]; then
+            echo "    ${at_flag[*]} \\"
+        fi
+        echo "    --snapshot-path ${output_path}"
         touch "${output_path}"
         exit_code=0
     else
-        "${TRY_RUNTIME_BIN}" \
-            --runtime "${wasm_path}" \
-            on-runtime-upgrade \
-            --blocktime "${blocktime}" \
-            "${COMMON_MIGRATION_FLAGS[@]}" \
-            live --uri "${uri}" "${at_flag[@]+"${at_flag[@]}"}" --create-snapshot "${output_path}" \
+        "${TRY_RUNTIME_BIN}" create-snapshot \
+            --uri "${uri}" \
+            "${at_flag[@]+"${at_flag[@]}"}" \
+            --snapshot-path "${output_path}" \
             && exit_code=0 || exit_code=$?
     fi
 
@@ -3055,7 +3376,7 @@ show_version() {
     echo ""
     echo "Snapshot support: SNAPSHOT_SUPPORTED=${SNAPSHOT_SUPPORTED}"
     if [[ "${SNAPSHOT_SUPPORTED}" != "true" ]]; then
-        echo "  (--create-snapshot not available in installed try-runtime)"
+        echo "  (create-snapshot subcommand not available in installed try-runtime)"
     fi
 }
 
@@ -3131,6 +3452,22 @@ show_help() {
     echo "  test-from-snapshot-all-testnet                    Test all testnet chains from snapshots"
     echo "  test-from-snapshot-all                        Test all chains from snapshots"
     echo ""
+    echo "Fast-forward test commands:"
+    echo "  fast-forward-rootchain-testnet           Produce N blocks from rootchain testnet live state"
+    echo "  fast-forward-rootchain-mainnet           Produce N blocks from rootchain mainnet live state"
+    echo "  fast-forward-leafchain-sand-testnet              Produce N blocks from leafchain Sand live state"
+    echo "  fast-forward-leafchain-avatect-mainnet           Produce N blocks from leafchain Avatect live state"
+    echo "  fast-forward-leafchain-lmt-testnet       Produce N blocks from leafchain LMT testnet live state"
+    echo "  fast-forward-leafchain-lmt-mainnet       Produce N blocks from leafchain LMT mainnet live state"
+    echo "  fast-forward-leafchain-ecq-testnet       Produce N blocks from leafchain ECQ testnet live state"
+    echo "  fast-forward-leafchain-ecq-mainnet       Produce N blocks from leafchain ECQ mainnet live state"
+    echo "  fast-forward-leafchain-thx-testnet       Produce N blocks from leafchain THX testnet live state"
+    echo "  fast-forward-leafchain-thx-mainnet       Produce N blocks from leafchain THX mainnet live state"
+    echo "  fast-forward-leafchain-izutsuya-testnet  Produce N blocks from leafchain Izutsuya live state"
+    echo "  fast-forward-all-testnet                 Fast-forward all testnet chains"
+    echo "  fast-forward-all                         Fast-forward all chains (testnet first, then mainnet)"
+    echo "  (default block counts: rootchain=600, leafchain=100; override with FAST_FORWARD_BLOCKS)"
+    echo ""
     echo "Pallet-level test commands:"
     echo "  test-pallet <pallet> <chain>         Test single pallet migration on a chain"
     echo "  test-pallet-critical <chain>          Test all critical pallets (KNOWN_PALLETS)"
@@ -3167,6 +3504,8 @@ show_help() {
     echo "  SNAPSHOT_AT_BLOCK          Pin snapshot to a specific block hash (reproducible)"
     echo "  SNAPSHOT_MAX_AGE_HOURS     Max snapshot age in hours for clean-snapshots (default: 24)"
     echo "  SNAPSHOT_MAX_SIZE_GB       Max total snapshot dir size in GB; force-deletes all if exceeded (default: 50)"
+    echo "  FAST_FORWARD_BLOCKS        Block count for fast-forward tests (overrides per-chain defaults)"
+    echo "                             (default: 600 for rootchain, 100 for leafchain)"
     echo "  MATRIX_CHAINS              Space-separated chain list for test-pallet-matrix"
     echo "  MATRIX_PALLETS             Space-separated pallet list for test-pallet-matrix"
     echo "                             (default: KNOWN_PALLETS)"
@@ -3181,14 +3520,14 @@ show_help() {
 # defense-in-depth — this gate is the user-facing early exit.
 
 # require_snapshot_support <command-name>
-#   Returns 0 if --create-snapshot is available (caller should proceed).
+#   Returns 0 if the create-snapshot subcommand is available (caller should proceed).
 #   Returns 1 if not available (caller should skip). Prints a warning.
 #   Safe under set -e when used as: require_snapshot_support "cmd" || return 0
 require_snapshot_support() {
     local cmd_name="$1"
     if [[ "${SNAPSHOT_SUPPORTED}" != "true" ]]; then
-        log_warn "Command '${cmd_name}' requires --create-snapshot support"
-        log_warn "The installed try-runtime CLI does not support --create-snapshot"
+        log_warn "Command '${cmd_name}' requires the create-snapshot subcommand"
+        log_warn "The installed try-runtime CLI does not support the create-snapshot subcommand"
         log_info "  SNAPSHOT_SUPPORTED=${SNAPSHOT_SUPPORTED}"
         log_info "  Upgrade try-runtime CLI to enable this command"
         return 1
@@ -3219,10 +3558,24 @@ main() {
         test-leafchain-izutsuya-testnet)  test_leafchain_izutsuya_testnet ;;
         test-all-testnet)         test_all_testnet ;;
         test-all)                 test_all ;;
+        # ── Fast-forward commands ─────────────────────────────────────────────
+        fast-forward-rootchain-testnet)       fast_forward_rootchain_testnet ;;
+        fast-forward-rootchain-mainnet)       fast_forward_rootchain_mainnet ;;
+        fast-forward-leafchain-sand-testnet)      fast_forward_leafchain_sand_testnet ;;
+        fast-forward-leafchain-avatect-mainnet)       fast_forward_leafchain_avatect_mainnet ;;
+        fast-forward-leafchain-lmt-testnet)   fast_forward_leafchain_lmt_testnet ;;
+        fast-forward-leafchain-lmt-mainnet)   fast_forward_leafchain_lmt_mainnet ;;
+        fast-forward-leafchain-ecq-testnet)   fast_forward_leafchain_ecq_testnet ;;
+        fast-forward-leafchain-ecq-mainnet)   fast_forward_leafchain_ecq_mainnet ;;
+        fast-forward-leafchain-thx-testnet)   fast_forward_leafchain_thx_testnet ;;
+        fast-forward-leafchain-thx-mainnet)   fast_forward_leafchain_thx_mainnet ;;
+        fast-forward-leafchain-izutsuya-testnet)  fast_forward_leafchain_izutsuya_testnet ;;
+        fast-forward-all-testnet)             fast_forward_all_testnet ;;
+        fast-forward-all)                     fast_forward_all ;;
         # ── Snapshot-dependent commands (gated by SNAPSHOT_SUPPORTED) ──────
-        # These commands require --create-snapshot, which is not available in
-        # try-runtime v0.10.1. The dispatch-level gate exits early with a clear
-        # warning; the function-level gates are defense-in-depth.
+        # These commands require the create-snapshot subcommand, which is not
+        # available in older try-runtime versions. The dispatch-level gate exits
+        # early with a clear warning; the function-level gates are defense-in-depth.
         test-idempotency-rootchain-testnet)
             require_snapshot_support "${cmd}" || exit 0
             test_idempotency_rootchain_testnet ;;
