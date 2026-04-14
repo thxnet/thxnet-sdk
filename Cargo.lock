@@ -127,7 +127,7 @@ dependencies = [
  "cfg-if",
  "const-hex",
  "derive_more",
- "hex-literal",
+ "hex-literal 0.4.1",
  "itoa",
  "proptest",
  "rand 0.8.5",
@@ -814,7 +814,7 @@ dependencies = [
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
- "hex-literal",
+ "hex-literal 0.4.1",
  "log",
  "pallet-asset-conversion",
  "pallet-asset-conversion-ops",
@@ -947,7 +947,7 @@ dependencies = [
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
- "hex-literal",
+ "hex-literal 0.4.1",
  "log",
  "pallet-asset-conversion",
  "pallet-asset-conversion-ops",
@@ -1011,7 +1011,7 @@ dependencies = [
  "cumulus-primitives-core",
  "frame-support",
  "frame-system",
- "hex-literal",
+ "hex-literal 0.4.1",
  "pallet-assets",
  "pallet-balances",
  "pallet-collator-selection",
@@ -1740,7 +1740,7 @@ dependencies = [
  "finality-grandpa",
  "frame-support",
  "hex",
- "hex-literal",
+ "hex-literal 0.4.1",
  "parity-scale-codec",
  "scale-info",
  "serde",
@@ -1770,7 +1770,7 @@ dependencies = [
  "bp-runtime",
  "frame-support",
  "hex",
- "hex-literal",
+ "hex-literal 0.4.1",
  "parity-scale-codec",
  "scale-info",
  "serde",
@@ -1849,7 +1849,7 @@ dependencies = [
  "bp-runtime",
  "frame-support",
  "hex",
- "hex-literal",
+ "hex-literal 0.4.1",
  "parity-scale-codec",
  "scale-info",
  "sp-runtime",
@@ -1875,7 +1875,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "hash-db",
- "hex-literal",
+ "hex-literal 0.4.1",
  "impl-trait-for-tuples",
  "log",
  "num-traits",
@@ -1977,7 +1977,7 @@ dependencies = [
  "cumulus-pallet-xcmp-queue",
  "emulated-integration-tests-common",
  "frame-support",
- "hex-literal",
+ "hex-literal 0.4.1",
  "pallet-asset-conversion",
  "pallet-assets",
  "pallet-balances",
@@ -2038,7 +2038,7 @@ dependencies = [
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
- "hex-literal",
+ "hex-literal 0.4.1",
  "log",
  "pallet-aura",
  "pallet-authorship",
@@ -2168,6 +2168,7 @@ dependencies = [
  "pallet-message-queue",
  "pallet-xcm",
  "parachains-common",
+ "parity-scale-codec",
  "rococo-westend-system-emulated-network",
  "sp-runtime",
  "staging-xcm",
@@ -2209,7 +2210,7 @@ dependencies = [
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
- "hex-literal",
+ "hex-literal 0.4.1",
  "log",
  "pallet-aura",
  "pallet-authorship",
@@ -2424,6 +2425,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "casey"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8e779867f62d81627d1438e0d3fb6ed7d7c9d64293ca6d87a1e88781b94ece1c"
+dependencies = [
+ "syn 2.0.61",
+]
+
+[[package]]
 name = "cast"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2603,15 +2613,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "56ccb671c5921be8a84686e6212ca184cb1d7c51cadcdbfcbd1cc3f042f5dfb8"
 dependencies = [
  "cfg-if",
-]
-
-[[package]]
-name = "ckb-merkle-mountain-range"
-version = "0.6.0"
-source = "git+https://github.com/paritytech/merkle-mountain-range.git?branch=master#537f0e3f67c5adf7afff0800bbb81f02f17570a1"
-dependencies = [
- "cfg-if",
- "itertools 0.10.5",
 ]
 
 [[package]]
@@ -2823,7 +2824,7 @@ dependencies = [
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
- "hex-literal",
+ "hex-literal 0.4.1",
  "log",
  "pallet-alliance",
  "pallet-asset-rate",
@@ -3090,7 +3091,7 @@ dependencies = [
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
- "hex-literal",
+ "hex-literal 0.4.1",
  "log",
  "pallet-aura",
  "pallet-authorship",
@@ -3185,7 +3186,7 @@ dependencies = [
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
- "hex-literal",
+ "hex-literal 0.4.1",
  "log",
  "pallet-aura",
  "pallet-authorship",
@@ -3250,7 +3251,7 @@ dependencies = [
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
- "hex-literal",
+ "hex-literal 0.4.1",
  "log",
  "pallet-aura",
  "pallet-authorship",
@@ -3921,7 +3922,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "futures",
- "hex-literal",
+ "hex-literal 0.4.1",
  "impl-trait-for-tuples",
  "lazy_static",
  "log",
@@ -6216,6 +6217,79 @@ dependencies = [
 ]
 
 [[package]]
+name = "general-runtime"
+version = "0.5.0"
+dependencies = [
+ "cumulus-pallet-aura-ext",
+ "cumulus-pallet-dmp-queue",
+ "cumulus-pallet-parachain-system",
+ "cumulus-pallet-session-benchmarking",
+ "cumulus-pallet-xcm",
+ "cumulus-pallet-xcmp-queue",
+ "cumulus-primitives-core",
+ "cumulus-primitives-timestamp",
+ "cumulus-primitives-utility",
+ "frame-benchmarking",
+ "frame-executive",
+ "frame-support",
+ "frame-system",
+ "frame-system-benchmarking",
+ "frame-system-rpc-runtime-api",
+ "frame-try-runtime",
+ "hex-literal 0.3.4",
+ "log",
+ "pallet-asset-tx-payment",
+ "pallet-assets",
+ "pallet-aura",
+ "pallet-authorship",
+ "pallet-balances",
+ "pallet-collator-selection",
+ "pallet-crowdfunding",
+ "pallet-crowdfunding-runtime-api",
+ "pallet-identity",
+ "pallet-message-queue",
+ "pallet-multisig",
+ "pallet-nfts",
+ "pallet-nfts-runtime-api",
+ "pallet-proxy",
+ "pallet-rwa",
+ "pallet-rwa-runtime-api",
+ "pallet-session",
+ "pallet-sudo",
+ "pallet-timestamp",
+ "pallet-transaction-payment",
+ "pallet-transaction-payment-rpc-runtime-api",
+ "pallet-treasury",
+ "pallet-trustless-agent",
+ "pallet-utility",
+ "pallet-xcm",
+ "parachains-common",
+ "parity-scale-codec",
+ "polkadot-parachain-primitives",
+ "polkadot-runtime-common",
+ "scale-info",
+ "smallvec",
+ "sp-api",
+ "sp-block-builder",
+ "sp-consensus-aura",
+ "sp-core",
+ "sp-genesis-builder",
+ "sp-inherents",
+ "sp-io",
+ "sp-offchain",
+ "sp-runtime",
+ "sp-session",
+ "sp-std 14.0.0",
+ "sp-transaction-pool",
+ "sp-version",
+ "staging-parachain-info",
+ "staging-xcm",
+ "staging-xcm-builder",
+ "staging-xcm-executor",
+ "substrate-wasm-builder",
+]
+
+[[package]]
 name = "generate-bags"
 version = "28.0.0"
 dependencies = [
@@ -6553,6 +6627,12 @@ name = "hex-conservative"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "30ed443af458ccb6d81c1e7e661545f94d3176752fb1df2f543b902a1e0f51e2"
+
+[[package]]
+name = "hex-literal"
+version = "0.3.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7ebdb29d2ea9ed0083cd8cece49bbd968021bd99b0849edb4a9a7ee0fdf6a4e0"
 
 [[package]]
 name = "hex-literal"
@@ -8085,7 +8165,7 @@ dependencies = [
  "ed25519-dalek 1.0.1",
  "futures",
  "futures-timer",
- "hex-literal",
+ "hex-literal 0.4.1",
  "indexmap 2.2.3",
  "libc",
  "mockall 0.12.1",
@@ -9824,7 +9904,7 @@ dependencies = [
  "bp-beefy",
  "bp-runtime",
  "bp-test-utils",
- "ckb-merkle-mountain-range 0.5.2",
+ "ckb-merkle-mountain-range",
  "frame-support",
  "frame-system",
  "log",
@@ -10178,6 +10258,72 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-crowdfunding"
+version = "0.3.3"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-assets",
+ "pallet-balances",
+ "pallet-rwa",
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+]
+
+[[package]]
+name = "pallet-crowdfunding-rpc"
+version = "0.3.3"
+dependencies = [
+ "jsonrpsee",
+ "pallet-crowdfunding",
+ "pallet-crowdfunding-runtime-api",
+ "parity-scale-codec",
+ "serde",
+ "sp-api",
+ "sp-blockchain",
+ "sp-runtime",
+]
+
+[[package]]
+name = "pallet-crowdfunding-runtime-api"
+version = "0.3.3"
+dependencies = [
+ "pallet-crowdfunding",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-api",
+ "sp-runtime",
+]
+
+[[package]]
+name = "pallet-dao"
+version = "4.0.0"
+dependencies = [
+ "enumflags2",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-balances",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "scale-info",
+ "simdutf8",
+ "sp-arithmetic",
+ "sp-core",
+ "sp-io",
+ "sp-keystore",
+ "sp-runtime",
+ "sp-std 14.0.0",
+]
+
+[[package]]
 name = "pallet-default-config-example"
 version = "10.0.0"
 dependencies = [
@@ -10498,6 +10644,21 @@ dependencies = [
  "sp-std 14.0.0",
  "sp-tracing 16.0.0",
  "substrate-test-utils",
+]
+
+[[package]]
+name = "pallet-finality-rescue"
+version = "4.0.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-grandpa",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
 ]
 
 [[package]]
@@ -11184,6 +11345,49 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-rwa"
+version = "0.3.3"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-assets",
+ "pallet-balances",
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+]
+
+[[package]]
+name = "pallet-rwa-rpc"
+version = "0.3.3"
+dependencies = [
+ "jsonrpsee",
+ "pallet-rwa",
+ "pallet-rwa-runtime-api",
+ "parity-scale-codec",
+ "serde",
+ "sp-api",
+ "sp-blockchain",
+ "sp-runtime",
+]
+
+[[package]]
+name = "pallet-rwa-runtime-api"
+version = "0.3.3"
+dependencies = [
+ "pallet-rwa",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-api",
+ "sp-runtime",
+]
+
+[[package]]
 name = "pallet-safe-mode"
 version = "9.0.0"
 dependencies = [
@@ -11608,6 +11812,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-trustless-agent"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-balances",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std 14.0.0",
+]
+
+[[package]]
 name = "pallet-tx-pause"
 version = "9.0.0"
 dependencies = [
@@ -11872,7 +12092,7 @@ dependencies = [
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
- "hex-literal",
+ "hex-literal 0.4.1",
  "log",
  "pallet-aura",
  "pallet-authorship",
@@ -11967,7 +12187,7 @@ dependencies = [
  "cumulus-test-relay-sproof-builder",
  "frame-support",
  "frame-system",
- "hex-literal",
+ "hex-literal 0.4.1",
  "pallet-balances",
  "pallet-collator-selection",
  "pallet-session",
@@ -12228,7 +12448,7 @@ dependencies = [
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
- "hex-literal",
+ "hex-literal 0.4.1",
  "log",
  "pallet-asset-tx-payment",
  "pallet-assets",
@@ -12327,7 +12547,7 @@ dependencies = [
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
- "hex-literal",
+ "hex-literal 0.4.1",
  "log",
  "pallet-aura",
  "pallet-authorship",
@@ -12427,7 +12647,7 @@ dependencies = [
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
- "hex-literal",
+ "hex-literal 0.4.1",
  "log",
  "pallet-aura",
  "pallet-authorship",
@@ -12621,7 +12841,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot"
-version = "6.0.0"
+version = "1.9.0"
 dependencies = [
  "assert_cmd",
  "color-eyre",
@@ -12756,6 +12976,16 @@ dependencies = [
  "thiserror",
  "tokio",
  "tracing-gum",
+]
+
+[[package]]
+name = "polkadot-ckb-merkle-mountain-range"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a4b44320e5f7ce2c18227537a3032ae5b2c476a7e8eddba45333e1011fc31b92"
+dependencies = [
+ "cfg-if",
+ "itertools 0.10.5",
 ]
 
 [[package]]
@@ -13246,7 +13476,7 @@ dependencies = [
  "criterion",
  "futures",
  "futures-timer",
- "hex-literal",
+ "hex-literal 0.4.1",
  "is_executable",
  "libc",
  "parity-scale-codec",
@@ -13640,7 +13870,7 @@ dependencies = [
  "frame-try-runtime",
  "futures",
  "glutton-westend-runtime",
- "hex-literal",
+ "hex-literal 0.4.1",
  "jsonrpsee",
  "log",
  "nix 0.28.0",
@@ -13724,7 +13954,7 @@ name = "polkadot-primitives"
 version = "7.0.0"
 dependencies = [
  "bitvec",
- "hex-literal",
+ "hex-literal 0.4.1",
  "log",
  "parity-scale-codec",
  "polkadot-core-primitives",
@@ -13799,7 +14029,7 @@ dependencies = [
  "frame-support",
  "frame-support-test",
  "frame-system",
- "hex-literal",
+ "hex-literal 0.4.1",
  "impl-trait-for-tuples",
  "libsecp256k1",
  "log",
@@ -13870,7 +14100,7 @@ dependencies = [
  "frame-support-test",
  "frame-system",
  "futures",
- "hex-literal",
+ "hex-literal 0.4.1",
  "impl-trait-for-tuples",
  "log",
  "pallet-authority-discovery",
@@ -14035,7 +14265,7 @@ dependencies = [
  "frame-system",
  "frame-system-rpc-runtime-api",
  "futures",
- "hex-literal",
+ "hex-literal 0.4.1",
  "is_executable",
  "kvdb",
  "kvdb-rocksdb",
@@ -14083,6 +14313,7 @@ dependencies = [
  "polkadot-primitives",
  "polkadot-primitives-test-helpers",
  "polkadot-rpc",
+ "polkadot-runtime-common",
  "polkadot-runtime-parachains",
  "polkadot-statement-distribution",
  "polkadot-test-client",
@@ -14142,6 +14373,8 @@ dependencies = [
  "substrate-prometheus-endpoint",
  "tempfile",
  "thiserror",
+ "thxnet-runtime",
+ "thxnet-runtime-constants",
  "tracing-gum",
  "westend-runtime",
  "westend-runtime-constants",
@@ -14331,7 +14564,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "frame-system-rpc-runtime-api",
- "hex-literal",
+ "hex-literal 0.4.1",
  "log",
  "pallet-authority-discovery",
  "pallet-authorship",
@@ -15798,7 +16031,7 @@ dependencies = [
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
- "hex-literal",
+ "hex-literal 0.4.1",
  "log",
  "pallet-asset-rate",
  "pallet-authority-discovery",
@@ -18455,6 +18688,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "simdutf8"
+version = "0.1.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e3a9fe34e3e7a50316060351f37187a3f546bce95496156754b601a5fa71b76e"
+
+[[package]]
 name = "simple-dns"
 version = "0.5.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -18683,7 +18922,7 @@ dependencies = [
  "byte-slice-cast",
  "frame-support",
  "hex",
- "hex-literal",
+ "hex-literal 0.4.1",
  "parity-scale-codec",
  "rlp",
  "scale-info",
@@ -18706,7 +18945,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "hex",
- "hex-literal",
+ "hex-literal 0.4.1",
  "parity-scale-codec",
  "polkadot-parachain-primitives",
  "scale-info",
@@ -18728,7 +18967,7 @@ dependencies = [
  "ethabi-decode",
  "ethbloom",
  "ethereum-types",
- "hex-literal",
+ "hex-literal 0.4.1",
  "parity-bytes",
  "parity-scale-codec",
  "rand 0.8.5",
@@ -18765,7 +19004,7 @@ dependencies = [
  "array-bytes",
  "env_logger 0.11.3",
  "hex",
- "hex-literal",
+ "hex-literal 0.4.1",
  "parity-scale-codec",
  "scale-info",
  "sp-core",
@@ -18792,7 +19031,7 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
- "hex-literal",
+ "hex-literal 0.4.1",
  "log",
  "pallet-timestamp",
  "parity-scale-codec",
@@ -18816,7 +19055,7 @@ dependencies = [
 name = "snowbridge-pallet-ethereum-client-fixtures"
 version = "0.9.0"
 dependencies = [
- "hex-literal",
+ "hex-literal 0.4.1",
  "snowbridge-beacon-primitives",
  "snowbridge-core",
  "sp-core",
@@ -18832,7 +19071,7 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
- "hex-literal",
+ "hex-literal 0.4.1",
  "log",
  "pallet-balances",
  "parity-scale-codec",
@@ -18856,7 +19095,7 @@ dependencies = [
 name = "snowbridge-pallet-inbound-queue-fixtures"
 version = "0.10.0"
 dependencies = [
- "hex-literal",
+ "hex-literal 0.4.1",
  "snowbridge-beacon-primitives",
  "snowbridge-core",
  "sp-core",
@@ -18894,7 +19133,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "hex",
- "hex-literal",
+ "hex-literal 0.4.1",
  "log",
  "pallet-balances",
  "pallet-message-queue",
@@ -18917,7 +19156,7 @@ name = "snowbridge-router-primitives"
 version = "0.9.0"
 dependencies = [
  "frame-support",
- "hex-literal",
+ "hex-literal 0.4.1",
  "log",
  "parity-scale-codec",
  "rustc-hex",
@@ -19674,9 +19913,9 @@ name = "sp-mmr-primitives"
 version = "26.0.0"
 dependencies = [
  "array-bytes",
- "ckb-merkle-mountain-range 0.6.0",
  "log",
  "parity-scale-codec",
+ "polkadot-ckb-merkle-mountain-range",
  "scale-info",
  "serde",
  "sp-api",
@@ -20378,7 +20617,7 @@ dependencies = [
  "derivative",
  "environmental",
  "hex",
- "hex-literal",
+ "hex-literal 0.4.1",
  "impl-trait-for-tuples",
  "log",
  "parity-scale-codec",
@@ -20816,7 +21055,7 @@ dependencies = [
  "frame-system",
  "frame-system-rpc-runtime-api",
  "futures",
- "hex-literal",
+ "hex-literal 0.4.1",
  "log",
  "pallet-babe",
  "pallet-balances",
@@ -21402,6 +21641,359 @@ dependencies = [
  "log",
  "ordered-float",
  "threadpool",
+]
+
+[[package]]
+name = "thxnet-leafchain"
+version = "0.5.0"
+dependencies = [
+ "clap 4.5.3",
+ "cumulus-client-cli",
+ "cumulus-client-collator",
+ "cumulus-client-consensus-aura",
+ "cumulus-client-consensus-common",
+ "cumulus-client-consensus-proposer",
+ "cumulus-client-service",
+ "cumulus-primitives-core",
+ "cumulus-primitives-parachain-inherent",
+ "cumulus-relay-chain-interface",
+ "frame-benchmarking",
+ "frame-benchmarking-cli",
+ "general-runtime",
+ "hex-literal 0.3.4",
+ "jsonrpsee",
+ "pallet-asset-tx-payment",
+ "pallet-assets",
+ "pallet-crowdfunding-rpc",
+ "pallet-crowdfunding-runtime-api",
+ "pallet-rwa-rpc",
+ "pallet-rwa-runtime-api",
+ "pallet-transaction-payment-rpc",
+ "parity-scale-codec",
+ "polkadot-cli",
+ "polkadot-overseer",
+ "polkadot-primitives",
+ "sc-basic-authorship",
+ "sc-chain-spec",
+ "sc-cli",
+ "sc-client-api",
+ "sc-consensus",
+ "sc-executor",
+ "sc-network",
+ "sc-network-sync",
+ "sc-rpc",
+ "sc-service",
+ "sc-sysinfo",
+ "sc-telemetry",
+ "sc-tracing",
+ "sc-transaction-pool",
+ "sc-transaction-pool-api",
+ "serde",
+ "serde_json",
+ "sp-api",
+ "sp-block-builder",
+ "sp-blockchain",
+ "sp-consensus-aura",
+ "sp-core",
+ "sp-io",
+ "sp-keystore",
+ "sp-runtime",
+ "sp-timestamp",
+ "staging-xcm",
+ "substrate-build-script-utils",
+ "substrate-frame-rpc-system",
+ "substrate-prometheus-endpoint",
+ "tracing",
+]
+
+[[package]]
+name = "thxnet-runtime"
+version = "1.0.0"
+dependencies = [
+ "bitvec",
+ "frame-benchmarking",
+ "frame-election-provider-support",
+ "frame-executive",
+ "frame-remote-externalities",
+ "frame-support",
+ "frame-system",
+ "frame-system-benchmarking",
+ "frame-system-rpc-runtime-api",
+ "frame-try-runtime",
+ "hex-literal 0.4.1",
+ "log",
+ "pallet-asset-tx-payment",
+ "pallet-assets",
+ "pallet-authority-discovery",
+ "pallet-authorship",
+ "pallet-babe",
+ "pallet-bags-list",
+ "pallet-balances",
+ "pallet-bounties",
+ "pallet-child-bounties",
+ "pallet-collective",
+ "pallet-conviction-voting",
+ "pallet-dao",
+ "pallet-democracy",
+ "pallet-election-provider-multi-phase",
+ "pallet-election-provider-support-benchmarking",
+ "pallet-elections-phragmen",
+ "pallet-fast-unstake",
+ "pallet-finality-rescue",
+ "pallet-grandpa",
+ "pallet-identity",
+ "pallet-im-online",
+ "pallet-indices",
+ "pallet-membership",
+ "pallet-message-queue",
+ "pallet-multisig",
+ "pallet-nfts",
+ "pallet-nfts-runtime-api",
+ "pallet-nomination-pools",
+ "pallet-nomination-pools-benchmarking",
+ "pallet-nomination-pools-runtime-api",
+ "pallet-offences",
+ "pallet-offences-benchmarking",
+ "pallet-preimage",
+ "pallet-proxy",
+ "pallet-referenda",
+ "pallet-scheduler",
+ "pallet-session",
+ "pallet-session-benchmarking",
+ "pallet-staking",
+ "pallet-staking-reward-curve",
+ "pallet-staking-runtime-api",
+ "pallet-sudo",
+ "pallet-timestamp",
+ "pallet-tips",
+ "pallet-transaction-payment",
+ "pallet-transaction-payment-rpc-runtime-api",
+ "pallet-treasury",
+ "pallet-utility",
+ "pallet-vesting",
+ "pallet-whitelist",
+ "pallet-xcm",
+ "pallet-xcm-benchmarks",
+ "parity-scale-codec",
+ "polkadot-primitives",
+ "polkadot-runtime-common",
+ "polkadot-runtime-parachains",
+ "rustc-hex",
+ "scale-info",
+ "separator",
+ "serde",
+ "serde_derive",
+ "serde_json",
+ "smallvec",
+ "sp-api",
+ "sp-arithmetic",
+ "sp-authority-discovery",
+ "sp-block-builder",
+ "sp-consensus-babe",
+ "sp-consensus-beefy",
+ "sp-core",
+ "sp-genesis-builder",
+ "sp-inherents",
+ "sp-io",
+ "sp-keyring",
+ "sp-mmr-primitives",
+ "sp-npos-elections",
+ "sp-offchain",
+ "sp-runtime",
+ "sp-session",
+ "sp-staking",
+ "sp-std 14.0.0",
+ "sp-storage 19.0.0",
+ "sp-tracing 16.0.0",
+ "sp-transaction-pool",
+ "sp-trie",
+ "sp-version",
+ "staging-xcm",
+ "staging-xcm-builder",
+ "staging-xcm-executor",
+ "static_assertions",
+ "substrate-wasm-builder",
+ "thxnet-runtime-constants",
+ "tiny-keccak",
+ "tokio",
+]
+
+[[package]]
+name = "thxnet-runtime-constants"
+version = "1.0.0"
+dependencies = [
+ "array-bytes",
+ "frame-support",
+ "polkadot-primitives",
+ "polkadot-runtime-common",
+ "smallvec",
+ "sp-core",
+ "sp-runtime",
+ "sp-weights",
+]
+
+[[package]]
+name = "thxnet-testnet-runtime"
+version = "1.0.0"
+dependencies = [
+ "bitvec",
+ "frame-benchmarking",
+ "frame-election-provider-support",
+ "frame-executive",
+ "frame-remote-externalities",
+ "frame-support",
+ "frame-system",
+ "frame-system-benchmarking",
+ "frame-system-rpc-runtime-api",
+ "frame-try-runtime",
+ "hex-literal 0.4.1",
+ "log",
+ "pallet-asset-tx-payment",
+ "pallet-assets",
+ "pallet-authority-discovery",
+ "pallet-authorship",
+ "pallet-babe",
+ "pallet-bags-list",
+ "pallet-balances",
+ "pallet-bounties",
+ "pallet-child-bounties",
+ "pallet-collective",
+ "pallet-conviction-voting",
+ "pallet-dao",
+ "pallet-democracy",
+ "pallet-election-provider-multi-phase",
+ "pallet-election-provider-support-benchmarking",
+ "pallet-elections-phragmen",
+ "pallet-fast-unstake",
+ "pallet-finality-rescue",
+ "pallet-grandpa",
+ "pallet-identity",
+ "pallet-im-online",
+ "pallet-indices",
+ "pallet-membership",
+ "pallet-message-queue",
+ "pallet-multisig",
+ "pallet-nfts",
+ "pallet-nfts-runtime-api",
+ "pallet-nomination-pools",
+ "pallet-nomination-pools-benchmarking",
+ "pallet-nomination-pools-runtime-api",
+ "pallet-offences",
+ "pallet-offences-benchmarking",
+ "pallet-preimage",
+ "pallet-proxy",
+ "pallet-referenda",
+ "pallet-scheduler",
+ "pallet-session",
+ "pallet-session-benchmarking",
+ "pallet-staking",
+ "pallet-staking-reward-curve",
+ "pallet-staking-runtime-api",
+ "pallet-sudo",
+ "pallet-timestamp",
+ "pallet-tips",
+ "pallet-transaction-payment",
+ "pallet-transaction-payment-rpc-runtime-api",
+ "pallet-treasury",
+ "pallet-utility",
+ "pallet-vesting",
+ "pallet-whitelist",
+ "pallet-xcm",
+ "pallet-xcm-benchmarks",
+ "parity-scale-codec",
+ "polkadot-primitives",
+ "polkadot-runtime-common",
+ "polkadot-runtime-parachains",
+ "rustc-hex",
+ "scale-info",
+ "separator",
+ "serde",
+ "serde_derive",
+ "serde_json",
+ "smallvec",
+ "sp-api",
+ "sp-arithmetic",
+ "sp-authority-discovery",
+ "sp-block-builder",
+ "sp-consensus-babe",
+ "sp-consensus-beefy",
+ "sp-core",
+ "sp-genesis-builder",
+ "sp-inherents",
+ "sp-io",
+ "sp-keyring",
+ "sp-mmr-primitives",
+ "sp-npos-elections",
+ "sp-offchain",
+ "sp-runtime",
+ "sp-session",
+ "sp-staking",
+ "sp-std 14.0.0",
+ "sp-storage 19.0.0",
+ "sp-tracing 16.0.0",
+ "sp-transaction-pool",
+ "sp-trie",
+ "sp-version",
+ "staging-xcm",
+ "staging-xcm-builder",
+ "staging-xcm-executor",
+ "static_assertions",
+ "substrate-wasm-builder",
+ "thxnet-testnet-runtime-constants",
+ "tiny-keccak",
+ "tokio",
+]
+
+[[package]]
+name = "thxnet-testnet-runtime-constants"
+version = "1.0.0"
+dependencies = [
+ "array-bytes",
+ "frame-support",
+ "polkadot-primitives",
+ "polkadot-runtime-common",
+ "smallvec",
+ "sp-core",
+ "sp-runtime",
+ "sp-weights",
+]
+
+[[package]]
+name = "thxnet-xcm-emulator"
+version = "0.1.0"
+dependencies = [
+ "casey",
+ "cumulus-pallet-aura-ext",
+ "cumulus-pallet-dmp-queue",
+ "cumulus-pallet-parachain-system",
+ "cumulus-pallet-xcmp-queue",
+ "cumulus-primitives-core",
+ "cumulus-primitives-parachain-inherent",
+ "cumulus-test-relay-sproof-builder",
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-aura",
+ "pallet-balances",
+ "pallet-message-queue",
+ "parachains-common",
+ "parity-scale-codec",
+ "paste",
+ "polkadot-parachain-primitives",
+ "polkadot-primitives",
+ "polkadot-runtime-parachains",
+ "quote 1.0.35",
+ "sp-arithmetic",
+ "sp-consensus-aura",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std 14.0.0",
+ "sp-tracing 16.0.0",
+ "sp-trie",
+ "staging-parachain-info",
+ "staging-xcm",
+ "staging-xcm-executor",
 ]
 
 [[package]]
@@ -22852,7 +23444,7 @@ dependencies = [
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
- "hex-literal",
+ "hex-literal 0.4.1",
  "log",
  "pallet-asset-rate",
  "pallet-authority-discovery",
@@ -23492,6 +24084,41 @@ dependencies = [
  "staging-xcm",
  "staging-xcm-builder",
  "staging-xcm-executor",
+]
+
+[[package]]
+name = "xcm-integration-tests"
+version = "0.1.0"
+dependencies = [
+ "cumulus-pallet-dmp-queue",
+ "cumulus-pallet-parachain-system",
+ "cumulus-pallet-xcmp-queue",
+ "cumulus-primitives-core",
+ "frame-support",
+ "frame-system",
+ "general-runtime",
+ "log",
+ "pallet-balances",
+ "pallet-message-queue",
+ "pallet-staking",
+ "pallet-xcm",
+ "parachains-common",
+ "parity-scale-codec",
+ "polkadot-parachain-primitives",
+ "polkadot-primitives",
+ "polkadot-runtime-parachains",
+ "sp-authority-discovery",
+ "sp-consensus-babe",
+ "sp-consensus-grandpa",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-tracing 16.0.0",
+ "staging-parachain-info",
+ "staging-xcm",
+ "staging-xcm-executor",
+ "thxnet-runtime",
+ "thxnet-xcm-emulator",
 ]
 
 [[package]]
