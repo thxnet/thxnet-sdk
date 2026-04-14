@@ -190,6 +190,48 @@ run_xcm_test() {
         return
     fi
 
+    # Port open != chain RPC ready. Chopsticks xcm mode opens the WebSocket
+    # listener before the chain state is fully initialized; polkadot.js's
+    # ApiPromise.create waits for state_getMetadata to respond, which can
+    # time out (default 60s) if the chain isn't ready. Poll via a minimal
+    # JSON-RPC system_chain call until both chains respond, then proceed.
+    rpc_ready() {
+        local port="$1"
+        local response
+        response=$(curl -sf --max-time 3 \
+            -H "Content-Type: application/json" \
+            -d '{"id":1,"jsonrpc":"2.0","method":"system_chain","params":[]}' \
+            "http://localhost:${port}" 2>/dev/null || true)
+        [[ "${response}" == *'"result"'* ]]
+    }
+
+    echo "Waiting for RPC state to be ready (up to 60s)..."
+    local rpc_wait=0
+    local relay_rpc_ready=0
+    local para_rpc_ready=0
+    while [[ ${rpc_wait} -lt 60 ]]; do
+        if [[ ${relay_rpc_ready} -eq 0 ]] && rpc_ready "${XCM_RELAY_PORT}"; then
+            relay_rpc_ready=1
+            echo "  Relay RPC ready (${rpc_wait}s)"
+        fi
+        if [[ ${para_rpc_ready} -eq 0 ]] && rpc_ready "${XCM_PARA_PORT}"; then
+            para_rpc_ready=1
+            echo "  Para RPC ready (${rpc_wait}s)"
+        fi
+        if [[ ${relay_rpc_ready} -eq 1 && ${para_rpc_ready} -eq 1 ]]; then
+            break
+        fi
+        sleep 2
+        rpc_wait=$((rpc_wait + 2))
+    done
+
+    if [[ ${relay_rpc_ready} -eq 0 || ${para_rpc_ready} -eq 0 ]]; then
+        echo "WARN: RPC(s) not responsive after 60s (relay=${relay_rpc_ready} para=${para_rpc_ready}) — proceeding anyway"
+        echo "--- Chopsticks xcm log (last 50 lines) ---"
+        tail -n 50 "${chopsticks_log}" 2>/dev/null || echo "(log file unreadable)"
+        echo "--- end log ---"
+    fi
+
     # Run xcm-upgrade-test.ts against both endpoints
     echo "--- xcm-upgrade-test.ts ---"
     ((TOTAL++)) || true
