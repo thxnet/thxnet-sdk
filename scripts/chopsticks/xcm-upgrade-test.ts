@@ -12,8 +12,8 @@
 //
 //   # Run this test:
 //   bun run scripts/chopsticks/xcm-upgrade-test.ts \
-//     --relay-endpoint ws://localhost:8100 \
-//     --para-endpoint  ws://localhost:8102
+//     --relay-endpoint http://localhost:8100 \
+//     --para-endpoint  http://localhost:8102
 //
 // What this tests (XCM infrastructure gate):
 //   1. Connect to BOTH chains simultaneously — proves xcm mode is up
@@ -22,11 +22,12 @@
 //   4. Verify block height advances on both chains
 //   5. Verify state root changes on both chains (real state transitions)
 //
-// NOTE: Does NOT send actual XCM messages. This test verifies the multi-chain
-// fork infrastructure — both chains up, WASM applied, blocks produced, state
-// transitions happening. XCM message content verification is a separate concern.
-
-import { ApiPromise, WsProvider } from "@polkadot/api";
+// Implementation note: uses raw HTTP JSON-RPC (via fetch) rather than
+// polkadot.js @polkadot/api. Chopsticks xcm mode's WebSocket transport
+// can hang on subscription-based reads that polkadot.js issues internally
+// during ApiPromise.create — producing a "No response in 60s" timeout even
+// though the same RPC calls succeed instantly over HTTP. HTTP avoids the
+// entire subscription stack.
 
 // --- CLI argument parsing ---
 
@@ -39,8 +40,20 @@ function parseArg(flag: string, defaultVal: string): string {
   return process.argv[idx + 1];
 }
 
-const relayEndpoint = parseArg("--relay-endpoint", "ws://localhost:8100");
-const paraEndpoint = parseArg("--para-endpoint", "ws://localhost:8102");
+// Accept either ws:// or http:// forms for backwards compatibility with
+// earlier invocations. Internally we always use HTTP for JSON-RPC POSTs.
+function toHttpUrl(endpoint: string): string {
+  return endpoint
+    .replace(/^ws:\/\//, "http://")
+    .replace(/^wss:\/\//, "https://");
+}
+
+const relayEndpoint = toHttpUrl(
+  parseArg("--relay-endpoint", "http://localhost:8100")
+);
+const paraEndpoint = toHttpUrl(
+  parseArg("--para-endpoint", "http://localhost:8102")
+);
 
 // --- Structured test result ---
 
@@ -58,49 +71,123 @@ function check(name: string, passed: boolean, detail: string): void {
   console.log(`  [${icon}] ${name}: ${detail}`);
 }
 
+// --- Minimal JSON-RPC client ---
+
+interface RpcError {
+  code: number;
+  message: string;
+}
+
+interface RpcResponse<T> {
+  jsonrpc: "2.0";
+  id: number;
+  result?: T;
+  error?: RpcError;
+}
+
+let rpcId = 0;
+
+async function rpcCall<T>(
+  endpoint: string,
+  method: string,
+  params: unknown[] = [],
+  timeoutMs = 30_000
+): Promise<T> {
+  rpcId += 1;
+  const body = JSON.stringify({
+    jsonrpc: "2.0",
+    id: rpcId,
+    method,
+    params,
+  });
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body,
+      signal: controller.signal,
+    });
+    const json = (await res.json()) as RpcResponse<T>;
+    if (json.error) {
+      throw new Error(
+        `RPC error [${json.error.code}] ${method}: ${json.error.message}`
+      );
+    }
+    if (json.result === undefined) {
+      throw new Error(`RPC ${method}: empty response`);
+    }
+    return json.result;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// --- Chain-specific decoders ---
+
+interface RuntimeVersion {
+  specName: string;
+  specVersion: number;
+  implName: string;
+  implVersion: number;
+  transactionVersion: number;
+  authoringVersion: number;
+  stateVersion: number;
+}
+
+interface BlockHeader {
+  parentHash: string;
+  number: string; // hex
+  stateRoot: string;
+  extrinsicsRoot: string;
+}
+
+function hexToNumber(hex: string): number {
+  return parseInt(hex, 16);
+}
+
 // --- Per-chain verification ---
-//
-// Produces `blocksToCreate` new blocks, then asserts:
-//   (a) block height increased by at least blocksToCreate
-//   (b) stateRoot changed (non-empty blocks with real state transitions)
-//
-// Returns true if all checks pass for this chain.
 
 const BLOCKS_TO_CREATE = 3;
 
-async function verifyChain(
-  label: string,
-  api: ApiPromise,
-  provider: WsProvider
-): Promise<void> {
-  console.log(`\n--- ${label} ---`);
+async function verifyChain(label: string, endpoint: string): Promise<void> {
+  console.log(`\n--- ${label} (${endpoint}) ---`);
 
-  // 1. Runtime version
-  const version = api.runtimeVersion;
-  const specName = version.specName.toString();
-  const specVersion = version.specVersion.toNumber();
-  console.log(`  Runtime: ${specName} v${specVersion}`);
+  // 1. Runtime version — proves chain is alive AND WASM override (if any)
+  //    produced a meaningful specVersion
+  const version = await rpcCall<RuntimeVersion>(
+    endpoint,
+    "state_getRuntimeVersion"
+  );
+  console.log(`  Runtime: ${version.specName} v${version.specVersion}`);
   check(
     `${label}.runtimeVersion`,
-    specVersion > 0,
-    `${specName} v${specVersion}`
+    version.specVersion > 0,
+    `${version.specName} v${version.specVersion}`
   );
 
-  // 2. Block height before
-  const headerBefore = await api.rpc.chain.getHeader();
-  const blockBefore = headerBefore.number.toNumber();
+  // 2. Block height BEFORE
+  const headerBefore = await rpcCall<BlockHeader>(endpoint, "chain_getHeader");
+  const blockBefore = hexToNumber(headerBefore.number);
   console.log(`  Block before: #${blockBefore}`);
 
-  // 3. Produce blocks
+  // 3. Produce blocks via Chopsticks dev_newBlock
   console.log(`  Producing ${BLOCKS_TO_CREATE} blocks via dev_newBlock...`);
   for (let i = 0; i < BLOCKS_TO_CREATE; i++) {
-    const result = await provider.send("dev_newBlock", [{ count: 1 }]);
+    const result = await rpcCall<unknown>(
+      endpoint,
+      "dev_newBlock",
+      [{ count: 1 }],
+      60_000
+    );
     console.log(`    block #${i + 1}: ${JSON.stringify(result)}`);
   }
 
-  // 4. Block height after
-  const headerAfter = await api.rpc.chain.getHeader();
-  const blockAfter = headerAfter.number.toNumber();
+  // 4. Block height AFTER
+  const headerAfter = await rpcCall<BlockHeader>(endpoint, "chain_getHeader");
+  const blockAfter = hexToNumber(headerAfter.number);
   const heightGain = blockAfter - blockBefore;
   check(
     `${label}.blockProduction`,
@@ -108,19 +195,31 @@ async function verifyChain(
     `#${blockBefore} -> #${blockAfter} (+${heightGain})`
   );
 
-  // 5. State root diff — get block data at before/after heights
-  const hashBefore = await api.rpc.chain.getBlockHash(blockBefore);
-  const hashAfter = await api.rpc.chain.getBlockHash(blockAfter);
-  const dataBefore = await api.rpc.chain.getBlock(hashBefore);
-  const dataAfter = await api.rpc.chain.getBlock(hashAfter);
+  // 5. State root diff — fetch block data at before/after heights
+  const hashBefore = await rpcCall<string>(endpoint, "chain_getBlockHash", [
+    blockBefore,
+  ]);
+  const hashAfter = await rpcCall<string>(endpoint, "chain_getBlockHash", [
+    blockAfter,
+  ]);
+  const dataBefore = await rpcCall<{ block: { header: BlockHeader } }>(
+    endpoint,
+    "chain_getBlock",
+    [hashBefore]
+  );
+  const dataAfter = await rpcCall<{ block: { header: BlockHeader } }>(
+    endpoint,
+    "chain_getBlock",
+    [hashAfter]
+  );
 
-  const rootBefore = dataBefore.block.header.stateRoot.toString();
-  const rootAfter = dataAfter.block.header.stateRoot.toString();
+  const rootBefore = dataBefore.block.header.stateRoot;
+  const rootAfter = dataAfter.block.header.stateRoot;
   const rootChanged = rootBefore !== rootAfter;
 
   if (!rootChanged) {
     // Warn but do not fail — empty blocks can be valid in Chopsticks xcm mode
-    // depending on inherent timing. This mirrors the existing upgrade-test.ts behaviour.
+    // depending on inherent timing. This mirrors the existing upgrade-test.ts.
     console.warn(
       `  WARNING [${label}]: stateRoot unchanged — blocks may be empty`
     );
@@ -129,9 +228,8 @@ async function verifyChain(
       `  stateRoot changed: ${rootBefore.slice(0, 10)}... -> ${rootAfter.slice(0, 10)}...`
     );
   }
-  // NOTE: stateRoot is intentionally NOT asserted via check() — it is a warn-only
-  // signal. Chopsticks xcm mode can produce empty blocks depending on inherent
-  // timing; a missing stateRoot change must not cause process.exit(1).
+  // NOTE: stateRoot is intentionally NOT asserted via check() — it is a
+  // warn-only signal.
 }
 
 // --- Main ---
@@ -143,67 +241,20 @@ async function main(): Promise<void> {
   console.log(`  Parachain:    ${paraEndpoint}`);
   console.log("");
 
-  // Connect to BOTH chains simultaneously — this is the key infra check.
-  // If either fails to connect, Chopsticks xcm mode is not running correctly.
-  console.log("Connecting to both chains...");
-  const relayProvider = new WsProvider(relayEndpoint);
-  const paraProvider = new WsProvider(paraEndpoint);
+  // Sentinel call on each endpoint so any connectivity failure surfaces
+  // immediately (with a clear error) instead of being attributed to a later step.
+  console.log("Pinging both endpoints...");
+  const relayChain = await rpcCall<string>(relayEndpoint, "system_chain");
+  console.log(`  Relay chain name: ${relayChain}`);
+  check("relay.connected", true, relayChain);
 
-  // Wrap everything including Promise.all in try/finally so providers are always
-  // disconnected even if the connection itself throws (e.g. one endpoint is down).
-  try {
-    // Wait for WebSocket connections to be open before doing anything.
-    console.log("  Waiting for WebSocket handshake...");
-    await relayProvider.isReady;
-    console.log("  Relay WS ready");
-    await paraProvider.isReady;
-    console.log("  Para WS ready");
+  const paraChain = await rpcCall<string>(paraEndpoint, "system_chain");
+  console.log(`  Para chain name:  ${paraChain}`);
+  check("para.connected", true, paraChain);
 
-    // Kick-start: produce one block on each chain BEFORE creating ApiPromise.
-    // In Chopsticks xcm mode the chains start idle (no inherent drives block
-    // production), which causes polkadot.js's ApiPromise.create to hang for
-    // 60s waiting for the initial chain_subscribeNewHeads notification that
-    // never arrives. Producing an explicit block gives the subscription its
-    // first event and unblocks API init.
-    console.log("  Kick-starting chains via dev_newBlock (pre-API)...");
-    await relayProvider.send("dev_newBlock", [{ count: 1 }]);
-    console.log("  Relay kick-start OK");
-    await paraProvider.send("dev_newBlock", [{ count: 1 }]);
-    console.log("  Para kick-start OK");
-
-    // Create APIs sequentially with individual logging so a hang in either
-    // step is immediately identifiable in CI logs (Promise.all obscures which
-    // of the two is stuck).
-    console.log("  Creating relay API...");
-    const relayApi = await ApiPromise.create({ provider: relayProvider });
-    console.log("  Relay API created");
-    console.log("  Creating para API...");
-    const paraApi = await ApiPromise.create({ provider: paraProvider });
-    console.log("  Para API created");
-
-    check(
-      "relay.connected",
-      relayApi.isConnected,
-      `connected to ${relayEndpoint}`
-    );
-    check("para.connected", paraApi.isConnected, `connected to ${paraEndpoint}`);
-
-    // Verify relay chain
-    await verifyChain("relay", relayApi, relayProvider);
-
-    // Verify parachain
-    await verifyChain("para", paraApi, paraProvider);
-
-    // Always disconnect — clean up regardless of pass/fail
-    await relayApi.disconnect();
-    await paraApi.disconnect();
-  } catch (err) {
-    // Attempt provider-level cleanup even when ApiPromise.create failed,
-    // suppressing secondary errors so the original error propagates cleanly.
-    await relayProvider.disconnect().catch(() => {});
-    await paraProvider.disconnect().catch(() => {});
-    throw err;
-  }
+  // Verify each chain (runtime version, block production, state transitions).
+  await verifyChain("relay", relayEndpoint);
+  await verifyChain("para", paraEndpoint);
 
   // --- Summary ---
   const passed = results.filter((r) => r.passed).length;
@@ -229,6 +280,7 @@ async function main(): Promise<void> {
 }
 
 main().catch((err) => {
-  console.error("XCM UPGRADE TEST FAILED:", err.message ?? err);
+  const msg = err instanceof Error ? err.message : String(err);
+  console.error("XCM UPGRADE TEST FAILED:", msg);
   process.exit(1);
 });

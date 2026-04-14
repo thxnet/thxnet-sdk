@@ -1031,9 +1031,17 @@ extract_key_metrics() {
     # NOTE: Do NOT exclude bare 'time:' — it matches 'runtime:' as a substring,
     #       which would filter out virtually all meaningful try-runtime output.
     #       'timestamp' already covers timestamp-style lines.
+    #
+    # CRITICAL: Strip the leading `[ISO-DATE LEVEL module]` bracket that every
+    # try-runtime log line carries (e.g.
+    # `[2026-04-14T11:30:02Z DEBUG runtime::frame-support] ✅ ...`).
+    # Two passes started seconds apart produce byte-identical migration output
+    # except for that wall-clock timestamp; leaving it in the comparison makes
+    # every run a guaranteed idempotency FAIL.
     grep -iE '(weight|migration|version|check|upgrade|storage|pallet|executed|consumed|limit|spec)' \
         "${logfile}" \
         | grep -vE '(timestamp|elapsed|seconds|date)' \
+        | sed -E 's/^\[[^]]*\][[:space:]]*//' \
         | sort \
         || true
 }
