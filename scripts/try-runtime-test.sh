@@ -753,7 +753,7 @@ run_fast_forward() {
         echo "    fast-forward \\"
         echo "    --n-blocks ${n_blocks} \\"
         echo "    --blocktime ${blocktime} \\"
-        echo "    --try-state \\"
+        echo "    --try-state all \\"
         echo "    live --uri ${uri}"
         echo "  2>&1 | tee ${log_file}"
         exit_code=0
@@ -768,7 +768,7 @@ run_fast_forward() {
             fast-forward \
             --n-blocks "${n_blocks}" \
             --blocktime "${blocktime}" \
-            --try-state \
+            --try-state all \
             live --uri "${uri}" \
             2>&1 | tee "${log_file}"
         exit_code=${PIPESTATUS[0]}

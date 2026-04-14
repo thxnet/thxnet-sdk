@@ -661,7 +661,8 @@ jobs:
       startsWith(github.head_ref || github.ref_name, 'feat/endgame') ||
       github.ref_name == 'main' ||
       github.ref_name == 'develop' ||
-      github.base_ref == 'main'
+      github.base_ref == 'main' ||
+      startsWith(github.base_ref, 'release/')
     steps:
       - uses: actions/checkout@v5
 
