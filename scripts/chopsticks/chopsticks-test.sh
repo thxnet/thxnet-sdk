@@ -67,7 +67,9 @@ TOTAL=0
 
 XCM_RELAY_PORT=8100
 XCM_PARA_PORT=8102
-XCM_STARTUP_WAIT=45
+XCM_STARTUP_WAIT=90
+XCM_LOG_DIR="${CI:+/tmp/chopsticks-xcm-logs}"
+XCM_LOG_DIR="${XCM_LOG_DIR:-/tmp/chopsticks-xcm-logs}"
 
 cleanup() {
     pkill -f "chopsticks.*${SCRIPT_DIR}" 2>/dev/null || true
@@ -121,13 +123,24 @@ run_xcm_test() {
     cleanup_xcm_tmp() { rm -rf "${tmp_dir}"; }
     trap 'cleanup_xcm_tmp; cleanup' EXIT
 
-    # Start Chopsticks in xcm mode
-    echo "Starting Chopsticks in xcm mode..."
+    # Start Chopsticks in xcm mode. Redirect output to a log file (not /dev/null)
+    # so that on failure we have diagnostics about what Chopsticks was doing.
+    mkdir -p "${XCM_LOG_DIR}"
+    local chopsticks_log="${XCM_LOG_DIR}/chopsticks-xcm.log"
+    echo "Starting Chopsticks in xcm mode (log: ${chopsticks_log})..."
     bunx @acala-network/chopsticks xcm \
         -r "${tmp_relay_config}" \
         -p "${tmp_para_config}" \
-        >/dev/null 2>&1 &
+        >"${chopsticks_log}" 2>&1 &
     local chopsticks_pid=$!
+
+    # Port readiness via bash builtin /dev/tcp — avoids depending on `nc` which
+    # is not guaranteed to be installed on all runner images (nc: command not
+    # found silently fails the health check, producing the same symptom as a
+    # genuinely slow startup).
+    port_ready() {
+        (timeout 1 bash -c ">/dev/tcp/localhost/$1") 2>/dev/null
+    }
 
     # Wait for both endpoints to become ready
     echo "Waiting for both endpoints (up to ${XCM_STARTUP_WAIT}s)..."
@@ -135,11 +148,11 @@ run_xcm_test() {
     local relay_ready=0
     local para_ready=0
     while [[ ${waited} -lt ${XCM_STARTUP_WAIT} ]]; do
-        if [[ ${relay_ready} -eq 0 ]] && nc -z localhost "${XCM_RELAY_PORT}" 2>/dev/null; then
+        if [[ ${relay_ready} -eq 0 ]] && port_ready "${XCM_RELAY_PORT}"; then
             relay_ready=1
             echo "  Relay endpoint ready (${waited}s)"
         fi
-        if [[ ${para_ready} -eq 0 ]] && nc -z localhost "${XCM_PARA_PORT}" 2>/dev/null; then
+        if [[ ${para_ready} -eq 0 ]] && port_ready "${XCM_PARA_PORT}"; then
             para_ready=1
             echo "  Para endpoint ready (${waited}s)"
         fi
@@ -149,6 +162,13 @@ run_xcm_test() {
         sleep 1
         ((waited++)) || true
     done
+
+    # On failure, tail the Chopsticks log so operators can see what went wrong
+    if [[ ${relay_ready} -eq 0 || ${para_ready} -eq 0 ]]; then
+        echo "--- Chopsticks xcm log (last 50 lines) ---"
+        tail -n 50 "${chopsticks_log}" 2>/dev/null || echo "(log file unreadable)"
+        echo "--- end log ---"
+    fi
 
     if ! kill -0 "${chopsticks_pid}" 2>/dev/null; then
         echo "FAIL: Chopsticks xcm process died during startup"
