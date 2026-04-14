@@ -1,10 +1,17 @@
 #!/usr/bin/env bash
 # Chopsticks upgrade test orchestrator
 # Runs upgrade-test.ts and post-upgrade-pallet-test.ts against each chain config.
+# Also supports XCM multi-chain mode via the 'xcm' subcommand.
 #
 # Usage:
 #   ./scripts/chopsticks/chopsticks-test.sh [chain]
-#   chain: leafchain-sand-testnet (default), leafchain-avatect-mainnet, leafchain-lmt-testnet, leafchain-lmt-mainnet, leafchain-ecq-testnet, leafchain-ecq-mainnet, rootchain-testnet, rootchain-mainnet, all
+#   ./scripts/chopsticks/chopsticks-test.sh xcm
+#
+#   chain: leafchain-sand-testnet (default), leafchain-avatect-mainnet, leafchain-lmt-testnet,
+#          leafchain-lmt-mainnet, leafchain-ecq-testnet, leafchain-ecq-mainnet,
+#          rootchain-testnet, rootchain-mainnet, all
+#   xcm:  XCM multi-chain test — forks rootchain-testnet (relay) + leafchain-sand-testnet (para)
+#         and runs xcm-upgrade-test.ts against both endpoints simultaneously.
 #
 # Prerequisites:
 #   - bun installed
@@ -58,10 +65,132 @@ PASSED=0
 FAILED=0
 TOTAL=0
 
+XCM_RELAY_PORT=8100
+XCM_PARA_PORT=8102
+XCM_STARTUP_WAIT=45
+
 cleanup() {
     pkill -f "chopsticks.*${SCRIPT_DIR}" 2>/dev/null || true
 }
 trap cleanup EXIT
+
+run_xcm_test() {
+    local relay_wasm="${ROOTCHAIN_TESTNET_WASM}"
+    local para_wasm="${LEAFCHAIN_WASM}"
+    local relay_config="${SCRIPT_DIR}/rootchain-testnet.yml"
+    local para_config="${SCRIPT_DIR}/leafchain-sand-testnet.yml"
+    local relay_endpoint="ws://localhost:${XCM_RELAY_PORT}"
+    local para_endpoint="ws://localhost:${XCM_PARA_PORT}"
+
+    echo ""
+    echo "═══════════════════════════════════════════════"
+    echo "  XCM Test: rootchain-testnet (relay) + leafchain-sand-testnet (para)"
+    echo "  Relay port: ${XCM_RELAY_PORT}  Para port: ${XCM_PARA_PORT}"
+    echo "═══════════════════════════════════════════════"
+
+    # Check WASMs exist
+    if [[ ! -f "${relay_wasm}" ]]; then
+        echo "SKIP: Relay WASM not found: ${relay_wasm}"
+        ((FAILED++)) || true
+        ((TOTAL++)) || true
+        return
+    fi
+    if [[ ! -f "${para_wasm}" ]]; then
+        echo "SKIP: Para WASM not found: ${para_wasm}"
+        ((FAILED++)) || true
+        ((TOTAL++)) || true
+        return
+    fi
+
+    # Chopsticks xcm mode has no --relay-wasm / --para-wasm CLI flags.
+    # The only supported mechanism is the `wasm-override:` key in each chain's
+    # config file. Generate temporary configs that extend the base configs with
+    # the wasm-override entry so we do not mutate the checked-in YML files.
+    local tmp_dir
+    tmp_dir="$(mktemp -d)"
+    local tmp_relay_config="${tmp_dir}/rootchain-testnet.yml"
+    local tmp_para_config="${tmp_dir}/leafchain-sand-testnet.yml"
+
+    # Copy base configs and append wasm-override line
+    cp "${relay_config}" "${tmp_relay_config}"
+    echo "wasm-override: ${relay_wasm}" >> "${tmp_relay_config}"
+    cp "${para_config}" "${tmp_para_config}"
+    echo "wasm-override: ${para_wasm}" >> "${tmp_para_config}"
+
+    # Ensure temp dir is removed on function exit
+    cleanup_xcm_tmp() { rm -rf "${tmp_dir}"; }
+    trap 'cleanup_xcm_tmp; cleanup' EXIT
+
+    # Start Chopsticks in xcm mode
+    echo "Starting Chopsticks in xcm mode..."
+    bunx @acala-network/chopsticks xcm \
+        -r "${tmp_relay_config}" \
+        -p "${tmp_para_config}" \
+        >/dev/null 2>&1 &
+    local chopsticks_pid=$!
+
+    # Wait for both endpoints to become ready
+    echo "Waiting for both endpoints (up to ${XCM_STARTUP_WAIT}s)..."
+    local waited=0
+    local relay_ready=0
+    local para_ready=0
+    while [[ ${waited} -lt ${XCM_STARTUP_WAIT} ]]; do
+        if [[ ${relay_ready} -eq 0 ]] && nc -z localhost "${XCM_RELAY_PORT}" 2>/dev/null; then
+            relay_ready=1
+            echo "  Relay endpoint ready (${waited}s)"
+        fi
+        if [[ ${para_ready} -eq 0 ]] && nc -z localhost "${XCM_PARA_PORT}" 2>/dev/null; then
+            para_ready=1
+            echo "  Para endpoint ready (${waited}s)"
+        fi
+        if [[ ${relay_ready} -eq 1 && ${para_ready} -eq 1 ]]; then
+            break
+        fi
+        sleep 1
+        ((waited++)) || true
+    done
+
+    if ! kill -0 "${chopsticks_pid}" 2>/dev/null; then
+        echo "FAIL: Chopsticks xcm process died during startup"
+        ((FAILED++)) || true
+        ((TOTAL++)) || true
+        rm -rf "${tmp_dir}"
+        trap cleanup EXIT
+        return
+    fi
+
+    if [[ ${relay_ready} -eq 0 || ${para_ready} -eq 0 ]]; then
+        echo "FAIL: Endpoint(s) not ready after ${XCM_STARTUP_WAIT}s (relay=${relay_ready} para=${para_ready})"
+        kill "${chopsticks_pid}" 2>/dev/null || true
+        wait "${chopsticks_pid}" 2>/dev/null || true
+        ((FAILED++)) || true
+        ((TOTAL++)) || true
+        rm -rf "${tmp_dir}"
+        trap cleanup EXIT
+        return
+    fi
+
+    # Run xcm-upgrade-test.ts against both endpoints
+    echo "--- xcm-upgrade-test.ts ---"
+    ((TOTAL++)) || true
+    if bun run "${SCRIPT_DIR}/xcm-upgrade-test.ts" \
+        --relay-endpoint "${relay_endpoint}" \
+        --para-endpoint "${para_endpoint}" 2>&1; then
+        ((PASSED++)) || true
+    else
+        ((FAILED++)) || true
+    fi
+
+    # Stop Chopsticks
+    kill "${chopsticks_pid}" 2>/dev/null || true
+    wait "${chopsticks_pid}" 2>/dev/null || true
+    sleep 2
+
+    # Remove temp configs
+    rm -rf "${tmp_dir}"
+    # Restore simple cleanup trap (temp dir already gone)
+    trap cleanup EXIT
+}
 
 run_chain_test() {
     local chain="$1"
@@ -124,7 +253,9 @@ run_chain_test() {
 echo "Chopsticks Upgrade Test Orchestrator"
 echo "====================================="
 
-if [[ "${CHAIN}" == "all" ]]; then
+if [[ "${CHAIN}" == "xcm" || "${CHAIN}" == "xcm-rootchain-testnet-leafchain-sand-testnet" ]]; then
+    run_xcm_test
+elif [[ "${CHAIN}" == "all" ]]; then
     for c in leafchain-sand-testnet leafchain-avatect-mainnet leafchain-lmt-testnet leafchain-lmt-mainnet leafchain-ecq-testnet leafchain-ecq-mainnet rootchain-testnet rootchain-mainnet; do
         run_chain_test "${c}"
     done
