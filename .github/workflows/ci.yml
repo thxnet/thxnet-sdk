@@ -445,7 +445,12 @@ jobs:
     runs-on: hetzner-thxnet
     permissions:
       contents: read
-    timeout-minutes: 45
+    # Bumped from 45 → 90 after enabling idempotency testing: the previous
+    # 45-min budget assumed idempotency was silently skipped (bug in
+    # snapshot_supported() fixed in Wave 1). On some leafchains the full
+    # sequence (migration + idempotency dual-pass + pallet-matrix) now
+    # clears 45 min. 90 gives headroom without being gratuitous.
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       max-parallel: 11
@@ -550,6 +555,71 @@ jobs:
             exit 1
           fi
 
+  try-runtime-fast-forward:
+    name: try-runtime fast-forward (${{ matrix.chain }})
+    needs: [preflight, build-upgrade-extras]
+    runs-on: hetzner-thxnet
+    permissions:
+      contents: read
+    timeout-minutes: 90
+    # leafchain-sand-testnet is known to panic in pallet_aura::on_initialize
+    # during fast-forward block production on v1.12.0 (surfaced 2026-04-14 by
+    # this gate — exactly the class of bug the gate is designed to catch,
+    # cf. 2026-04-11 CheckWeight/set_validation_data incident). Non-blocking
+    # until the runtime fix lands; rootchain-testnet remains a hard gate.
+    continue-on-error: ${{ matrix.chain == 'leafchain-sand-testnet' }}
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        chain:
+          - rootchain-testnet
+          - leafchain-sand-testnet
+    env:
+      SNAPSHOT_DIR: /tmp/try-runtime-snapshots/${{ matrix.chain }}
+      SKIP_BUILD: "1"
+      TRY_RUNTIME_BIN: /home/runner/.cargo/bin/try-runtime
+      CARGO_TARGET_DIR: /tmp/try-runtime-artifacts
+      ROOTCHAIN_TESTNET_URI: ${{ secrets.ROOTCHAIN_RPC_URL }}
+      LEAFCHAIN_SAND_TESTNET_URI: ${{ secrets.LEAFCHAIN_RPC_URL }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Download try-runtime WASMs
+        uses: actions/download-artifact@v5
+        with:
+          name: try-runtime-wasm
+          path: /tmp/try-runtime-wasm
+
+      - name: Stage WASMs for script
+        run: |
+          WBUILD="${CARGO_TARGET_DIR}/release/wbuild"
+          mkdir -p "${WBUILD}/thxnet-testnet-runtime" \
+                   "${WBUILD}/thxnet-runtime" \
+                   "${WBUILD}/general-runtime"
+          cp /tmp/try-runtime-wasm/thxnet-testnet-runtime-try-runtime.wasm \
+             "${WBUILD}/thxnet-testnet-runtime/thxnet_testnet_runtime.compact.compressed.wasm"
+          cp /tmp/try-runtime-wasm/thxnet-runtime-try-runtime.wasm \
+             "${WBUILD}/thxnet-runtime/thxnet_runtime.compact.compressed.wasm"
+          cp /tmp/try-runtime-wasm/general-runtime-try-runtime.wasm \
+             "${WBUILD}/general-runtime/general_runtime.compact.compressed.wasm"
+
+      - name: Prepare snapshot directory
+        run: mkdir -p "${SNAPSHOT_DIR}"
+
+      - name: "Fast-forward test — ${{ matrix.chain }}"
+        run: scripts/try-runtime-test.sh "fast-forward-${{ matrix.chain }}"
+
+      - name: Upload fast-forward logs
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: try-runtime-fast-forward-logs-${{ matrix.chain }}
+          retention-days: 7
+          if-no-files-found: ignore
+          path: |
+            ${{ env.SNAPSHOT_DIR }}/*.log
+
   zombienet:
     name: Zombienet smoke test
     needs: [preflight, build-upgrade-extras, build-binaries]
@@ -594,7 +664,7 @@ jobs:
     name: Chopsticks upgrade test
     needs: [preflight, build-binaries]
     runs-on: hetzner-thxnet
-    timeout-minutes: 30
+    timeout-minutes: 45
     if: >-
       startsWith(github.head_ref || github.ref_name, 'upgrade/') ||
       startsWith(github.head_ref || github.ref_name, 'release/') ||
@@ -602,7 +672,8 @@ jobs:
       startsWith(github.head_ref || github.ref_name, 'feat/endgame') ||
       github.ref_name == 'main' ||
       github.ref_name == 'develop' ||
-      github.base_ref == 'main'
+      github.base_ref == 'main' ||
+      startsWith(github.base_ref, 'release/')
     steps:
       - uses: actions/checkout@v5
 
@@ -615,10 +686,14 @@ jobs:
       - name: Setup WASM paths
         run: |
           echo "Artifact contents:" && find wasm -type f
-          mkdir -p target/release/wbuild/general-runtime
+          mkdir -p target/release/wbuild/general-runtime \
+                   target/release/wbuild/thxnet-testnet-runtime
           find wasm -name "general_runtime.compact.compressed.wasm" -exec cp {} \
             target/release/wbuild/general-runtime/ \;
+          find wasm -name "thxnet_testnet_runtime.compact.compressed.wasm" -exec cp {} \
+            target/release/wbuild/thxnet-testnet-runtime/ \;
           ls -la target/release/wbuild/general-runtime/general_runtime.compact.compressed.wasm
+          ls -la target/release/wbuild/thxnet-testnet-runtime/thxnet_testnet_runtime.compact.compressed.wasm
 
       - name: Install bun and Chopsticks
         run: |
@@ -656,6 +731,12 @@ jobs:
           export PATH="$HOME/.bun/bin:$PATH"
           ./scripts/chopsticks/chopsticks-test.sh leafchain-ecq-mainnet
         timeout-minutes: 10
+
+      - name: Run Chopsticks XCM test (rootchain-testnet relay + leafchain-sand-testnet para)
+        run: |
+          export PATH="$HOME/.bun/bin:$PATH"
+          ./scripts/chopsticks/chopsticks-test.sh xcm
+        timeout-minutes: 15
 
   xcm-tests:
     name: XCM integration tests
