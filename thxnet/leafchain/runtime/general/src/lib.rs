@@ -247,6 +247,8 @@ pub type Migrations = (
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 	// CollatorSelection v1→v2 (Candidates → CandidateList)
 	pallet_collator_selection::migration::v2::MigrationToV2<Runtime>,
+	// ParachainSystem: extend HostConfiguration with async_backing_params (v2→v3)
+	cumulus_pallet_parachain_system::migration::Migration<Runtime>,
 	// DmpQueue: force-stamp StorageVersion to v2 (all chains have 0 DmpQueue data)
 	InitDmpQueueStorageVersion,
 	// Identity: username/authority feature migration (v0→v1)
