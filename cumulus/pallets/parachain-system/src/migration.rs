@@ -14,7 +14,9 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{Config, HostConfiguration, Pallet, ReservedDmpWeightOverride, ReservedXcmpWeightOverride};
+use crate::{
+	Config, HostConfiguration, Pallet, ReservedDmpWeightOverride, ReservedXcmpWeightOverride,
+};
 use frame_support::{
 	pallet_prelude::*,
 	traits::{Get, OnRuntimeUpgrade, StorageVersion},
@@ -211,13 +213,11 @@ mod migration_tests {
 				"max_upward_message_size"
 			);
 			assert_eq!(
-				cfg.max_upward_message_num_per_candidate,
-				S_MAX_UPWARD_MESSAGE_NUM_PER_CANDIDATE,
+				cfg.max_upward_message_num_per_candidate, S_MAX_UPWARD_MESSAGE_NUM_PER_CANDIDATE,
 				"max_upward_message_num_per_candidate"
 			);
 			assert_eq!(
-				cfg.hrmp_max_message_num_per_candidate,
-				S_HRMP_MAX_MESSAGE_NUM_PER_CANDIDATE,
+				cfg.hrmp_max_message_num_per_candidate, S_HRMP_MAX_MESSAGE_NUM_PER_CANDIDATE,
 				"hrmp_max_message_num_per_candidate"
 			);
 			assert_eq!(
@@ -305,13 +305,11 @@ mod migration_tests {
 				"max_upward_message_size"
 			);
 			assert_eq!(
-				cfg.max_upward_message_num_per_candidate,
-				S_MAX_UPWARD_MESSAGE_NUM_PER_CANDIDATE,
+				cfg.max_upward_message_num_per_candidate, S_MAX_UPWARD_MESSAGE_NUM_PER_CANDIDATE,
 				"max_upward_message_num_per_candidate"
 			);
 			assert_eq!(
-				cfg.hrmp_max_message_num_per_candidate,
-				S_HRMP_MAX_MESSAGE_NUM_PER_CANDIDATE,
+				cfg.hrmp_max_message_num_per_candidate, S_HRMP_MAX_MESSAGE_NUM_PER_CANDIDATE,
 				"hrmp_max_message_num_per_candidate"
 			);
 			assert_eq!(
