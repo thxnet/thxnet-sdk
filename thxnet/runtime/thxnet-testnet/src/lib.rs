@@ -2439,7 +2439,7 @@ pub mod migrations {
 
 			log::info!(
 				target: "runtime",
-				"EnableAsyncBackingAndCoretime: num_cores={}, max_vals_per_core=Some(1), \
+				"EnableAsyncBackingAndCoretime: num_cores={}, max_vals_per_core=None, \
 				 lookahead=1, async_backing=(depth=1, ancestry=2), node_features[0,1,3]=true",
 				num_cores,
 			);
