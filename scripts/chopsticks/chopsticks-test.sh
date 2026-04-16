@@ -311,12 +311,68 @@ run_chain_test() {
     sleep 2
 }
 
+run_fast_forward_test() {
+    local chain="$1"
+    local n_blocks="${2:-50}"
+    local config="${CHAIN_CONFIG[$chain]}"
+    local wasm="${CHAIN_WASM[$chain]}"
+    local port="${CHAIN_PORT[$chain]}"
+
+    echo ""
+    echo "═══════════════════════════════════════════════"
+    echo "  Fast-forward test: ${chain} (port ${port}, ${n_blocks} blocks)"
+    echo "═══════════════════════════════════════════════"
+
+    # Check WASM exists
+    if [[ ! -f "${wasm}" ]]; then
+        echo "SKIP: WASM not found: ${wasm}"
+        return
+    fi
+
+    # Start Chopsticks
+    echo "Starting Chopsticks..."
+    bunx @acala-network/chopsticks -c "${config}" -w "${wasm}" >/dev/null 2>&1 &
+    local chopsticks_pid=$!
+    sleep 15
+
+    if ! kill -0 "${chopsticks_pid}" 2>/dev/null; then
+        echo "FAIL: Chopsticks failed to start"
+        ((FAILED++)) || true
+        ((TOTAL++)) || true
+        return
+    fi
+
+    # Run fast-forward-test.ts.
+    # --try-state is NOT passed: the wasm-runtimes artifact consumed by this job
+    # is built without --features try-runtime; passing --try-state would cause
+    # every block to fail with "unknown function: TryRuntime_execute_block".
+    echo "--- fast-forward-test.ts ---"
+    ((TOTAL++)) || true
+    if bun run "${SCRIPT_DIR}/fast-forward-test.ts" \
+        --port "${port}" \
+        --n-blocks "${n_blocks}" \
+        --chain "${chain}" \
+        2>&1; then
+        ((PASSED++)) || true
+    else
+        ((FAILED++)) || true
+    fi
+
+    # Stop Chopsticks
+    kill "${chopsticks_pid}" 2>/dev/null || true
+    wait "${chopsticks_pid}" 2>/dev/null || true
+    sleep 2
+}
+
 # Main
 echo "Chopsticks Upgrade Test Orchestrator"
 echo "====================================="
 
 if [[ "${CHAIN}" == "xcm" || "${CHAIN}" == "xcm-rootchain-testnet-leafchain-sand-testnet" ]]; then
     run_xcm_test
+elif [[ "${CHAIN}" == fast-forward-* ]]; then
+    target_chain="${CHAIN#fast-forward-}"
+    run_fast_forward_test "${target_chain}" "${N_BLOCKS:-50}"
 elif [[ "${CHAIN}" == "all" ]]; then
     for c in leafchain-sand-testnet leafchain-avatect-mainnet leafchain-lmt-testnet leafchain-lmt-mainnet leafchain-ecq-testnet leafchain-ecq-mainnet rootchain-testnet rootchain-mainnet; do
         run_chain_test "${c}"
