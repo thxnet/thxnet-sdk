@@ -728,6 +728,7 @@ jobs:
       - name: Run Chopsticks fast-forward test (leafchain-sand-testnet)
         run: |
           export PATH="$HOME/.bun/bin:$PATH"
+          export N_BLOCKS=5
           ./scripts/chopsticks/chopsticks-test.sh fast-forward-leafchain-sand-testnet
         timeout-minutes: 10
 
