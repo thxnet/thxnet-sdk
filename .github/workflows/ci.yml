@@ -562,19 +562,12 @@ jobs:
     permissions:
       contents: read
     timeout-minutes: 90
-    # leafchain-sand-testnet is known to panic in pallet_aura::on_initialize
-    # during fast-forward block production on v1.12.0 (surfaced 2026-04-14 by
-    # this gate — exactly the class of bug the gate is designed to catch,
-    # cf. 2026-04-11 CheckWeight/set_validation_data incident). Non-blocking
-    # until the runtime fix lands; rootchain-testnet remains a hard gate.
-    continue-on-error: ${{ matrix.chain == 'leafchain-sand-testnet' }}
     strategy:
       fail-fast: false
       max-parallel: 2
       matrix:
         chain:
           - rootchain-testnet
-          - leafchain-sand-testnet
     env:
       SNAPSHOT_DIR: /tmp/try-runtime-snapshots/${{ matrix.chain }}
       SKIP_BUILD: "1"
@@ -730,6 +723,12 @@ jobs:
         run: |
           export PATH="$HOME/.bun/bin:$PATH"
           ./scripts/chopsticks/chopsticks-test.sh leafchain-ecq-mainnet
+        timeout-minutes: 10
+
+      - name: Run Chopsticks fast-forward test (leafchain-sand-testnet)
+        run: |
+          export PATH="$HOME/.bun/bin:$PATH"
+          ./scripts/chopsticks/chopsticks-test.sh fast-forward-leafchain-sand-testnet
         timeout-minutes: 10
 
       - name: Run Chopsticks XCM test (rootchain-testnet relay + leafchain-sand-testnet para)
