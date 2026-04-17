@@ -330,7 +330,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("thxnet-general-runtime"),
 	impl_name: create_runtime_str!("thxnet-general-runtime"),
 	authoring_version: 1,
-	spec_version: 20,
+	spec_version: 21,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -352,8 +352,11 @@ const MAXIMUM_BLOCK_WEIGHT: Weight = Weight::from_parts(
 );
 
 /// Maximum number of blocks simultaneously accepted by the Runtime, not yet included
-/// into the relay chain.
-const UNINCLUDED_SEGMENT_CAPACITY: u32 = 1;
+/// into the relay chain. Must be >= rootchain async_backing max_candidate_depth + 1.
+/// With rootchain max_candidate_depth=1 (set by EnableAsyncBackingAndCoretime migration),
+/// capacity must be ≥ 2 so the collator can propose the next block while the current
+/// one is still being included on relay.
+const UNINCLUDED_SEGMENT_CAPACITY: u32 = 2;
 /// How many parachain blocks are processed by the relay chain per parent. Limits the
 /// number of blocks authored per slot.
 const BLOCK_PROCESSING_VELOCITY: u32 = 1;
