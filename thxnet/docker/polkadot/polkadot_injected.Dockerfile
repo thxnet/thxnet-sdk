@@ -1,7 +1,7 @@
 # Lightweight Dockerfile that copies pre-built binaries.
 # Used by CI after building binaries in a separate step.
 # For a from-source build, see polkadot_builder.Dockerfile.
-FROM docker.io/library/ubuntu:20.04
+FROM docker.io/library/ubuntu:24.04
 
 LABEL description="Container image for THXNET." \
 	io.thxnet.image.type="final" \
@@ -16,6 +16,7 @@ COPY target/release/polkadot-execute-worker /usr/local/bin
 RUN apt-get update && \
 	DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ca-certificates && \
 	rm -rf /var/lib/apt/lists/* && \
+	(userdel -r ubuntu 2>/dev/null || true) && \
 	useradd -m -u 1000 -U -s /bin/sh -d /rootchain thxnet && \
 	mkdir -p /data /rootchain/.local/share && \
 	chown -R thxnet:thxnet /data && \
