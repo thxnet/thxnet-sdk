@@ -112,7 +112,7 @@ use polkadot_primitives::{
 	PvfExecKind, SessionIndex, SigningContext, ValidationCode, ValidatorId, ValidatorIndex,
 	ValidatorSignature, ValidityAttestation,
 };
-use polkadot_statement_table::{
+use statement_table::{
 	generic::AttestedCandidate as TableAttestedCandidate,
 	v2::{
 		SignedStatement as TableSignedStatement, Statement as TableStatement,
@@ -542,6 +542,11 @@ async fn store_available_data(
 	node_features: NodeFeatures,
 ) -> Result<(), Error> {
 	let (tx, rx) = oneshot::channel();
+	// NOTE: `core_index` and `node_features` parameters are intentionally dropped at the
+	// message boundary. The av-store subsystem in v1.12.0 does not yet track per-core erasure
+	// encoding (added by systematic-chunks PR #1644 in v1.13.0+). They still flow through the
+	// outer function signature for API parity with the upstream PR #4724 cherry-pick.
+	let _ = (core_index, node_features);
 	// Important: the `av-store` subsystem will check if the erasure root of the `available_data`
 	// matches `expected_erasure_root` which was provided by the collator in the `CandidateReceipt`.
 	// This check is consensus critical and the `backing` subsystem relies on it for ensuring
@@ -552,8 +557,6 @@ async fn store_available_data(
 			n_validators,
 			available_data,
 			expected_erasure_root,
-			core_index,
-			node_features,
 			tx,
 		})
 		.await;
