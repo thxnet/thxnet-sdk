@@ -681,16 +681,10 @@ where
 			frame_system::CheckWeight::<Runtime>::new(),
 			pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
 			frame_metadata_hash_extension::CheckMetadataHash::new(true),
-<<<<<<< HEAD
 			frame_system::WeightReclaim::<Runtime>::new(),
 		)
 			.into();
 		let raw_payload = SignedPayload::new(call, tx_ext)
-=======
-		);
-
-		let raw_payload = SignedPayload::new(call, extra)
->>>>>>> origin/upgrade/1.12.0
 			.map_err(|e| {
 				log::warn!("Unable to create signed payload: {:?}", e);
 			})
@@ -1660,10 +1654,7 @@ pub type TxExtension = (
 	frame_system::CheckWeight<Runtime>,
 	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
 	frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
-<<<<<<< HEAD
 	frame_system::WeightReclaim<Runtime>,
-=======
->>>>>>> origin/upgrade/1.12.0
 );
 
 /// Unchecked extrinsic type as expected by this runtime.

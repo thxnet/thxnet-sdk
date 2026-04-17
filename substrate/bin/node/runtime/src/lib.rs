@@ -1617,11 +1617,8 @@ where
 				),
 			),
 			frame_metadata_hash_extension::CheckMetadataHash::new(false),
-<<<<<<< HEAD
 			pallet_revive::evm::tx_extension::SetOrigin::<Runtime>::default(),
 			frame_system::WeightReclaim::<Runtime>::new(),
-=======
->>>>>>> origin/upgrade/1.12.0
 		);
 
 		let raw_payload = SignedPayload::new(call, tx_ext)
@@ -2904,11 +2901,8 @@ pub type TxExtension = (
 		pallet_asset_conversion_tx_payment::ChargeAssetTxPayment<Runtime>,
 	>,
 	frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
-<<<<<<< HEAD
 	pallet_revive::evm::tx_extension::SetOrigin<Runtime>,
 	frame_system::WeightReclaim<Runtime>,
-=======
->>>>>>> origin/upgrade/1.12.0
 );
 
 #[derive(Clone, PartialEq, Eq, Debug)]

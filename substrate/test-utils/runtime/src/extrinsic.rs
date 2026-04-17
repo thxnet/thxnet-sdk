@@ -25,16 +25,11 @@ use codec::Encode;
 use frame_metadata_hash_extension::CheckMetadataHash;
 use frame_system::{CheckNonce, CheckWeight};
 use sp_core::crypto::Pair as TraitPair;
-<<<<<<< HEAD
 use sp_keyring::Sr25519Keyring;
 use sp_runtime::{
 	generic::Preamble, traits::TransactionExtension, transaction_validity::TransactionPriority,
 	Perbill,
 };
-=======
-use sp_keyring::AccountKeyring;
-use sp_runtime::{traits::SignedExtension, transaction_validity::TransactionPriority, Perbill};
->>>>>>> origin/upgrade/1.12.0
 
 /// Transfer used in test substrate pallet. Extrinsic is created and signed using this data.
 #[derive(Clone)]
@@ -100,11 +95,7 @@ impl ExtrinsicBuilder {
 	pub fn new(function: impl Into<RuntimeCall>) -> Self {
 		Self {
 			function: function.into(),
-<<<<<<< HEAD
 			signer: Some(Sr25519Keyring::Alice.pair()),
-=======
-			signer: Some(AccountKeyring::Alice.pair()),
->>>>>>> origin/upgrade/1.12.0
 			nonce: None,
 			metadata_hash: None,
 		}
@@ -223,20 +214,12 @@ impl ExtrinsicBuilder {
 				self.metadata_hash
 					.map(CheckMetadataHash::new_with_custom_hash)
 					.unwrap_or_else(|| CheckMetadataHash::new(false)),
-<<<<<<< HEAD
 				frame_system::WeightReclaim::new(),
 			);
 			let raw_payload = SignedPayload::from_raw(
 				self.function.clone(),
 				tx_ext.clone(),
 				tx_ext.implicit().unwrap(),
-=======
-			);
-			let raw_payload = SignedPayload::from_raw(
-				self.function.clone(),
-				extra.clone(),
-				extra.additional_signed().unwrap(),
->>>>>>> origin/upgrade/1.12.0
 			);
 			let signature = raw_payload.using_encoded(|e| signer.sign(e));
 

@@ -343,7 +343,6 @@ fn multi_hop_works() {
 	);
 }
 
-<<<<<<< HEAD
 #[test]
 fn multi_hop_pay_fees_works() {
 	test_can_estimate_and_pay_exact_fees!(
@@ -352,58 +351,6 @@ fn multi_hop_pay_fees_works() {
 		PenpalB,
 		(Parent, 1_000_000_000_000u128),
 		Penpal
-=======
-fn get_amount_from_versioned_assets(assets: VersionedAssets) -> u128 {
-	let latest_assets: Assets = assets.try_into().unwrap();
-	let Fungible(amount) = latest_assets.inner()[0].fun else {
-		unreachable!("asset is fungible");
-	};
-	amount
-}
-
-fn transfer_assets(test: RelayToSystemParaTest) -> DispatchResult {
-	<Westend as WestendPallet>::XcmPallet::transfer_assets(
-		test.signed_origin,
-		bx!(test.args.dest.into()),
-		bx!(test.args.beneficiary.into()),
-		bx!(test.args.assets.into()),
-		test.args.fee_asset_item,
-		test.args.weight_limit,
-	)
-}
-
-fn transfer_assets_para_to_para(test: ParaToParaThroughRelayTest) -> DispatchResult {
-	<PenpalA as PenpalAPallet>::PolkadotXcm::transfer_assets(
-		test.signed_origin,
-		bx!(test.args.dest.into()),
-		bx!(test.args.beneficiary.into()),
-		bx!(test.args.assets.into()),
-		test.args.fee_asset_item,
-		test.args.weight_limit,
-	)
-}
-
-// Constructs the SignedExtra component of an extrinsic for the Westend runtime.
-fn construct_extrinsic_westend(
-	sender: sp_keyring::AccountKeyring,
-	call: westend_runtime::RuntimeCall,
-) -> westend_runtime::UncheckedExtrinsic {
-	type Runtime = <Westend as Chain>::Runtime;
-	let account_id = <Runtime as frame_system::Config>::AccountId::from(sender.public());
-	let tip = 0;
-	let extra: westend_runtime::SignedExtra = (
-		frame_system::CheckNonZeroSender::<Runtime>::new(),
-		frame_system::CheckSpecVersion::<Runtime>::new(),
-		frame_system::CheckTxVersion::<Runtime>::new(),
-		frame_system::CheckGenesis::<Runtime>::new(),
-		frame_system::CheckMortality::<Runtime>::from(sp_runtime::generic::Era::immortal()),
-		frame_system::CheckNonce::<Runtime>::from(
-			frame_system::Pallet::<Runtime>::account(&account_id).nonce,
-		),
-		frame_system::CheckWeight::<Runtime>::new(),
-		pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
-		frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(false),
->>>>>>> origin/upgrade/1.12.0
 	);
 }
 

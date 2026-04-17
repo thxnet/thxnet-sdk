@@ -17,13 +17,10 @@
 #[cfg(all(not(feature = "metadata-hash"), feature = "std"))]
 fn main() {
 	substrate_wasm_builder::WasmBuilder::build_using_defaults();
-<<<<<<< HEAD
 	substrate_wasm_builder::WasmBuilder::init_with_defaults()
 		.set_file_name("fast_runtime_binary.rs")
 		.enable_feature("fast-runtime")
 		.build();
-=======
->>>>>>> origin/upgrade/1.12.0
 }
 
 #[cfg(all(feature = "metadata-hash", feature = "std"))]
@@ -31,14 +28,11 @@ fn main() {
 	substrate_wasm_builder::WasmBuilder::init_with_defaults()
 		.enable_metadata_hash("WND", 12)
 		.build();
-<<<<<<< HEAD
 	substrate_wasm_builder::WasmBuilder::init_with_defaults()
 		.set_file_name("fast_runtime_binary.rs")
 		.enable_feature("fast-runtime")
 		.enable_metadata_hash("WND", 12)
 		.build();
-=======
->>>>>>> origin/upgrade/1.12.0
 }
 
 #[cfg(not(feature = "std"))]

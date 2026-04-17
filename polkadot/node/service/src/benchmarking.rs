@@ -173,13 +173,9 @@ fn westend_sign_call(
 		frame_system::CheckWeight::<runtime::Runtime>::new(),
 		pallet_transaction_payment::ChargeTransactionPayment::<runtime::Runtime>::from(0),
 		frame_metadata_hash_extension::CheckMetadataHash::<runtime::Runtime>::new(false),
-<<<<<<< HEAD
 		frame_system::WeightReclaim::<runtime::Runtime>::new(),
 	)
 		.into();
-=======
-	);
->>>>>>> origin/upgrade/1.12.0
 
 	let payload = runtime::SignedPayload::from_raw(
 		call.clone(),
@@ -195,10 +191,7 @@ fn westend_sign_call(
 			(),
 			(),
 			None,
-<<<<<<< HEAD
 			(),
-=======
->>>>>>> origin/upgrade/1.12.0
 		),
 	);
 
@@ -239,13 +232,9 @@ fn rococo_sign_call(
 		frame_system::CheckWeight::<runtime::Runtime>::new(),
 		pallet_transaction_payment::ChargeTransactionPayment::<runtime::Runtime>::from(0),
 		frame_metadata_hash_extension::CheckMetadataHash::<runtime::Runtime>::new(false),
-<<<<<<< HEAD
 		frame_system::WeightReclaim::<runtime::Runtime>::new(),
 	)
 		.into();
-=======
-	);
->>>>>>> origin/upgrade/1.12.0
 
 	let payload = runtime::SignedPayload::from_raw(
 		call.clone(),
@@ -261,10 +250,7 @@ fn rococo_sign_call(
 			(),
 			(),
 			None,
-<<<<<<< HEAD
 			(),
-=======
->>>>>>> origin/upgrade/1.12.0
 		),
 	);
 

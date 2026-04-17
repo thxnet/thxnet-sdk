@@ -15,19 +15,10 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-<<<<<<< HEAD
 codec = { workspace = true }
 log = { workspace = true }
 mmr-lib = { workspace = true, default-features = false }
 scale-info = { features = ["derive"], workspace = true }
-=======
-codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false }
-scale-info = { version = "2.11.1", default-features = false, features = [
-	"derive",
-] }
-log = { workspace = true }
-mmr-lib = { package = "polkadot-ckb-merkle-mountain-range", version = "0.7.0", default-features = false }
->>>>>>> origin/upgrade/1.12.0
 serde = { features = ["alloc", "derive"], optional = true, workspace = true }
 sp-api.workspace = true
 sp-core.workspace = true
