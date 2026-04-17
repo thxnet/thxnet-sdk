@@ -87,8 +87,11 @@ pub fn tx_ext(nonce: Nonce, extra_fee: Balance) -> TxExtension {
 			pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::from(extra_fee, None),
 		),
 		frame_metadata_hash_extension::CheckMetadataHash::new(false),
+<<<<<<< HEAD
 		pallet_revive::evm::tx_extension::SetOrigin::default(),
 		frame_system::WeightReclaim::new(),
+=======
+>>>>>>> origin/upgrade/1.12.0
 	)
 }
 
@@ -100,18 +103,30 @@ pub fn sign(
 	genesis_hash: [u8; 32],
 	metadata_hash: Option<[u8; 32]>,
 ) -> UncheckedExtrinsic {
+<<<<<<< HEAD
 	match xt.format {
 		ExtrinsicFormat::Signed(signed, tx_ext) => {
 			let payload = (
 				xt.function,
 				tx_ext.clone(),
+=======
+	match xt.signed {
+		Some((signed, extra)) => {
+			let payload = (
+				xt.function,
+				extra.clone(),
+>>>>>>> origin/upgrade/1.12.0
 				spec_version,
 				tx_version,
 				genesis_hash,
 				genesis_hash,
 				metadata_hash,
 			);
+<<<<<<< HEAD
 			let key = Sr25519Keyring::from_account_id(&signed).unwrap();
+=======
+			let key = AccountKeyring::from_account_id(&signed).unwrap();
+>>>>>>> origin/upgrade/1.12.0
 			let signature =
 				payload
 					.using_encoded(|b| {

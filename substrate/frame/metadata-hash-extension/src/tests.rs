@@ -25,7 +25,11 @@ use frame_support::{
 use merkleized_metadata::{generate_metadata_digest, ExtraInfo};
 use sp_api::{Metadata, ProvideRuntimeApi};
 use sp_runtime::{
+<<<<<<< HEAD
 	traits::{ExtrinsicLike, TransactionExtension},
+=======
+	traits::{Extrinsic as _, SignedExtension},
+>>>>>>> origin/upgrade/1.12.0
 	transaction_validity::{TransactionSource, UnknownTransaction},
 };
 use sp_transaction_pool::runtime_api::TaggedTransactionQueue;
@@ -51,7 +55,11 @@ impl frame_system::Config for Test {
 #[test]
 fn rejects_when_no_metadata_hash_was_passed() {
 	let ext = CheckMetadataHash::<Test>::decode(&mut &1u8.encode()[..]).unwrap();
+<<<<<<< HEAD
 	assert_eq!(Err(UnknownTransaction::CannotLookup.into()), ext.implicit());
+=======
+	assert_eq!(Err(UnknownTransaction::CannotLookup.into()), ext.additional_signed());
+>>>>>>> origin/upgrade/1.12.0
 }
 
 #[test]
@@ -92,7 +100,11 @@ fn ensure_check_metadata_works_on_real_extrinsics() {
 		.metadata_hash(generate_metadata_hash(metadata))
 		.build();
 	// Ensure that the transaction is signed.
+<<<<<<< HEAD
 	assert!(!valid_transaction.is_bare());
+=======
+	assert!(valid_transaction.is_signed().unwrap());
+>>>>>>> origin/upgrade/1.12.0
 
 	runtime_api
 		.validate_transaction(best_hash, TransactionSource::External, valid_transaction, best_hash)
@@ -104,7 +116,11 @@ fn ensure_check_metadata_works_on_real_extrinsics() {
 		.metadata_hash([10u8; 32])
 		.build();
 	// Ensure that the transaction is signed.
+<<<<<<< HEAD
 	assert!(!invalid_transaction.is_bare());
+=======
+	assert!(invalid_transaction.is_signed().unwrap());
+>>>>>>> origin/upgrade/1.12.0
 
 	assert_eq!(
 		TransactionValidityError::from(InvalidTransaction::BadProof),
@@ -132,9 +148,14 @@ mod docs {
 			}
 		}
 
+<<<<<<< HEAD
 		/// The `TransactionExtension` to the basic transaction logic.
 		pub type TxExtension = (
 			frame_system::AuthorizeCall<Runtime>,
+=======
+		/// The `SignedExtension` to the basic transaction logic.
+		pub type SignedExtra = (
+>>>>>>> origin/upgrade/1.12.0
 			frame_system::CheckNonZeroSender<Runtime>,
 			frame_system::CheckSpecVersion<Runtime>,
 			frame_system::CheckTxVersion<Runtime>,
@@ -145,7 +166,10 @@ mod docs {
 			// Add the `CheckMetadataHash` extension.
 			// The position in this list is not important, so we could also add it to beginning.
 			frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
+<<<<<<< HEAD
 			frame_system::WeightReclaim<Runtime>,
+=======
+>>>>>>> origin/upgrade/1.12.0
 		);
 
 		/// In your runtime this will be your real address type.
@@ -155,7 +179,11 @@ mod docs {
 
 		/// Unchecked extrinsic type as expected by this runtime.
 		pub type UncheckedExtrinsic =
+<<<<<<< HEAD
 			sp_runtime::generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, TxExtension>;
+=======
+			sp_runtime::generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, SignedExtra>;
+>>>>>>> origin/upgrade/1.12.0
 	}
 
 	// Put here to not have it in the docs as well.

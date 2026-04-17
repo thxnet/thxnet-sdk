@@ -155,7 +155,11 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("thxnet"),
 	impl_name: create_runtime_str!("thxnet"),
 	authoring_version: 0,
+<<<<<<< HEAD
 	spec_version: 125_120_005,
+=======
+	spec_version: 112_000_003,
+>>>>>>> origin/upgrade/1.12.0
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 25,
@@ -2439,7 +2443,11 @@ pub mod migrations {
 
 			log::info!(
 				target: "runtime",
+<<<<<<< HEAD
 				"EnableAsyncBackingAndCoretime: num_cores={}, max_vals_per_core=None, \
+=======
+				"EnableAsyncBackingAndCoretime: num_cores={}, max_vals_per_core=Some(1), \
+>>>>>>> origin/upgrade/1.12.0
 				 lookahead=1, async_backing=(depth=1, ancestry=2), node_features[0,1,3]=true",
 				num_cores,
 			);

@@ -57,7 +57,11 @@ use litep2p::{
 	protocol::{
 		libp2p::{
 			bitswap::Config as BitswapConfig,
+<<<<<<< HEAD
 			kademlia::{QueryId, Record},
+=======
+			kademlia::{QueryId, RecordsType},
+>>>>>>> origin/upgrade/1.12.0
 		},
 		request_response::ConfigBuilder as RequestResponseConfigBuilder,
 	},
@@ -802,6 +806,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 							self.peerstore_handle.add_known_peer(peer.into());
 						}
 					}
+<<<<<<< HEAD
 					Some(DiscoveryEvent::FindNodeSuccess { query_id, target, peers }) => {
 						match self.pending_queries.remove(&query_id) {
 							Some(KadQuery::FindNode(_, started)) => {
@@ -880,6 +885,33 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 									target: LOG_TARGET,
 									"`GET_VALUE` for {key:?} ({query_id:?}) succeeded",
 								);
+=======
+					Some(DiscoveryEvent::GetRecordSuccess { query_id, records }) => {
+						match self.pending_get_values.remove(&query_id) {
+							None => log::warn!(
+								target: LOG_TARGET,
+								"`GET_VALUE` succeeded for a non-existent query",
+							),
+							Some((key, started)) => {
+								log::trace!(
+									target: LOG_TARGET,
+									"`GET_VALUE` for {:?} ({query_id:?}) succeeded",
+									key,
+								);
+
+								let value_found = match records {
+									RecordsType::LocalStore(record) => vec![
+										(libp2p::kad::RecordKey::new(&record.key), record.value)
+									],
+									RecordsType::Network(records) => records.into_iter().map(|peer_record| {
+										(libp2p::kad::RecordKey::new(&peer_record.record.key), peer_record.record.value)
+									}).collect(),
+								};
+
+								self.event_streams.send(Event::Dht(
+									DhtEvent::ValueFound(value_found)
+								));
+>>>>>>> origin/upgrade/1.12.0
 
 								if let Some(ref metrics) = self.metrics {
 									metrics

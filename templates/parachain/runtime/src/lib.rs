@@ -75,6 +75,7 @@ pub type BlockId = generic::BlockId<Block>;
 
 /// The extension to the basic transaction logic.
 #[docify::export(template_signed_extra)]
+<<<<<<< HEAD
 pub type TxExtension = cumulus_pallet_weight_reclaim::StorageWeightReclaim<
 	Runtime,
 	(
@@ -90,6 +91,20 @@ pub type TxExtension = cumulus_pallet_weight_reclaim::StorageWeightReclaim<
 		frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
 	),
 >;
+=======
+pub type SignedExtra = (
+	frame_system::CheckNonZeroSender<Runtime>,
+	frame_system::CheckSpecVersion<Runtime>,
+	frame_system::CheckTxVersion<Runtime>,
+	frame_system::CheckGenesis<Runtime>,
+	frame_system::CheckEra<Runtime>,
+	frame_system::CheckNonce<Runtime>,
+	frame_system::CheckWeight<Runtime>,
+	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
+	cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim<Runtime>,
+	frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
+);
+>>>>>>> origin/upgrade/1.12.0
 
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic =

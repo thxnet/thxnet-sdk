@@ -397,7 +397,10 @@ members = [
 	"substrate/frame/membership",
 	"substrate/frame/merkle-mountain-range",
 	"substrate/frame/message-queue",
+<<<<<<< HEAD
 	"substrate/frame/meta-tx",
+=======
+>>>>>>> origin/upgrade/1.12.0
 	"substrate/frame/metadata-hash-extension",
 	"substrate/frame/migrations",
 	"substrate/frame/mixnet",

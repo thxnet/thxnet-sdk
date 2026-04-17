@@ -140,8 +140,11 @@ pub fn create_extrinsic(
 				>::from(tip, None),
 			),
 			frame_metadata_hash_extension::CheckMetadataHash::new(false),
+<<<<<<< HEAD
 			pallet_revive::evm::tx_extension::SetOrigin::<kitchensink_runtime::Runtime>::default(),
 			frame_system::WeightReclaim::<kitchensink_runtime::Runtime>::new(),
+=======
+>>>>>>> origin/upgrade/1.12.0
 		);
 
 	let raw_payload = kitchensink_runtime::SignedPayload::from_raw(
@@ -158,8 +161,11 @@ pub fn create_extrinsic(
 			(),
 			(),
 			None,
+<<<<<<< HEAD
 			(),
 			(),
+=======
+>>>>>>> origin/upgrade/1.12.0
 		),
 	);
 	let signature = raw_payload.using_encoded(|e| sender.sign(e));
@@ -1080,11 +1086,16 @@ mod tests {
 				let tx_payment = pallet_skip_feeless_payment::SkipCheckIfFeeless::from(
 					pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::from(0, None),
 				);
+<<<<<<< HEAD
 				let set_eth_origin = pallet_revive::evm::tx_extension::SetOrigin::default();
 				let weight_reclaim = frame_system::WeightReclaim::new();
 				let metadata_hash = frame_metadata_hash_extension::CheckMetadataHash::new(false);
 				let tx_ext: TxExtension = (
 					authorize_call,
+=======
+				let metadata_hash = frame_metadata_hash_extension::CheckMetadataHash::new(false);
+				let extra = (
+>>>>>>> origin/upgrade/1.12.0
 					check_non_zero_sender,
 					check_spec_version,
 					check_tx_version,
@@ -1094,6 +1105,7 @@ mod tests {
 					check_weight,
 					tx_payment,
 					metadata_hash,
+<<<<<<< HEAD
 					set_eth_origin,
 					weight_reclaim,
 				);
@@ -1103,6 +1115,14 @@ mod tests {
 					(
 						(),
 						(),
+=======
+				);
+				let raw_payload = SignedPayload::from_raw(
+					function,
+					extra,
+					(
+						(),
+>>>>>>> origin/upgrade/1.12.0
 						spec_version,
 						transaction_version,
 						genesis_hash,
@@ -1111,8 +1131,11 @@ mod tests {
 						(),
 						(),
 						None,
+<<<<<<< HEAD
 						(),
 						(),
+=======
+>>>>>>> origin/upgrade/1.12.0
 					),
 				);
 				let signature = raw_payload.using_encoded(|payload| signer.sign(payload));

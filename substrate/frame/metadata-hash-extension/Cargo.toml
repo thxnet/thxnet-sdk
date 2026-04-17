@@ -1,6 +1,10 @@
 [package]
 name = "frame-metadata-hash-extension"
+<<<<<<< HEAD
 version = "0.13.0"
+=======
+version = "0.1.0"
+>>>>>>> origin/upgrade/1.12.0
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -9,6 +13,7 @@ repository.workspace = true
 description = "FRAME signed extension for verifying the metadata hash"
 
 [dependencies]
+<<<<<<< HEAD
 array-bytes = { workspace = true, default-features = true }
 codec = { features = ["derive"], workspace = true }
 const-hex = { workspace = true }
@@ -32,12 +37,34 @@ substrate-test-runtime-client = { workspace = true }
 substrate-wasm-builder = { features = [
 	"metadata-hash",
 ], default-features = true, workspace = true }
+=======
+array-bytes = "6.2.2"
+codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
+scale-info = { version = "2.11.1", default-features = false, features = ["derive", "serde"] }
+sp-runtime = { path = "../../primitives/runtime", default-features = false, features = ["serde"] }
+frame-support = { path = "../support", default-features = false }
+frame-system = { path = "../system", default-features = false }
+log = { workspace = true, default-features = false }
+docify = "0.2.8"
+
+[dev-dependencies]
+substrate-wasm-builder = { path = "../../utils/wasm-builder", features = ["metadata-hash"] }
+substrate-test-runtime-client = { path = "../../test-utils/runtime/client" }
+sp-api = { path = "../../primitives/api" }
+sp-transaction-pool = { path = "../../primitives/transaction-pool" }
+merkleized-metadata = "0.1.0"
+frame-metadata = { version = "16.0.0", features = ["current"] }
+sp-tracing = { path = "../../primitives/tracing" }
+>>>>>>> origin/upgrade/1.12.0
 
 [features]
 default = ["std"]
 std = [
 	"codec/std",
+<<<<<<< HEAD
 	"const-hex/std",
+=======
+>>>>>>> origin/upgrade/1.12.0
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",

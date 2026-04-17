@@ -12,8 +12,14 @@ publish = false
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
+<<<<<<< HEAD
 [lints]
 workspace = true
+=======
+[build-dependencies]
+substrate-wasm-builder = { path = "../../../substrate/utils/wasm-builder", optional = true }
+docify = "0.2.8"
+>>>>>>> origin/upgrade/1.12.0
 
 [dependencies]
 codec = { features = ["derive"], workspace = true }
@@ -57,15 +63,97 @@ serde_json = { workspace = true, default-features = false, features = [
 ] }
 smallvec = { workspace = true, default-features = true }
 
+<<<<<<< HEAD
 [build-dependencies]
 docify = { workspace = true }
 substrate-wasm-builder = { optional = true, workspace = true, default-features = true }
+=======
+# Local
+pallet-parachain-template = { path = "../pallets/template", default-features = false }
+
+# Substrate / FRAME
+frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false, optional = true }
+frame-executive = { path = "../../../substrate/frame/executive", default-features = false }
+frame-metadata-hash-extension = { path = "../../../substrate/frame/metadata-hash-extension", default-features = false }
+frame-support = { path = "../../../substrate/frame/support", default-features = false }
+frame-system = { path = "../../../substrate/frame/system", default-features = false }
+frame-system-benchmarking = { path = "../../../substrate/frame/system/benchmarking", default-features = false, optional = true }
+frame-system-rpc-runtime-api = { path = "../../../substrate/frame/system/rpc/runtime-api", default-features = false }
+frame-try-runtime = { path = "../../../substrate/frame/try-runtime", default-features = false, optional = true }
+
+# FRAME Pallets
+pallet-aura = { path = "../../../substrate/frame/aura", default-features = false }
+pallet-authorship = { path = "../../../substrate/frame/authorship", default-features = false }
+pallet-balances = { path = "../../../substrate/frame/balances", default-features = false }
+pallet-message-queue = { path = "../../../substrate/frame/message-queue", default-features = false }
+pallet-session = { path = "../../../substrate/frame/session", default-features = false }
+pallet-sudo = { path = "../../../substrate/frame/sudo", default-features = false }
+pallet-timestamp = { path = "../../../substrate/frame/timestamp", default-features = false }
+pallet-transaction-payment = { path = "../../../substrate/frame/transaction-payment", default-features = false }
+pallet-transaction-payment-rpc-runtime-api = { path = "../../../substrate/frame/transaction-payment/rpc/runtime-api", default-features = false }
+
+# Substrate	Primitives
+sp-api = { path = "../../../substrate/primitives/api", default-features = false }
+sp-block-builder = { path = "../../../substrate/primitives/block-builder", default-features = false }
+sp-consensus-aura = { path = "../../../substrate/primitives/consensus/aura", default-features = false }
+sp-core = { path = "../../../substrate/primitives/core", default-features = false }
+sp-genesis-builder = { path = "../../../substrate/primitives/genesis-builder", default-features = false }
+sp-inherents = { path = "../../../substrate/primitives/inherents", default-features = false }
+sp-offchain = { path = "../../../substrate/primitives/offchain", default-features = false }
+sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false }
+sp-session = { path = "../../../substrate/primitives/session", default-features = false }
+sp-std = { path = "../../../substrate/primitives/std", default-features = false }
+sp-transaction-pool = { path = "../../../substrate/primitives/transaction-pool", default-features = false }
+sp-version = { path = "../../../substrate/primitives/version", default-features = false }
+
+# Polkadot
+pallet-xcm = { path = "../../../polkadot/xcm/pallet-xcm", default-features = false }
+polkadot-parachain-primitives = { path = "../../../polkadot/parachain", default-features = false }
+polkadot-runtime-common = { path = "../../../polkadot/runtime/common", default-features = false }
+xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false }
+xcm-builder = { package = "staging-xcm-builder", path = "../../../polkadot/xcm/xcm-builder", default-features = false }
+xcm-executor = { package = "staging-xcm-executor", path = "../../../polkadot/xcm/xcm-executor", default-features = false }
+
+# Cumulus
+cumulus-pallet-aura-ext = { path = "../../../cumulus/pallets/aura-ext", default-features = false }
+cumulus-pallet-parachain-system = { path = "../../../cumulus/pallets/parachain-system", default-features = false, features = [
+	"parameterized-consensus-hook",
+] }
+cumulus-pallet-session-benchmarking = { path = "../../../cumulus/pallets/session-benchmarking", default-features = false }
+cumulus-pallet-xcm = { path = "../../../cumulus/pallets/xcm", default-features = false }
+cumulus-pallet-xcmp-queue = { path = "../../../cumulus/pallets/xcmp-queue", default-features = false }
+cumulus-primitives-aura = { path = "../../../cumulus/primitives/aura", default-features = false }
+cumulus-primitives-core = { path = "../../../cumulus/primitives/core", default-features = false }
+cumulus-primitives-utility = { path = "../../../cumulus/primitives/utility", default-features = false }
+cumulus-primitives-storage-weight-reclaim = { path = "../../../cumulus/primitives/storage-weight-reclaim", default-features = false }
+pallet-collator-selection = { path = "../../../cumulus/pallets/collator-selection", default-features = false }
+parachains-common = { path = "../../../cumulus/parachains/common", default-features = false }
+parachain-info = { package = "staging-parachain-info", path = "../../../cumulus/parachains/pallets/parachain-info", default-features = false }
+>>>>>>> origin/upgrade/1.12.0
 
 [features]
 default = ["std"]
 std = [
 	"codec/std",
 	"cumulus-pallet-parachain-system/std",
+<<<<<<< HEAD
+=======
+	"cumulus-pallet-session-benchmarking/std",
+	"cumulus-pallet-xcm/std",
+	"cumulus-pallet-xcmp-queue/std",
+	"cumulus-primitives-aura/std",
+	"cumulus-primitives-core/std",
+	"cumulus-primitives-storage-weight-reclaim/std",
+	"cumulus-primitives-utility/std",
+	"frame-benchmarking?/std",
+	"frame-executive/std",
+	"frame-metadata-hash-extension/std",
+	"frame-support/std",
+	"frame-system-benchmarking?/std",
+	"frame-system-rpc-runtime-api/std",
+	"frame-system/std",
+	"frame-try-runtime?/std",
+>>>>>>> origin/upgrade/1.12.0
 	"log/std",
 	"pallet-parachain-template/std",
 	"polkadot-sdk/std",
@@ -85,6 +173,34 @@ try-runtime = [
 	"polkadot-sdk/try-runtime",
 ]
 
+<<<<<<< HEAD
+=======
+try-runtime = [
+	"cumulus-pallet-aura-ext/try-runtime",
+	"cumulus-pallet-parachain-system/try-runtime",
+	"cumulus-pallet-xcm/try-runtime",
+	"cumulus-pallet-xcmp-queue/try-runtime",
+	"frame-executive/try-runtime",
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"frame-try-runtime/try-runtime",
+	"pallet-aura/try-runtime",
+	"pallet-authorship/try-runtime",
+	"pallet-balances/try-runtime",
+	"pallet-collator-selection/try-runtime",
+	"pallet-message-queue/try-runtime",
+	"pallet-parachain-template/try-runtime",
+	"pallet-session/try-runtime",
+	"pallet-sudo/try-runtime",
+	"pallet-timestamp/try-runtime",
+	"pallet-transaction-payment/try-runtime",
+	"pallet-xcm/try-runtime",
+	"parachain-info/try-runtime",
+	"polkadot-runtime-common/try-runtime",
+	"sp-runtime/try-runtime",
+]
+
+>>>>>>> origin/upgrade/1.12.0
 # Enable the metadata hash generation.
 #
 # This is hidden behind a feature because it increases the compile time.

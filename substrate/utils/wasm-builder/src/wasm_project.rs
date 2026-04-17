@@ -904,6 +904,7 @@ fn build_bloaty_blob(
 		// We don't want to call ourselves recursively
 		.env(crate::SKIP_BUILD_ENV, "");
 
+<<<<<<< HEAD
 	let cargo_args = env::var(crate::WASM_BUILD_CARGO_ARGS).unwrap_or_default();
 	if !cargo_args.is_empty() {
 		let Some(args) = shlex::split(&cargo_args) else {
@@ -916,6 +917,8 @@ fn build_bloaty_blob(
 		build_cmd.args(args);
 	}
 
+=======
+>>>>>>> origin/upgrade/1.12.0
 	#[cfg(feature = "metadata-hash")]
 	if let Some(hash) = metadata_hash {
 		build_cmd.env("RUNTIME_METADATA_HASH", array_bytes::bytes2hex("0x", &hash));
@@ -1041,7 +1044,10 @@ fn compact_wasm(
 		.mvp_features_only()
 		.debug_info(true)
 		.add_pass(wasm_opt::Pass::StripDwarf)
+<<<<<<< HEAD
 		.add_pass(wasm_opt::Pass::SignextLowering)
+=======
+>>>>>>> origin/upgrade/1.12.0
 		.run(bloaty_binary.bloaty_path(), &wasm_compact_path)
 		.expect("Failed to compact generated WASM binary.");
 

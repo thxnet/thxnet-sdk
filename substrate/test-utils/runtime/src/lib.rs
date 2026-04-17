@@ -154,6 +154,7 @@ pub type Signature = sr25519::Signature;
 #[cfg(feature = "std")]
 pub type Pair = sp_core::sr25519::Pair;
 
+<<<<<<< HEAD
 // TODO: Remove after the Checks are migrated to TxExtension.
 /// The extension to the basic transaction logic.
 pub type TxExtension = (
@@ -161,6 +162,14 @@ pub type TxExtension = (
 	CheckSubstrateCall,
 	frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
 	frame_system::WeightReclaim<Runtime>,
+=======
+/// The SignedExtension to the basic transaction logic.
+pub type SignedExtra = (
+	CheckNonce<Runtime>,
+	CheckWeight<Runtime>,
+	CheckSubstrateCall,
+	frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
+>>>>>>> origin/upgrade/1.12.0
 );
 /// The payload being signed in transactions.
 pub type SignedPayload = sp_runtime::generic::SignedPayload<RuntimeCall, TxExtension>;
