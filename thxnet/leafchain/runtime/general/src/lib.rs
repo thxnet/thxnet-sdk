@@ -330,7 +330,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("thxnet-general-runtime"),
 	impl_name: create_runtime_str!("thxnet-general-runtime"),
 	authoring_version: 1,
-	spec_version: 20,
+	spec_version: 21,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -352,11 +352,31 @@ const MAXIMUM_BLOCK_WEIGHT: Weight = Weight::from_parts(
 );
 
 /// Maximum number of blocks simultaneously accepted by the Runtime, not yet included
-/// into the relay chain. Must be ≥ rootchain async_backing max_candidate_depth + 1.
-/// With rootchain max_candidate_depth=1 (set by EnableAsyncBackingAndCoretime migration
-/// on v1.12.0+), capacity must be ≥ 2 or collator block production will panic with
-/// "no space left for the block in the unincluded segment" or stall entirely.
-const UNINCLUDED_SEGMENT_CAPACITY: u32 = 2;
+/// into the relay chain.
+///
+/// v1.12.0 WORKAROUND: set to 1 to prevent cumulus fork production at the source.
+/// The v1.12.0 relay-side prospective-parachains subsystem uses the pre-#4937
+/// fragment-chain (`fragment_chain/mod.rs:797`'s `is_fork_or_cycle` rejects any
+/// second candidate at the same parent). In small/uniform topologies (1 core, 1
+/// backing group) the collator re-authors block N every slot until inclusion,
+/// producing forks; fragment-chain rejects them all as "Is not a potential
+/// member", inclusion never completes, para stalls permanently.
+///
+/// Capacity=1 forces `cumulus_pallet_aura_ext::FixedVelocityConsensusHook::
+/// can_build_upon` to return false while any block is unincluded, so the collator
+/// builds exactly one block per inclusion cycle. No forks → fragment-chain
+/// accepts every candidate → inclusion pipeline stays healthy. Tradeoff: para
+/// throughput is synchronous-backing tempo (~18s per block instead of async's
+/// ~6s), but stable.
+///
+/// Empirically validated on forked-testnet 2026-04-18: with
+/// `BLOCK_PROCESSING_VELOCITY=1, UNINCLUDED_SEGMENT_CAPACITY=1`, para reached
+/// block 4556+ with finalization keeping pace. With capacity=2 under the same
+/// topology, para stalls at ~13-30 forever.
+///
+/// The stable2512 hop should restore capacity to 2 (async backing safe once
+/// #4937 is present).
+const UNINCLUDED_SEGMENT_CAPACITY: u32 = 1;
 /// How many parachain blocks are processed by the relay chain per parent. Limits the
 /// number of blocks authored per slot.
 const BLOCK_PROCESSING_VELOCITY: u32 = 1;
