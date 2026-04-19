@@ -1335,7 +1335,6 @@ dependencies = [
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-xcmp-queue",
  "emulated-integration-tests-common",
- "frame-metadata-hash-extension",
  "frame-support",
  "frame-system",
  "pallet-asset-conversion",
@@ -10443,20 +10442,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "merkleized-metadata"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f313fcff1d2a4bcaa2deeaa00bf7530d77d5f7bd0467a117dde2e29a75a7a17a"
-dependencies = [
- "array-bytes",
- "blake3",
- "frame-metadata",
- "parity-scale-codec",
- "scale-decode",
- "scale-info",
-]
-
-[[package]]
 name = "merlin"
 version = "3.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -10617,21 +10602,6 @@ dependencies = [
  "fragile",
  "mockall_derive",
  "predicates",
- "predicates-tree",
-]
-
-[[package]]
-name = "mockall"
-version = "0.12.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "43766c2b5203b10de348ffe19f7e54564b64f3d6018ff7648d1e2d6d3a0f0a48"
-dependencies = [
- "cfg-if",
- "downcast",
- "fragile",
- "lazy_static",
- "mockall_derive 0.12.1",
- "predicates 3.0.3",
  "predicates-tree",
 ]
 
@@ -20791,7 +20761,7 @@ dependencies = [
  "linked_hash_set",
  "litep2p",
  "log",
- "mockall 0.11.4",
+ "mockall",
  "multistream-select",
  "parity-scale-codec",
  "parking_lot 0.12.3",
@@ -20913,7 +20883,7 @@ dependencies = [
  "fork-tree",
  "futures",
  "log",
- "mockall 0.11.4",
+ "mockall",
  "parity-scale-codec",
  "prost 0.12.6",
  "prost-build 0.13.2",
