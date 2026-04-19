@@ -1,0 +1,13 @@
+name: ARC probe
+on:
+  workflow_dispatch:
+
+jobs:
+  probe-light:
+    runs-on: hetzner-thxnet-light
+    steps:
+      - run: |
+          echo "runs-on=hetzner-thxnet-light (scale-set-name form)"
+          hostname
+          id
+          uname -a
