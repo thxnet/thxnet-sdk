@@ -33,14 +33,14 @@ const MAX_BLOCK_WEIGHT: Weight = Weight::from_parts(1024, u64::MAX);
 
 parameter_types! {
 	pub Version: RuntimeVersion = RuntimeVersion {
-		spec_name: sp_version::create_runtime_str!("test"),
-		impl_name: sp_version::create_runtime_str!("system-test"),
+		spec_name: alloc::borrow::Cow::Borrowed("test"),
+		impl_name: alloc::borrow::Cow::Borrowed("system-test"),
 		authoring_version: 1,
 		spec_version: 1,
 		impl_version: 1,
 		apis: sp_version::create_apis_vec!([]),
 		transaction_version: 1,
-		state_version: 1,
+		system_version: 1,
 	};
 	pub const DbWeight: RuntimeDbWeight = RuntimeDbWeight {
 		read: 10,
@@ -121,6 +121,9 @@ pub const CALL: &<Test as Config>::RuntimeCall =
 
 /// Create new externalities for `System` module tests.
 pub fn new_test_ext() -> sp_io::TestExternalities {
+	// Initialize logging
+	sp_tracing::try_init_simple();
+
 	let mut ext: sp_io::TestExternalities =
 		RuntimeGenesisConfig::default().build_storage().unwrap().into();
 	// Add to each test the initial weight of a block

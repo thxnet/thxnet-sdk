@@ -25,24 +25,26 @@ use crate::{
 	paras_inherent::DisputedBitfield,
 	shared::AllowedRelayParentsTracker,
 };
-use primitives::{
-	effective_minimum_backing_votes, AvailabilityBitfield, SignedAvailabilityBitfields,
-	UncheckedSignedAvailabilityBitfields,
+use polkadot_primitives::{
+	effective_minimum_backing_votes, AvailabilityBitfield, CandidateDescriptorV2,
+	CandidateDescriptorVersion, ClaimQueueOffset, CoreSelector, SignedAvailabilityBitfields,
+	UMPSignal, UncheckedSignedAvailabilityBitfields, UMP_SEPARATOR,
 };
 
 use assert_matches::assert_matches;
+use codec::DecodeAll;
 use frame_support::assert_noop;
-use keyring::Sr25519Keyring;
-use parity_scale_codec::DecodeAll;
-use primitives::{
-	BlockNumber, CandidateCommitments, CandidateDescriptor, CollatorId,
-	CompactStatement as Statement, Hash, SignedAvailabilityBitfield, SignedStatement,
-	ValidationCode, ValidatorId, ValidityAttestation, PARACHAIN_KEY_TYPE_ID,
+use polkadot_primitives::{
+	BlockNumber, CandidateCommitments, CollatorId, CollatorSignature,
+	CompactStatement as Statement, Hash, MutateDescriptorV2, SignedAvailabilityBitfield,
+	SignedStatement, ValidationCode, ValidatorId, ValidityAttestation, PARACHAIN_KEY_TYPE_ID,
 };
+use polkadot_primitives_test_helpers::{dummy_validation_code, CandidateDescriptor};
 use sc_keystore::LocalKeystore;
+use sp_core::ByteArray;
+use sp_keyring::Sr25519Keyring;
 use sp_keystore::{Keystore, KeystorePtr};
 use std::sync::Arc;
-use test_helpers::{dummy_collator, dummy_collator_signature, dummy_validation_code};
 
 fn default_config() -> HostConfiguration<BlockNumber> {
 	let mut config = HostConfiguration::default();
@@ -82,7 +84,7 @@ fn default_allowed_relay_parent_tracker() -> AllowedRelayParentsTracker<Hash, Bl
 	let relay_parent = System::parent_hash();
 	let parent_number = System::block_number().saturating_sub(1);
 
-	allowed.update(relay_parent, Hash::zero(), parent_number, 1);
+	allowed.update(relay_parent, Hash::zero(), Default::default(), parent_number, 1);
 	allowed
 }
 
@@ -94,24 +96,6 @@ pub(crate) enum BackingKind {
 	Lacking,
 }
 
-pub(crate) fn collator_sign_candidate(
-	collator: Sr25519Keyring,
-	candidate: &mut CommittedCandidateReceipt,
-) {
-	candidate.descriptor.collator = collator.public().into();
-
-	let payload = primitives::collator_signature_payload(
-		&candidate.descriptor.relay_parent,
-		&candidate.descriptor.para_id,
-		&candidate.descriptor.persisted_validation_data_hash,
-		&candidate.descriptor.pov_hash,
-		&candidate.descriptor.validation_code_hash,
-	);
-
-	candidate.descriptor.signature = collator.sign(&payload[..]).into();
-	assert!(candidate.descriptor().check_collator_signature().is_ok());
-}
-
 pub(crate) fn back_candidate(
 	candidate: CommittedCandidateReceipt,
 	validators: &[Sr25519Keyring],
@@ -119,7 +103,7 @@ pub(crate) fn back_candidate(
 	keystore: &KeystorePtr,
 	signing_context: &SigningContext,
 	kind: BackingKind,
-	core_index: Option<CoreIndex>,
+	core_index: CoreIndex,
 ) -> BackedCandidate {
 	let mut validator_indices = bitvec::bitvec![u8, BitOrderLsb0; 0; group.len()];
 	let threshold = effective_minimum_backing_votes(
@@ -158,7 +142,7 @@ pub(crate) fn back_candidate(
 	let backed =
 		BackedCandidate::new(candidate, validity_votes, validator_indices.clone(), core_index);
 
-	let successfully_backed = primitives::check_candidate_backing(
+	let successfully_backed = polkadot_primitives::check_candidate_backing(
 		backed.candidate().hash(),
 		backed.validity_votes(),
 		validator_indices.as_bitslice(),
@@ -279,6 +263,10 @@ pub(crate) struct TestCandidateBuilder {
 	pub(crate) new_validation_code: Option<ValidationCode>,
 	pub(crate) validation_code: ValidationCode,
 	pub(crate) hrmp_watermark: BlockNumber,
+	/// Creates a v2 descriptor if set.
+	pub(crate) core_index: Option<CoreIndex>,
+	/// The core selector to use.
+	pub(crate) core_selector: Option<u8>,
 }
 
 impl std::default::Default for TestCandidateBuilder {
@@ -294,14 +282,28 @@ impl std::default::Default for TestCandidateBuilder {
 			new_validation_code: None,
 			validation_code: dummy_validation_code(),
 			hrmp_watermark: 0u32.into(),
+			core_index: None,
+			core_selector: None,
 		}
 	}
 }
 
 impl TestCandidateBuilder {
 	pub(crate) fn build(self) -> CommittedCandidateReceipt {
-		CommittedCandidateReceipt {
-			descriptor: CandidateDescriptor {
+		let descriptor = if let Some(core_index) = self.core_index {
+			CandidateDescriptorV2::new(
+				self.para_id,
+				self.relay_parent,
+				core_index,
+				0,
+				self.persisted_validation_data_hash,
+				self.pov_hash,
+				Default::default(),
+				self.para_head_hash.unwrap_or_else(|| self.head_data.hash()),
+				self.validation_code.hash(),
+			)
+		} else {
+			CandidateDescriptor {
 				para_id: self.para_id,
 				pov_hash: self.pov_hash,
 				relay_parent: self.relay_parent,
@@ -309,16 +311,40 @@ impl TestCandidateBuilder {
 				validation_code_hash: self.validation_code.hash(),
 				para_head: self.para_head_hash.unwrap_or_else(|| self.head_data.hash()),
 				erasure_root: Default::default(),
-				signature: dummy_collator_signature(),
-				collator: dummy_collator(),
-			},
+				signature: CollatorSignature::from_slice(
+					&mut (0..64).into_iter().collect::<Vec<_>>().as_slice(),
+				)
+				.expect("64 bytes; qed"),
+				collator: CollatorId::from_slice(
+					&mut (0..32).into_iter().collect::<Vec<_>>().as_slice(),
+				)
+				.expect("32 bytes; qed"),
+			}
+			.into()
+		};
+		let mut ccr = CommittedCandidateReceipt {
+			descriptor,
 			commitments: CandidateCommitments {
 				head_data: self.head_data,
 				new_validation_code: self.new_validation_code,
 				hrmp_watermark: self.hrmp_watermark,
 				..Default::default()
 			},
+		};
+
+		if ccr.descriptor.version() == CandidateDescriptorVersion::V2 {
+			ccr.commitments.upward_messages.force_push(UMP_SEPARATOR);
+
+			ccr.commitments.upward_messages.force_push(
+				UMPSignal::SelectCore(
+					CoreSelector(self.core_selector.unwrap_or_default()),
+					ClaimQueueOffset(0),
+				)
+				.encode(),
+			);
 		}
+
+		ccr
 	}
 }
 
@@ -364,10 +390,11 @@ pub(crate) fn process_bitfields(
 ) -> Vec<(CoreIndex, CandidateHash)> {
 	let validators = shared::ActiveValidatorKeys::<Test>::get();
 
-	ParaInclusion::update_pending_availability_and_get_freed_cores(
+	let (_weight, bitfields) = ParaInclusion::update_pending_availability_and_get_freed_cores(
 		&validators[..],
 		signed_bitfields,
-	)
+	);
+	bitfields
 }
 
 #[test]
@@ -1234,14 +1261,13 @@ fn candidate_checks() {
 				&allowed_relay_parents,
 				&BTreeMap::new(),
 				&group_validators,
-				false
 			),
-			Ok(ProcessedCandidates::default())
+			Ok(Default::default())
 		);
 
 		// Check candidate ordering
 		{
-			let mut candidate_a = TestCandidateBuilder {
+			let candidate_a = TestCandidateBuilder {
 				para_id: chain_a,
 				relay_parent: System::parent_hash(),
 				pov_hash: Hash::repeat_byte(1),
@@ -1250,7 +1276,7 @@ fn candidate_checks() {
 				..Default::default()
 			}
 			.build();
-			let mut candidate_b_1 = TestCandidateBuilder {
+			let candidate_b_1 = TestCandidateBuilder {
 				para_id: chain_b,
 				relay_parent: System::parent_hash(),
 				pov_hash: Hash::repeat_byte(2),
@@ -1262,7 +1288,7 @@ fn candidate_checks() {
 			.build();
 
 			// Make candidate b2 a child of b1.
-			let mut candidate_b_2 = TestCandidateBuilder {
+			let candidate_b_2 = TestCandidateBuilder {
 				para_id: chain_b,
 				relay_parent: System::parent_hash(),
 				pov_hash: Hash::repeat_byte(3),
@@ -1278,10 +1304,6 @@ fn candidate_checks() {
 			}
 			.build();
 
-			collator_sign_candidate(Sr25519Keyring::One, &mut candidate_a);
-			collator_sign_candidate(Sr25519Keyring::Two, &mut candidate_b_1);
-			collator_sign_candidate(Sr25519Keyring::Two, &mut candidate_b_2);
-
 			let backed_a = back_candidate(
 				candidate_a,
 				&validators,
@@ -1289,7 +1311,7 @@ fn candidate_checks() {
 				&keystore,
 				&signing_context,
 				BackingKind::Threshold,
-				None,
+				CoreIndex(0),
 			);
 
 			let backed_b_1 = back_candidate(
@@ -1299,7 +1321,7 @@ fn candidate_checks() {
 				&keystore,
 				&signing_context,
 				BackingKind::Threshold,
-				None,
+				CoreIndex(2),
 			);
 
 			let backed_b_2 = back_candidate(
@@ -1309,7 +1331,7 @@ fn candidate_checks() {
 				&keystore,
 				&signing_context,
 				BackingKind::Threshold,
-				None,
+				CoreIndex(1),
 			);
 
 			// candidates are required to be sorted in dependency order.
@@ -1326,7 +1348,6 @@ fn candidate_checks() {
 					.into_iter()
 					.collect(),
 					&group_validators,
-					false
 				),
 				Error::<Test>::ValidationDataHashMismatch
 			);
@@ -1347,13 +1368,12 @@ fn candidate_checks() {
 				.into_iter()
 				.collect(),
 				&group_validators,
-				false,
 			)
 			.unwrap();
 
 			// candidate does not build on top of the latest unincluded head
 
-			let mut candidate_b_3 = TestCandidateBuilder {
+			let candidate_b_3 = TestCandidateBuilder {
 				para_id: chain_b,
 				relay_parent: System::parent_hash(),
 				pov_hash: Hash::repeat_byte(4),
@@ -1368,7 +1388,6 @@ fn candidate_checks() {
 				..Default::default()
 			}
 			.build();
-			collator_sign_candidate(Sr25519Keyring::Two, &mut candidate_b_3);
 
 			let backed_b_3 = back_candidate(
 				candidate_b_3,
@@ -1377,7 +1396,7 @@ fn candidate_checks() {
 				&keystore,
 				&signing_context,
 				BackingKind::Threshold,
-				None,
+				CoreIndex(3),
 			);
 
 			assert_noop!(
@@ -1385,7 +1404,6 @@ fn candidate_checks() {
 					&allowed_relay_parents,
 					&vec![(chain_b, vec![(backed_b_3, CoreIndex(3))])].into_iter().collect(),
 					&group_validators,
-					false
 				),
 				Error::<Test>::ValidationDataHashMismatch
 			);
@@ -1393,7 +1411,7 @@ fn candidate_checks() {
 
 		// candidate not backed.
 		{
-			let mut candidate = TestCandidateBuilder {
+			let candidate = TestCandidateBuilder {
 				para_id: chain_a,
 				relay_parent: System::parent_hash(),
 				pov_hash: Hash::repeat_byte(1),
@@ -1402,7 +1420,6 @@ fn candidate_checks() {
 				..Default::default()
 			}
 			.build();
-			collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
 
 			// Insufficient backing.
 			let backed = back_candidate(
@@ -1412,7 +1429,7 @@ fn candidate_checks() {
 				&keystore,
 				&signing_context,
 				BackingKind::Lacking,
-				None,
+				CoreIndex(0),
 			);
 
 			assert_noop!(
@@ -1422,7 +1439,6 @@ fn candidate_checks() {
 						.into_iter()
 						.collect(),
 					&group_validators,
-					false
 				),
 				Error::<Test>::InsufficientBacking
 			);
@@ -1435,7 +1451,7 @@ fn candidate_checks() {
 				&keystore,
 				&signing_context,
 				BackingKind::Threshold,
-				None,
+				CoreIndex(0),
 			);
 
 			assert_noop!(
@@ -1445,7 +1461,6 @@ fn candidate_checks() {
 						.into_iter()
 						.collect(),
 					&group_validators,
-					false
 				),
 				Error::<Test>::InvalidBacking
 			);
@@ -1456,7 +1471,7 @@ fn candidate_checks() {
 			let wrong_parent_hash = Hash::repeat_byte(222);
 			assert!(System::parent_hash() != wrong_parent_hash);
 
-			let mut candidate_a = TestCandidateBuilder {
+			let candidate_a = TestCandidateBuilder {
 				para_id: chain_a,
 				relay_parent: wrong_parent_hash,
 				pov_hash: Hash::repeat_byte(1),
@@ -1465,7 +1480,7 @@ fn candidate_checks() {
 			}
 			.build();
 
-			let mut candidate_b = TestCandidateBuilder {
+			let candidate_b = TestCandidateBuilder {
 				para_id: chain_b,
 				relay_parent: System::parent_hash(),
 				pov_hash: Hash::repeat_byte(2),
@@ -1475,10 +1490,6 @@ fn candidate_checks() {
 			}
 			.build();
 
-			collator_sign_candidate(Sr25519Keyring::One, &mut candidate_a);
-
-			collator_sign_candidate(Sr25519Keyring::Two, &mut candidate_b);
-
 			let backed_a = back_candidate(
 				candidate_a,
 				&validators,
@@ -1486,7 +1497,7 @@ fn candidate_checks() {
 				&keystore,
 				&signing_context,
 				BackingKind::Threshold,
-				None,
+				chain_a_assignment.1,
 			);
 
 			let backed_b = back_candidate(
@@ -1496,7 +1507,7 @@ fn candidate_checks() {
 				&keystore,
 				&signing_context,
 				BackingKind::Threshold,
-				None,
+				chain_b_assignment.1,
 			);
 
 			assert_noop!(
@@ -1509,7 +1520,6 @@ fn candidate_checks() {
 					.into_iter()
 					.collect(),
 					&group_validators,
-					false
 				),
 				Error::<Test>::DisallowedRelayParent
 			);
@@ -1528,10 +1538,9 @@ fn candidate_checks() {
 			.build();
 
 			assert_eq!(CollatorId::from(Sr25519Keyring::Two.public()), thread_collator);
-			collator_sign_candidate(Sr25519Keyring::Two, &mut candidate);
 
 			// change the candidate after signing.
-			candidate.descriptor.pov_hash = Hash::repeat_byte(2);
+			candidate.descriptor.set_pov_hash(Hash::repeat_byte(2));
 
 			let backed = back_candidate(
 				candidate,
@@ -1540,25 +1549,58 @@ fn candidate_checks() {
 				&keystore,
 				&signing_context,
 				BackingKind::Threshold,
-				None,
+				thread_a_assignment.1,
 			);
 
-			assert_noop!(
+			let candidate_receipt_with_backing_validator_indices =
 				ParaInclusion::process_candidates(
 					&allowed_relay_parents,
-					&vec![(thread_a_assignment.0, vec![(backed, thread_a_assignment.1)])]
+					&vec![(thread_a_assignment.0, vec![(backed.clone(), thread_a_assignment.1)])]
 						.into_iter()
 						.collect(),
 					&group_validators,
-					false
-				),
-				Error::<Test>::NotCollatorSigned
+				)
+				.expect("candidate is accepted with bad collator signature");
+
+			let mut expected = std::collections::HashMap::<
+				CandidateHash,
+				(CandidateReceipt, Vec<(ValidatorIndex, ValidityAttestation)>),
+			>::new();
+			let backed_candidate = backed;
+			let candidate_receipt_with_backers = expected
+				.entry(backed_candidate.hash())
+				.or_insert_with(|| (backed_candidate.receipt(), Vec::new()));
+			let (validator_indices, Some(_)) = backed_candidate.validator_indices_and_core_index()
+			else {
+				panic!("Expected core index")
+			};
+			assert_eq!(backed_candidate.validity_votes().len(), validator_indices.count_ones());
+			candidate_receipt_with_backers.1.extend(
+				validator_indices
+					.iter()
+					.enumerate()
+					.filter(|(_, signed)| **signed)
+					.zip(backed_candidate.validity_votes().iter().cloned())
+					.filter_map(|((validator_index_within_group, _), attestation)| {
+						let grp_idx = GroupIndex(2);
+						group_validators(grp_idx).map(|validator_indices| {
+							(validator_indices[validator_index_within_group], attestation)
+						})
+					}),
+			);
+
+			assert_eq!(
+				expected,
+				candidate_receipt_with_backing_validator_indices
+					.into_iter()
+					.map(|c| (c.0.hash(), c))
+					.collect()
 			);
 		}
 
 		// interfering code upgrade - reject
 		{
-			let mut candidate = TestCandidateBuilder {
+			let candidate = TestCandidateBuilder {
 				para_id: chain_a,
 				relay_parent: System::parent_hash(),
 				pov_hash: Hash::repeat_byte(1),
@@ -1569,8 +1611,6 @@ fn candidate_checks() {
 			}
 			.build();
 
-			collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
-
 			let backed = back_candidate(
 				candidate,
 				&validators,
@@ -1578,7 +1618,7 @@ fn candidate_checks() {
 				&keystore,
 				&signing_context,
 				BackingKind::Threshold,
-				None,
+				chain_a_assignment.1,
 			);
 
 			{
@@ -1601,7 +1641,6 @@ fn candidate_checks() {
 						.into_iter()
 						.collect(),
 					&group_validators,
-					false
 				),
 				Error::<Test>::PrematureCodeUpgrade
 			);
@@ -1609,7 +1648,7 @@ fn candidate_checks() {
 
 		// Bad validation data hash - reject
 		{
-			let mut candidate = TestCandidateBuilder {
+			let candidate = TestCandidateBuilder {
 				para_id: chain_a,
 				relay_parent: System::parent_hash(),
 				pov_hash: Hash::repeat_byte(1),
@@ -1619,8 +1658,6 @@ fn candidate_checks() {
 			}
 			.build();
 
-			collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
-
 			let backed = back_candidate(
 				candidate,
 				&validators,
@@ -1628,7 +1665,7 @@ fn candidate_checks() {
 				&keystore,
 				&signing_context,
 				BackingKind::Threshold,
-				None,
+				chain_a_assignment.1,
 			);
 
 			assert_noop!(
@@ -1638,7 +1675,6 @@ fn candidate_checks() {
 						.into_iter()
 						.collect(),
 					&group_validators,
-					false,
 				),
 				Error::<Test>::ValidationDataHashMismatch
 			);
@@ -1646,7 +1682,7 @@ fn candidate_checks() {
 
 		// bad validation code hash
 		{
-			let mut candidate = TestCandidateBuilder {
+			let candidate = TestCandidateBuilder {
 				para_id: chain_a,
 				relay_parent: System::parent_hash(),
 				pov_hash: Hash::repeat_byte(1),
@@ -1657,8 +1693,6 @@ fn candidate_checks() {
 			}
 			.build();
 
-			collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
-
 			let backed = back_candidate(
 				candidate,
 				&validators,
@@ -1666,7 +1700,7 @@ fn candidate_checks() {
 				&keystore,
 				&signing_context,
 				BackingKind::Threshold,
-				None,
+				chain_a_assignment.1,
 			);
 
 			assert_noop!(
@@ -1676,7 +1710,6 @@ fn candidate_checks() {
 						.into_iter()
 						.collect(),
 					&group_validators,
-					false
 				),
 				Error::<Test>::InvalidValidationCodeHash
 			);
@@ -1684,7 +1717,7 @@ fn candidate_checks() {
 
 		// Para head hash in descriptor doesn't match head data
 		{
-			let mut candidate = TestCandidateBuilder {
+			let candidate = TestCandidateBuilder {
 				para_id: chain_a,
 				relay_parent: System::parent_hash(),
 				pov_hash: Hash::repeat_byte(1),
@@ -1695,8 +1728,6 @@ fn candidate_checks() {
 			}
 			.build();
 
-			collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
-
 			let backed = back_candidate(
 				candidate,
 				&validators,
@@ -1704,7 +1735,7 @@ fn candidate_checks() {
 				&keystore,
 				&signing_context,
 				BackingKind::Threshold,
-				None,
+				chain_a_assignment.1,
 			);
 
 			assert_noop!(
@@ -1714,7 +1745,6 @@ fn candidate_checks() {
 						.into_iter()
 						.collect(),
 					&group_validators,
-					false
 				),
 				Error::<Test>::ParaHeadMismatch
 			);
@@ -1787,7 +1817,7 @@ fn backing_works() {
 		let chain_b_assignment = (chain_b, CoreIndex::from(1));
 		let thread_a_assignment = (thread_a, CoreIndex::from(2));
 
-		let mut candidate_a = TestCandidateBuilder {
+		let candidate_a = TestCandidateBuilder {
 			para_id: chain_a,
 			relay_parent: System::parent_hash(),
 			pov_hash: Hash::repeat_byte(1),
@@ -1796,9 +1826,8 @@ fn backing_works() {
 			..Default::default()
 		}
 		.build();
-		collator_sign_candidate(Sr25519Keyring::One, &mut candidate_a);
 
-		let mut candidate_b = TestCandidateBuilder {
+		let candidate_b = TestCandidateBuilder {
 			para_id: chain_b,
 			relay_parent: System::parent_hash(),
 			pov_hash: Hash::repeat_byte(2),
@@ -1807,9 +1836,8 @@ fn backing_works() {
 			..Default::default()
 		}
 		.build();
-		collator_sign_candidate(Sr25519Keyring::One, &mut candidate_b);
 
-		let mut candidate_c = TestCandidateBuilder {
+		let candidate_c = TestCandidateBuilder {
 			para_id: thread_a,
 			relay_parent: System::parent_hash(),
 			pov_hash: Hash::repeat_byte(3),
@@ -1818,7 +1846,6 @@ fn backing_works() {
 			..Default::default()
 		}
 		.build();
-		collator_sign_candidate(Sr25519Keyring::Two, &mut candidate_c);
 
 		let backed_a = back_candidate(
 			candidate_a.clone(),
@@ -1827,7 +1854,7 @@ fn backing_works() {
 			&keystore,
 			&signing_context,
 			BackingKind::Threshold,
-			None,
+			chain_a_assignment.1,
 		);
 
 		let backed_b = back_candidate(
@@ -1837,7 +1864,7 @@ fn backing_works() {
 			&keystore,
 			&signing_context,
 			BackingKind::Threshold,
-			None,
+			chain_b_assignment.1,
 		);
 
 		let backed_c = back_candidate(
@@ -1847,7 +1874,7 @@ fn backing_works() {
 			&keystore,
 			&signing_context,
 			BackingKind::Threshold,
-			None,
+			thread_a_assignment.1,
 		);
 
 		let backed_candidates = vec![
@@ -1879,25 +1906,12 @@ fn backing_works() {
 			}
 		};
 
-		let ProcessedCandidates {
-			core_indices: occupied_cores,
-			candidate_receipt_with_backing_validator_indices,
-		} = ParaInclusion::process_candidates(
+		let candidate_receipt_with_backing_validator_indices = ParaInclusion::process_candidates(
 			&allowed_relay_parents,
 			&backed_candidates,
 			&group_validators,
-			false,
 		)
 		.expect("candidates scheduled, in order, and backed");
-
-		assert_eq!(
-			occupied_cores,
-			vec![
-				(CoreIndex::from(0), chain_a),
-				(CoreIndex::from(1), chain_b),
-				(CoreIndex::from(2), thread_a)
-			]
-		);
 
 		// Transform the votes into the setup we expect
 		let expected = {
@@ -1910,10 +1924,10 @@ fn backing_works() {
 				let candidate_receipt_with_backers = intermediate
 					.entry(backed_candidate.hash())
 					.or_insert_with(|| (backed_candidate.receipt(), Vec::new()));
-				let (validator_indices, None) =
-					backed_candidate.validator_indices_and_core_index(false)
+				let (validator_indices, Some(_)) =
+					backed_candidate.validator_indices_and_core_index()
 				else {
-					panic!("Expected no injected core index")
+					panic!("Expected injected core index")
 				};
 				assert_eq!(backed_candidate.validity_votes().len(), validator_indices.count_ones());
 				candidate_receipt_with_backers.1.extend(
@@ -1939,7 +1953,7 @@ fn backing_works() {
 			Vec<(ValidatorIndex, ValidityAttestation)>,
 		)>| {
 			candidate_receipts_with_backers.sort_by(|(cr1, _), (cr2, _)| {
-				cr1.descriptor().para_id.cmp(&cr2.descriptor().para_id)
+				cr1.descriptor().para_id().cmp(&cr2.descriptor().para_id())
 			});
 			candidate_receipts_with_backers
 		};
@@ -2082,7 +2096,7 @@ fn backing_works_with_elastic_scaling_mvp() {
 
 		let allowed_relay_parents = default_allowed_relay_parent_tracker();
 
-		let mut candidate_a = TestCandidateBuilder {
+		let candidate_a = TestCandidateBuilder {
 			para_id: chain_a,
 			relay_parent: System::parent_hash(),
 			pov_hash: Hash::repeat_byte(1),
@@ -2091,9 +2105,8 @@ fn backing_works_with_elastic_scaling_mvp() {
 			..Default::default()
 		}
 		.build();
-		collator_sign_candidate(Sr25519Keyring::One, &mut candidate_a);
 
-		let mut candidate_b_1 = TestCandidateBuilder {
+		let candidate_b_1 = TestCandidateBuilder {
 			para_id: chain_b,
 			relay_parent: System::parent_hash(),
 			pov_hash: Hash::repeat_byte(2),
@@ -2102,10 +2115,9 @@ fn backing_works_with_elastic_scaling_mvp() {
 			..Default::default()
 		}
 		.build();
-		collator_sign_candidate(Sr25519Keyring::One, &mut candidate_b_1);
 
 		// Make candidate b2 a child of b1.
-		let mut candidate_b_2 = TestCandidateBuilder {
+		let candidate_b_2 = TestCandidateBuilder {
 			para_id: chain_b,
 			relay_parent: System::parent_hash(),
 			pov_hash: Hash::repeat_byte(3),
@@ -2119,7 +2131,6 @@ fn backing_works_with_elastic_scaling_mvp() {
 			..Default::default()
 		}
 		.build();
-		collator_sign_candidate(Sr25519Keyring::One, &mut candidate_b_2);
 
 		let backed_a = back_candidate(
 			candidate_a.clone(),
@@ -2128,7 +2139,7 @@ fn backing_works_with_elastic_scaling_mvp() {
 			&keystore,
 			&signing_context,
 			BackingKind::Threshold,
-			None,
+			CoreIndex(0),
 		);
 
 		let backed_b_1 = back_candidate(
@@ -2138,7 +2149,7 @@ fn backing_works_with_elastic_scaling_mvp() {
 			&keystore,
 			&signing_context,
 			BackingKind::Threshold,
-			Some(CoreIndex(1)),
+			CoreIndex(1),
 		);
 
 		let backed_b_2 = back_candidate(
@@ -2148,7 +2159,7 @@ fn backing_works_with_elastic_scaling_mvp() {
 			&keystore,
 			&signing_context,
 			BackingKind::Threshold,
-			Some(CoreIndex(2)),
+			CoreIndex(2),
 		);
 
 		let mut backed_candidates = BTreeMap::new();
@@ -2182,26 +2193,12 @@ fn backing_works_with_elastic_scaling_mvp() {
 			}
 		};
 
-		let ProcessedCandidates {
-			core_indices: occupied_cores,
-			candidate_receipt_with_backing_validator_indices,
-		} = ParaInclusion::process_candidates(
+		let candidate_receipt_with_backing_validator_indices = ParaInclusion::process_candidates(
 			&allowed_relay_parents,
 			&backed_candidates,
 			&group_validators,
-			true,
 		)
 		.expect("candidates scheduled, in order, and backed");
-
-		// Both b candidates will be backed.
-		assert_eq!(
-			occupied_cores,
-			vec![
-				(CoreIndex::from(0), chain_a),
-				(CoreIndex::from(1), chain_b),
-				(CoreIndex::from(2), chain_b),
-			]
-		);
 
 		// Transform the votes into the setup we expect
 		let mut expected = std::collections::HashMap::<
@@ -2214,8 +2211,11 @@ fn backing_works_with_elastic_scaling_mvp() {
 				let candidate_receipt_with_backers = expected
 					.entry(backed_candidate.hash())
 					.or_insert_with(|| (backed_candidate.receipt(), Vec::new()));
-				let (validator_indices, _maybe_core_index) =
-					backed_candidate.validator_indices_and_core_index(true);
+				let (validator_indices, Some(_)) =
+					backed_candidate.validator_indices_and_core_index()
+				else {
+					panic!("Expected injected core index")
+				};
 				assert_eq!(backed_candidate.validity_votes().len(), validator_indices.count_ones());
 				candidate_receipt_with_backers.1.extend(
 					validator_indices
@@ -2357,7 +2357,7 @@ fn can_include_candidate_with_ok_code_upgrade() {
 
 		let allowed_relay_parents = default_allowed_relay_parent_tracker();
 		let chain_a_assignment = (chain_a, CoreIndex::from(0));
-		let mut candidate_a = TestCandidateBuilder {
+		let candidate_a = TestCandidateBuilder {
 			para_id: chain_a,
 			relay_parent: System::parent_hash(),
 			pov_hash: Hash::repeat_byte(1),
@@ -2367,7 +2367,6 @@ fn can_include_candidate_with_ok_code_upgrade() {
 			..Default::default()
 		}
 		.build();
-		collator_sign_candidate(Sr25519Keyring::One, &mut candidate_a);
 
 		let backed_a = back_candidate(
 			candidate_a.clone(),
@@ -2376,21 +2375,17 @@ fn can_include_candidate_with_ok_code_upgrade() {
 			&keystore,
 			&signing_context,
 			BackingKind::Threshold,
-			None,
+			chain_a_assignment.1,
 		);
 
-		let ProcessedCandidates { core_indices: occupied_cores, .. } =
-			ParaInclusion::process_candidates(
-				&allowed_relay_parents,
-				&vec![(chain_a_assignment.0, vec![(backed_a, chain_a_assignment.1)])]
-					.into_iter()
-					.collect::<BTreeMap<_, _>>(),
-				group_validators,
-				false,
-			)
-			.expect("candidates scheduled, in order, and backed");
-
-		assert_eq!(occupied_cores, vec![(CoreIndex::from(0), chain_a)]);
+		let _ = ParaInclusion::process_candidates(
+			&allowed_relay_parents,
+			&vec![(chain_a_assignment.0, vec![(backed_a, chain_a_assignment.1)])]
+				.into_iter()
+				.collect::<BTreeMap<_, _>>(),
+			group_validators,
+		)
+		.expect("candidates scheduled, in order, and backed");
 
 		let backers = {
 			let num_backers = effective_minimum_backing_votes(
@@ -2496,18 +2491,21 @@ fn check_allowed_relay_parents() {
 		allowed_relay_parents.update(
 			relay_parent_a.1,
 			Hash::zero(),
+			Default::default(),
 			relay_parent_a.0,
 			max_ancestry_len,
 		);
 		allowed_relay_parents.update(
 			relay_parent_b.1,
 			Hash::zero(),
+			Default::default(),
 			relay_parent_b.0,
 			max_ancestry_len,
 		);
 		allowed_relay_parents.update(
 			relay_parent_c.1,
 			Hash::zero(),
+			Default::default(),
 			relay_parent_c.0,
 			max_ancestry_len,
 		);
@@ -2517,7 +2515,7 @@ fn check_allowed_relay_parents() {
 		let chain_b_assignment = (chain_b, CoreIndex::from(1));
 		let thread_a_assignment = (thread_a, CoreIndex::from(2));
 
-		let mut candidate_a = TestCandidateBuilder {
+		let candidate_a = TestCandidateBuilder {
 			para_id: chain_a,
 			relay_parent: relay_parent_a.1,
 			pov_hash: Hash::repeat_byte(1),
@@ -2530,10 +2528,9 @@ fn check_allowed_relay_parents() {
 			..Default::default()
 		}
 		.build();
-		collator_sign_candidate(Sr25519Keyring::One, &mut candidate_a);
 		let signing_context_a = SigningContext { parent_hash: relay_parent_a.1, session_index: 5 };
 
-		let mut candidate_b = TestCandidateBuilder {
+		let candidate_b = TestCandidateBuilder {
 			para_id: chain_b,
 			relay_parent: relay_parent_b.1,
 			pov_hash: Hash::repeat_byte(2),
@@ -2546,10 +2543,9 @@ fn check_allowed_relay_parents() {
 			..Default::default()
 		}
 		.build();
-		collator_sign_candidate(Sr25519Keyring::One, &mut candidate_b);
 		let signing_context_b = SigningContext { parent_hash: relay_parent_b.1, session_index: 5 };
 
-		let mut candidate_c = TestCandidateBuilder {
+		let candidate_c = TestCandidateBuilder {
 			para_id: thread_a,
 			relay_parent: relay_parent_c.1,
 			pov_hash: Hash::repeat_byte(3),
@@ -2562,7 +2558,6 @@ fn check_allowed_relay_parents() {
 			..Default::default()
 		}
 		.build();
-		collator_sign_candidate(Sr25519Keyring::Two, &mut candidate_c);
 		let signing_context_c = SigningContext { parent_hash: relay_parent_c.1, session_index: 5 };
 
 		let backed_a = back_candidate(
@@ -2572,7 +2567,7 @@ fn check_allowed_relay_parents() {
 			&keystore,
 			&signing_context_a,
 			BackingKind::Threshold,
-			None,
+			chain_a_assignment.1,
 		);
 
 		let backed_b = back_candidate(
@@ -2582,7 +2577,7 @@ fn check_allowed_relay_parents() {
 			&keystore,
 			&signing_context_b,
 			BackingKind::Threshold,
-			None,
+			chain_b_assignment.1,
 		);
 
 		let backed_c = back_candidate(
@@ -2592,7 +2587,7 @@ fn check_allowed_relay_parents() {
 			&keystore,
 			&signing_context_c,
 			BackingKind::Threshold,
-			None,
+			thread_a_assignment.1,
 		);
 
 		let backed_candidates = vec![
@@ -2607,7 +2602,6 @@ fn check_allowed_relay_parents() {
 			&allowed_relay_parents,
 			&backed_candidates,
 			&group_validators,
-			false,
 		)
 		.expect("candidates scheduled, in order, and backed");
 	});
@@ -2784,7 +2778,7 @@ fn para_upgrade_delay_scheduled_from_inclusion() {
 		let allowed_relay_parents = default_allowed_relay_parent_tracker();
 
 		let chain_a_assignment = (chain_a, CoreIndex::from(0));
-		let mut candidate_a = TestCandidateBuilder {
+		let candidate_a = TestCandidateBuilder {
 			para_id: chain_a,
 			relay_parent: System::parent_hash(),
 			pov_hash: Hash::repeat_byte(1),
@@ -2794,7 +2788,6 @@ fn para_upgrade_delay_scheduled_from_inclusion() {
 			..Default::default()
 		}
 		.build();
-		collator_sign_candidate(Sr25519Keyring::One, &mut candidate_a);
 
 		let backed_a = back_candidate(
 			candidate_a.clone(),
@@ -2803,21 +2796,18 @@ fn para_upgrade_delay_scheduled_from_inclusion() {
 			&keystore,
 			&signing_context,
 			BackingKind::Threshold,
-			None,
+			chain_a_assignment.1,
 		);
 
-		let ProcessedCandidates { core_indices: occupied_cores, .. } =
+		let _ =
 			ParaInclusion::process_candidates(
 				&allowed_relay_parents,
 				&vec![(chain_a_assignment.0, vec![(backed_a, chain_a_assignment.1)])]
 					.into_iter()
 					.collect::<BTreeMap<_, _>>(),
 				&group_validators,
-				false,
 			)
 			.expect("candidates scheduled, in order, and backed");
-
-		assert_eq!(occupied_cores, vec![(CoreIndex::from(0), chain_a)]);
 
 		// Run a couple of blocks before the inclusion.
 		run_to_block(7, |_| None);

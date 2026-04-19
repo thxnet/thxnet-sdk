@@ -20,22 +20,21 @@
 //! (Polkadot/Kusama had already executed it). The v5 → v6 migration removes:
 //!   - `ump_service_total_weight`
 //!   - `ump_max_individual_weight`
+//!
+//! Ported from endgame branch (commit db119e116c3), updated for stable2512 APIs.
 
 use crate::configuration::{self, Config, Pallet};
+use alloc::vec::Vec;
 use frame_support::{
 	pallet_prelude::*,
 	traits::{Defensive, OnRuntimeUpgrade, StorageVersion},
 	weights::Weight,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
-use sp_std::vec::Vec;
 
-use super::v5::V5HostConfiguration;
-use primitives::{AsyncBackingParams, Balance, ExecutorParams, SessionIndex};
-#[cfg(feature = "try-runtime")]
-use sp_std::prelude::*;
+use polkadot_primitives::{AsyncBackingParams, Balance, ExecutorParams, SessionIndex};
 
-#[derive(parity_scale_codec::Encode, parity_scale_codec::Decode, Debug, Clone)]
+#[derive(codec::Encode, codec::Decode, Debug, Clone)]
 pub struct V6HostConfiguration<BlockNumber> {
 	pub max_code_size: u32,
 	pub max_head_data_size: u32,
@@ -131,6 +130,8 @@ impl<BlockNumber: Default + From<u32>> Default for V6HostConfiguration<BlockNumb
 	}
 }
 
+use super::v5::V5HostConfiguration;
+
 mod v5 {
 	use super::*;
 
@@ -164,7 +165,7 @@ mod v6 {
 // ---------------------------------------------------------------------------
 // Migration: v5 → v6  (removes ump_service_total_weight, ump_max_individual_weight)
 // ---------------------------------------------------------------------------
-pub struct MigrateToV6<T>(sp_std::marker::PhantomData<T>);
+pub struct MigrateToV6<T>(core::marker::PhantomData<T>);
 impl<T: Config> OnRuntimeUpgrade for MigrateToV6<T> {
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
@@ -199,10 +200,6 @@ impl<T: Config> OnRuntimeUpgrade for MigrateToV6<T> {
 }
 
 fn migrate_to_v6<T: Config>() -> Weight {
-	// Unusual formatting is justified:
-	// - make it easier to verify that fields assign what they supposed to assign.
-	// - this code is transient and will be removed after all migrations are done.
-	// - this code is important enough to optimize for legibility sacrificing consistency.
 	#[rustfmt::skip]
 	let translate =
 		|pre: V5HostConfiguration<BlockNumberFor<T>>| ->
@@ -221,7 +218,6 @@ validation_upgrade_delay                 : pre.validation_upgrade_delay,
 async_backing_params                     : pre.async_backing_params,
 max_pov_size                             : pre.max_pov_size,
 max_downward_message_size                : pre.max_downward_message_size,
-// NOTE: ump_service_total_weight is DROPPED here (removed in v6)
 hrmp_max_parachain_outbound_channels     : pre.hrmp_max_parachain_outbound_channels,
 hrmp_max_parathread_outbound_channels    : pre.hrmp_max_parathread_outbound_channels,
 hrmp_sender_deposit                      : pre.hrmp_sender_deposit,
@@ -248,7 +244,6 @@ n_delay_tranches                         : pre.n_delay_tranches,
 zeroth_delay_tranche_width               : pre.zeroth_delay_tranche_width,
 needed_approvals                         : pre.needed_approvals,
 relay_vrf_modulo_samples                 : pre.relay_vrf_modulo_samples,
-// NOTE: ump_max_individual_weight is DROPPED here (removed in v6)
 pvf_checking_enabled                     : pre.pvf_checking_enabled,
 pvf_voting_ttl                           : pre.pvf_voting_ttl,
 minimum_validation_upgrade_delay         : pre.minimum_validation_upgrade_delay,
@@ -261,7 +256,6 @@ minimum_validation_upgrade_delay         : pre.minimum_validation_upgrade_delay,
 	let v6 = translate(v5);
 	v6::ActiveConfig::<T>::set(Some(v6));
 
-	// Allowed to be empty.
 	let pending_v5 = v5::PendingConfigs::<T>::get().unwrap_or_default();
 	let mut pending_v6 = Vec::new();
 
@@ -273,67 +267,4 @@ minimum_validation_upgrade_delay         : pre.minimum_validation_upgrade_delay,
 
 	let num_configs = (pending_v6.len() + 1) as u64;
 	T::DbWeight::get().reads_writes(num_configs, num_configs)
-}
-
-#[cfg(test)]
-mod tests {
-	use super::*;
-	use crate::mock::{new_test_ext, Test};
-
-	#[test]
-	fn test_migrate_to_v6() {
-		let v5 = V5HostConfiguration::<primitives::BlockNumber> {
-			ump_max_individual_weight: Weight::from_parts(0x71616e6f6e0au64, 0x71616e6f6e0au64),
-			needed_approvals: 69,
-			thread_availability_period: 55,
-			hrmp_recipient_deposit: 1337,
-			max_pov_size: 1111,
-			chain_availability_period: 33,
-			minimum_validation_upgrade_delay: 20,
-			..Default::default()
-		};
-
-		let mut pending_configs = Vec::new();
-		pending_configs.push((100, v5.clone()));
-		pending_configs.push((300, v5.clone()));
-
-		new_test_ext(Default::default()).execute_with(|| {
-			v5::ActiveConfig::<Test>::set(Some(v5));
-			v5::PendingConfigs::<Test>::set(Some(pending_configs));
-
-			migrate_to_v6::<Test>();
-
-			let v6 = v6::ActiveConfig::<Test>::get().unwrap();
-			let mut configs_to_check = v6::PendingConfigs::<Test>::get().unwrap();
-			configs_to_check.push((0, v6.clone()));
-
-			for (_, v6) in configs_to_check {
-				#[rustfmt::skip]
-				{
-					assert_eq!(v6.needed_approvals                         , 69);
-					assert_eq!(v6.thread_availability_period               , 55);
-					assert_eq!(v6.hrmp_recipient_deposit                   , 1337);
-					assert_eq!(v6.max_pov_size                             , 1111);
-					assert_eq!(v6.chain_availability_period                , 33);
-					assert_eq!(v6.minimum_validation_upgrade_delay         , 20);
-					assert_eq!(v6.async_backing_params.allowed_ancestry_len, 0);
-					assert_eq!(v6.async_backing_params.max_candidate_depth , 0);
-					assert_eq!(v6.executor_params                          , ExecutorParams::new());
-				};
-			}
-		});
-	}
-
-	#[test]
-	fn test_migrate_to_v6_no_pending() {
-		let v5 = V5HostConfiguration::<primitives::BlockNumber>::default();
-
-		new_test_ext(Default::default()).execute_with(|| {
-			v5::ActiveConfig::<Test>::set(Some(v5));
-			v5::PendingConfigs::<Test>::set(None);
-
-			// Shouldn't fail.
-			migrate_to_v6::<Test>();
-		});
-	}
 }

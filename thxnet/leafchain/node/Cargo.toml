@@ -7,22 +7,22 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
-hex-literal = "0.3.4"
 clap = { version = "4.1.8", features = ["derive"] }
-tracing = "0.1"
 codec = { package = "parity-scale-codec", version = "3.0.0" }
+hex-literal = "0.3.4"
+jsonrpsee = { features = ["server"], workspace = true }
 serde = { version = "1.0.152", features = ["derive"] }
 serde_json = "1.0.96"
-jsonrpsee = { version = "0.22.0", features = ["server"] }
+tracing = "0.1"
 
 # Local
 general-runtime = { path = "../runtime/general" }
-pallet-assets = { path = "../../../substrate/frame/assets", default-features = false }
 pallet-asset-tx-payment = { path = "../../../substrate/frame/transaction-payment/asset-tx-payment", default-features = false }
-pallet-rwa-rpc = { path = "../pallets/rwa/rpc" }
-pallet-rwa-runtime-api = { path = "../pallets/rwa/runtime-api" }
+pallet-assets = { path = "../../../substrate/frame/assets", default-features = false }
 pallet-crowdfunding-rpc = { path = "../pallets/crowdfunding/rpc" }
 pallet-crowdfunding-runtime-api = { path = "../pallets/crowdfunding/runtime-api" }
+pallet-rwa-rpc = { path = "../pallets/rwa/rpc" }
+pallet-rwa-runtime-api = { path = "../pallets/rwa/runtime-api" }
 
 # Substrate
 frame-benchmarking = { path = "../../../substrate/frame/benchmarking" }
@@ -90,6 +90,7 @@ runtime-benchmarks = [
 	"polkadot-primitives/runtime-benchmarks",
 	"sc-service/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
 ]
 try-runtime = [
 	"general-runtime/try-runtime",

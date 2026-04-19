@@ -32,7 +32,9 @@ name = "runtime-availability-validity-slashing"
 label = "Availability and Validity slashing in the runtime"
 requires = ["two-phase-inclusion"]
 items = [
-	{ label = "Submit secondary checks to runtime", port = "submitsecondary", requires = ["secondary-checking"] },
+	{ label = "Submit secondary checks to runtime", port = "submitsecondary", requires = [
+		"secondary-checking",
+	] },
 	{ label = "Track all candidates within the slash period as well as their session" },
 	{ label = "Track reports and attestations for candidates" },
 ]
@@ -60,5 +62,9 @@ items = [
 [[group]]
 name = "phase-1"
 label = "Phase 1: Availability and Validity"
-requires = ["grandpa-voting-rule", "non-direct-ancestor", "runtime-availability-validity-slashing"]
+requires = [
+	"grandpa-voting-rule",
+	"non-direct-ancestor",
+	"runtime-availability-validity-slashing",
+]
 items = []

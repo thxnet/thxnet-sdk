@@ -350,4 +350,7 @@ impl<T: frame_system::Config> runtime_parachains::paras_inherent::WeightInfo for
 			.saturating_add(T::DbWeight::get().reads(31))
 			.saturating_add(T::DbWeight::get().writes(15))
 	}
+	fn enter_empty() -> Weight {
+		Weight::zero()
+	}
 }

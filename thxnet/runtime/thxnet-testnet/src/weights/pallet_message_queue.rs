@@ -196,4 +196,7 @@ impl<T: frame_system::Config> pallet_message_queue::WeightInfo for WeightInfo<T>
 			.saturating_add(T::DbWeight::get().reads(3))
 			.saturating_add(T::DbWeight::get().writes(4))
 	}
+	fn set_service_head() -> Weight {
+		Weight::zero()
+	}
 }

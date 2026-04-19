@@ -15,7 +15,8 @@ env:
   GIT_CONFIG_VALUE_0: "*"
   RUSTC_WRAPPER: sccache
   CARGO_INCREMENTAL: "0"
-  SCCACHE_DIR: /home/runner/.cache/sccache
+  # Branch-isolated sccache to prevent stale artifacts leaking between branches.
+  SCCACHE_DIR: /home/runner/.cache/sccache/${{ github.head_ref || github.ref_name }}
   SCCACHE_CACHE_SIZE: 300G
 
 permissions: {}
@@ -30,7 +31,7 @@ jobs:
     runs-on: [self-hosted, hetzner-thxnet]
     timeout-minutes: 120
     container:
-      image: docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
+      image: docker.io/paritytech/ci-unified:bullseye-1.88.0-2025-06-27-v202511141243
       volumes:
         - /home/runner/.cache/cargo-registry:/usr/local/cargo/registry
         - /home/runner/.cache/cargo-git:/usr/local/cargo/git
@@ -43,6 +44,17 @@ jobs:
       RUST_BACKTRACE: full
     steps:
       - uses: actions/checkout@v5
+
+      - name: Sanitize cargo registry source cache
+        # See ci.yml for rationale.
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -d /usr/local/cargo/registry/src ]; then
+            echo "Wiping registry/src/ to force re-extraction from cached tarballs"
+            rm -rf /usr/local/cargo/registry/src
+          fi
+          mkdir -p /usr/local/cargo/registry/src
 
       - name: Run tests
         run: |
@@ -61,7 +73,7 @@ jobs:
     runs-on: [self-hosted, hetzner-thxnet]
     timeout-minutes: 60
     container:
-      image: docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
+      image: docker.io/paritytech/ci-unified:bullseye-1.88.0-2025-06-27-v202511141243
       volumes:
         - /home/runner/.cache/cargo-registry:/usr/local/cargo/registry
         - /home/runner/.cache/cargo-git:/usr/local/cargo/git
@@ -72,6 +84,17 @@ jobs:
       WASM_BUILD_WORKSPACE_HINT: ${{ github.workspace }}
     steps:
       - uses: actions/checkout@v5
+
+      - name: Sanitize cargo registry source cache
+        # See ci.yml for rationale.
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -d /usr/local/cargo/registry/src ]; then
+            echo "Wiping registry/src/ to force re-extraction from cached tarballs"
+            rm -rf /usr/local/cargo/registry/src
+          fi
+          mkdir -p /usr/local/cargo/registry/src
 
       - name: Check benchmarks compile
         run: |
@@ -106,7 +129,7 @@ jobs:
     timeout-minutes: 60
     continue-on-error: true
     container:
-      image: docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
+      image: docker.io/paritytech/ci-unified:bullseye-1.88.0-2025-06-27-v202511141243
       volumes:
         - /home/runner/.cache/cargo-registry:/usr/local/cargo/registry
         - /home/runner/.cache/cargo-git:/usr/local/cargo/git
@@ -117,6 +140,17 @@ jobs:
       WASM_BUILD_WORKSPACE_HINT: ${{ github.workspace }}
     steps:
       - uses: actions/checkout@v5
+
+      - name: Sanitize cargo registry source cache
+        # See ci.yml for rationale.
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -d /usr/local/cargo/registry/src ]; then
+            echo "Wiping registry/src/ to force re-extraction from cached tarballs"
+            rm -rf /usr/local/cargo/registry/src
+          fi
+          mkdir -p /usr/local/cargo/registry/src
 
       - name: Ensure musl target and ruby are available
         run: |

@@ -2,20 +2,23 @@
 
 This release contains the changes from `{{ env.REF1 | replace(from="refs/tags/", to="") }}` to `{{ env.REF2 | replace(from="refs/tags/", to="") }}`.
 
-<<<<<<< HEAD
-=======
 {# -- Manual free notes section -- #}
 {% include "_free_notes.md.tera" -%}
 
+
+{% include "release_info.md.tera" -%}
+
+{% include "crates_list.md.tera" -%}
+
 {# -- Automatic section -- #}
->>>>>>> polkadot-v1.12.0
 {% include "changes.md.tera" -%}
 
 {% include "compiler.md.tera" -%}
 
+{% if env.NO_RUNTIMES == "false" and env.CRATES_ONLY == "false" -%}
 {% include "runtimes.md.tera" -%}
-<<<<<<< HEAD
-=======
+{% endif -%}
 
+{% if env.CRATES_ONLY == "false" -%}
 {% include "docker_image.md.tera" -%}
->>>>>>> polkadot-v1.12.0
+{% endif -%}

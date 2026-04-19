@@ -21,7 +21,6 @@ RUN apt-get update && \
 	mkdir -p /data /rootchain/.local/share && \
 	chown -R thxnet:thxnet /data && \
 	ln -s /data /rootchain/.local/share/polkadot && \
-	rm -rf /usr/bin /usr/sbin && \
 	/usr/local/bin/polkadot --version
 
 USER thxnet

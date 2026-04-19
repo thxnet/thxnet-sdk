@@ -14,6 +14,12 @@ alice: reports substrate_block_height{status="finalized"} is at least 5 within 1
 alice: parachain 2000 is registered within 300 seconds
 alice: parachain 2001 is registered within 300 seconds
 
+# Assign coretime cores to parachains (stable2512 requires explicit core assignments)
+# With num_cores=4, max_validators_per_core=1, and 2 validators in the network,
+# cores 0 and 1 will have validators assigned. Paras go to cores 0 and 1.
+alice: js-script ./zombienet-js/assign-core.js with "0,2000,57600" return is 0 within 120 seconds
+alice: js-script ./zombienet-js/assign-core.js with "1,2001,57600" return is 0 within 120 seconds
+
 # Parachains producing blocks (requires 2-3 session changes with fast-runtime = ~5 min)
 alice: parachain 2000 block height is at least 3 within 600 seconds
 alice: parachain 2001 block height is at least 3 within 600 seconds

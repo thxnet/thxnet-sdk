@@ -17,7 +17,8 @@ env:
   GIT_CONFIG_VALUE_0: "*"
   RUSTC_WRAPPER: sccache
   CARGO_INCREMENTAL: "0"
-  SCCACHE_DIR: /home/runner/.cache/sccache
+  # Branch-isolated sccache to prevent stale artifacts leaking between branches.
+  SCCACHE_DIR: /home/runner/.cache/sccache/${{ github.head_ref || github.ref_name }}
   SCCACHE_CACHE_SIZE: 300G
 
 permissions: {}
@@ -32,7 +33,7 @@ jobs:
     runs-on: [self-hosted, hetzner-thxnet]
     timeout-minutes: 60
     container:
-      image: docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
+      image: docker.io/paritytech/ci-unified:bullseye-1.88.0-2025-06-27-v202511141243
       volumes:
         - /home/runner/.cache/cargo-registry:/usr/local/cargo/registry
         - /home/runner/.cache/cargo-git:/usr/local/cargo/git
@@ -40,6 +41,20 @@ jobs:
         - /home/runner/.cache/sccache:/home/runner/.cache/sccache
     steps:
       - uses: actions/checkout@v5
+
+      - name: Sanitize cargo registry source cache
+        # See ci.yml for rationale: registry/src/ can get partially corrupted
+        # (missing .rs files inside extracted dirs) which sccache trips over.
+        # Wiping it forces cargo to re-extract from the immutable .crate
+        # tarballs in registry/cache/ on demand.
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -d /usr/local/cargo/registry/src ]; then
+            echo "Wiping registry/src/ to force re-extraction from cached tarballs"
+            rm -rf /usr/local/cargo/registry/src
+          fi
+          mkdir -p /usr/local/cargo/registry/src
 
       - name: Cargo check — all thxnet crates
         run: |

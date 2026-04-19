@@ -3941,7 +3941,7 @@ mod request_participation_insufficient_balance {
 			.build()
 			.execute_with(|| {
 				let aid = register_test_asset(ALICE, BOB, approval_policy()); // deposit=50, fee=10
-															  // CHARLIE has 55, needs 60 (deposit + fee)
+																  // CHARLIE has 55, needs 60 (deposit + fee)
 				assert_noop!(
 					Rwa::request_participation(RuntimeOrigin::signed(CHARLIE), aid, vec![CHARLIE]),
 					sp_runtime::TokenError::FundsUnavailable
@@ -7687,8 +7687,8 @@ mod h1_transfer_participation_deposit_semantics {
 			assert_ok!(Rwa::exit_participation(RuntimeOrigin::signed(DAVE), aid, 0));
 			assert_eq!(Balances::free_balance(CHARLIE), charlie_initial - 50); // CHARLIE lost 50
 			assert_eq!(Balances::free_balance(DAVE), dave_initial + 50); // DAVE
-			                                                 // gained
-			                                                 // 50
+			                                                    // gained
+			                                                    // 50
 		});
 	}
 
@@ -8126,7 +8126,7 @@ mod full_retirement_cleanup_chain {
 			assert!(pallet::SunsettingAssets::<Test>::get(10u64).is_empty()); // C-2
 			assert!(pallet::AssetSlashDistribution::<Test>::get(aid).is_none()); // M-3
 			assert!(pallet::PendingApprovals::<Test>::get(aid).is_empty()); // M-4
-																// But Participations and RwaAssets themselves are NOT removed
+																   // But Participations and RwaAssets themselves are NOT removed
 			assert!(pallet::RwaAssets::<Test>::get(aid).is_some());
 			assert!(pallet::Participations::<Test>::get(aid, 0).is_some());
 			// OwnerAssets cleaned (removed from owner)
@@ -11442,7 +11442,7 @@ mod atk_rwa_multi_step_scenarios {
 				// 4. Verify distribution: 80% to BOB (beneficiary), 20% to DAVE (reporter)
 				assert_eq!(Balances::free_balance(BOB), bob_before + 40); // 80% of 50
 				assert_eq!(Balances::free_balance(DAVE), dave_before + 10); // 20% of 50
-															// CHARLIE gets 0 remainder (full deposit slashed)
+																// CHARLIE gets 0 remainder (full deposit slashed)
 				assert_eq!(Balances::free_balance(CHARLIE), charlie_before);
 
 				let p = pallet::Participations::<Test>::get(aid, 0).unwrap();

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -e
 
@@ -22,11 +22,7 @@ echo
 # which is expected to be 60 seconds for the test environment.
 echo -e "Sleeping 90s before starting relayer ...\n"
 sleep 90
-<<<<<<< HEAD:bridges/testing/tests/0002-mandatory-headers-synced-while-idle/run.sh
-${BASH_SOURCE%/*}/../../environments/rococo-westend/start_relayer.sh $rococo_dir $westend_dir relayer_pid
-=======
 ${BASH_SOURCE%/*}/../../environments/rococo-westend/start_relayer.sh $rococo_dir $westend_dir finality_relayer_pid parachains_relayer_pid messages_relayer_pid
->>>>>>> polkadot-v1.12.0:bridges/testing/tests/0002-free-headers-synced-while-idle/run.sh
 
 run_zndsl ${BASH_SOURCE%/*}/rococo-to-westend.zndsl $westend_dir
 run_zndsl ${BASH_SOURCE%/*}/westend-to-rococo.zndsl $rococo_dir

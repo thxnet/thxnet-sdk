@@ -35,12 +35,11 @@ pub use crate::{
 	types::ProtocolName,
 };
 
-pub use libp2p::{
-	build_multiaddr,
-	identity::{self, ed25519, Keypair},
-	multiaddr, Multiaddr,
+pub use sc_network_types::{build_multiaddr, ed25519};
+use sc_network_types::{
+	multiaddr::{self, Multiaddr},
+	PeerId,
 };
-use sc_network_types::PeerId;
 
 use crate::service::{ensure_addresses_consistent_with_transport, traits::NetworkBackend};
 use codec::Encode;
@@ -67,7 +66,28 @@ use std::{
 	pin::Pin,
 	str::{self, FromStr},
 	sync::Arc,
+	time::Duration,
 };
+
+/// Default timeout for idle connections of 10 seconds is good enough for most networks.
+/// It doesn't make sense to expose it as a CLI parameter on individual nodes, but customizations
+/// are possible in custom nodes through [`NetworkConfiguration`].
+pub const DEFAULT_IDLE_CONNECTION_TIMEOUT: Duration = Duration::from_secs(10);
+
+/// Maximum number of locally kept Kademlia provider keys.
+///
+/// 10000 keys is enough for a testnet with fast runtime (1-minute epoch) and 13 parachains.
+pub const KADEMLIA_MAX_PROVIDER_KEYS: usize = 10000;
+
+/// Time to keep Kademlia content provider records.
+///
+/// 10 h is enough time to keep the parachain bootnode record for two 4-hour epochs.
+pub const KADEMLIA_PROVIDER_RECORD_TTL: Duration = Duration::from_secs(10 * 3600);
+
+/// Interval of republishing Kademlia provider records.
+///
+/// 3.5 h means we refresh next epoch provider record 30 minutes before next 4-hour epoch comes.
+pub const KADEMLIA_PROVIDER_REPUBLISH_INTERVAL: Duration = Duration::from_secs(12600);
 
 /// Protocol name prefix, transmitted on the wire for legacy protocol names.
 /// I.e., `dot` in `/dot/sync/2`. Should be unique for each chain. Always UTF-8.
@@ -100,7 +120,7 @@ impl fmt::Debug for ProtocolId {
 /// # Example
 ///
 /// ```
-/// # use libp2p::{Multiaddr, PeerId};
+/// # use sc_network_types::{multiaddr::Multiaddr, PeerId};
 /// use sc_network::config::parse_str_addr;
 /// let (peer_id, addr) = parse_str_addr(
 /// 	"/ip4/198.51.100.19/tcp/30333/p2p/QmSk5HQbn6LhUwDiNMseVUjuRYhEtYj4aUZ6WfWoGURpdV"
@@ -115,13 +135,13 @@ pub fn parse_str_addr(addr_str: &str) -> Result<(PeerId, Multiaddr), ParseErr> {
 
 /// Splits a Multiaddress into a Multiaddress and PeerId.
 pub fn parse_addr(mut addr: Multiaddr) -> Result<(PeerId, Multiaddr), ParseErr> {
-	let who = match addr.pop() {
-		Some(multiaddr::Protocol::P2p(key)) =>
-			PeerId::from_multihash(key).map_err(|_| ParseErr::InvalidPeerId)?,
+	let multihash = match addr.pop() {
+		Some(multiaddr::Protocol::P2p(multihash)) => multihash,
 		_ => return Err(ParseErr::PeerIdMissing),
 	};
+	let peer_id = PeerId::from_multihash(multihash).map_err(|_| ParseErr::InvalidPeerId)?;
 
-	Ok((who, addr))
+	Ok((peer_id, addr))
 }
 
 /// Address of a node, including its identity.
@@ -131,7 +151,7 @@ pub fn parse_addr(mut addr: Multiaddr) -> Result<(PeerId, Multiaddr), ParseErr> 
 /// # Example
 ///
 /// ```
-/// # use libp2p::{Multiaddr, PeerId};
+/// # use sc_network_types::{multiaddr::Multiaddr, PeerId};
 /// use sc_network::config::MultiaddrWithPeerId;
 /// let addr: MultiaddrWithPeerId =
 /// 	"/ip4/198.51.100.19/tcp/30333/p2p/QmSk5HQbn6LhUwDiNMseVUjuRYhEtYj4aUZ6WfWoGURpdV".parse().unwrap();
@@ -150,8 +170,12 @@ pub struct MultiaddrWithPeerId {
 impl MultiaddrWithPeerId {
 	/// Concatenates the multiaddress and peer ID into one multiaddress containing both.
 	pub fn concat(&self) -> Multiaddr {
-		let proto = multiaddr::Protocol::P2p(From::from(self.peer_id));
-		self.multiaddr.clone().with(proto)
+		let mut addr = self.multiaddr.clone();
+		// Ensure that the address not already contains the `p2p` protocol.
+		if matches!(addr.iter().last(), Some(multiaddr::Protocol::P2p(_))) {
+			addr.pop();
+		}
+		addr.with(multiaddr::Protocol::P2p(From::from(self.peer_id)))
 	}
 }
 
@@ -187,7 +211,7 @@ impl TryFrom<String> for MultiaddrWithPeerId {
 #[derive(Debug)]
 pub enum ParseErr {
 	/// Error while parsing the multiaddress.
-	MultiaddrParse(multiaddr::Error),
+	MultiaddrParse(multiaddr::ParseError),
 	/// Multihash of the peer ID is invalid.
 	InvalidPeerId,
 	/// The peer ID is missing from the address.
@@ -214,8 +238,8 @@ impl std::error::Error for ParseErr {
 	}
 }
 
-impl From<multiaddr::Error> for ParseErr {
-	fn from(err: multiaddr::Error) -> ParseErr {
+impl From<multiaddr::ParseError> for ParseErr {
+	fn from(err: multiaddr::ParseError) -> ParseErr {
 		Self::MultiaddrParse(err)
 	}
 }
@@ -343,10 +367,10 @@ impl NodeKeyConfig {
 	///
 	///  * If the secret is configured to be new, it is generated and the corresponding keypair is
 	///    returned.
-	pub fn into_keypair(self) -> io::Result<Keypair> {
+	pub fn into_keypair(self) -> io::Result<ed25519::Keypair> {
 		use NodeKeyConfig::*;
 		match self {
-			Ed25519(Secret::New) => Ok(Keypair::generate_ed25519()),
+			Ed25519(Secret::New) => Ok(ed25519::Keypair::generate()),
 
 			Ed25519(Secret::Input(k)) => Ok(ed25519::Keypair::from(k).into()),
 
@@ -365,8 +389,7 @@ impl NodeKeyConfig {
 				ed25519::SecretKey::generate,
 				|b| b.as_ref().to_vec(),
 			)
-			.map(ed25519::Keypair::from)
-			.map(Keypair::from),
+			.map(ed25519::Keypair::from),
 		}
 	}
 }
@@ -622,11 +645,19 @@ pub struct NetworkConfiguration {
 	/// Configuration for the transport layer.
 	pub transport: TransportConfig,
 
+	/// Idle connection timeout.
+	///
+	/// Set by default to [`DEFAULT_IDLE_CONNECTION_TIMEOUT`].
+	pub idle_connection_timeout: Duration,
+
 	/// Maximum number of peers to ask the same blocks in parallel.
 	pub max_parallel_downloads: u32,
 
 	/// Maximum number of blocks per request.
 	pub max_blocks_per_request: u32,
+
+	/// Number of peers that need to be connected before warp sync is started.
+	pub min_peers_to_start_warp_sync: Option<usize>,
 
 	/// Initial syncing mode.
 	pub sync_mode: SyncMode,
@@ -652,27 +683,6 @@ pub struct NetworkConfiguration {
 	/// Enable serving block data over IPFS bitswap.
 	pub ipfs_server: bool,
 
-	/// Size of Yamux receive window of all substreams. `None` for the default (256kiB).
-	/// Any value less than 256kiB is invalid.
-	///
-	/// # Context
-	///
-	/// By design, notifications substreams on top of Yamux connections only allow up to `N` bytes
-	/// to be transferred at a time, where `N` is the Yamux receive window size configurable here.
-	/// This means, in practice, that every `N` bytes must be acknowledged by the receiver before
-	/// the sender can send more data. The maximum bandwidth of each notifications substream is
-	/// therefore `N / round_trip_time`.
-	///
-	/// It is recommended to leave this to `None`, and use a request-response protocol instead if
-	/// a large amount of data must be transferred. The reason why the value is configurable is
-	/// that some Substrate users mis-use notification protocols to send large amounts of data.
-	/// As such, this option isn't designed to stay and will likely get removed in the future.
-	///
-	/// Note that configuring a value here isn't a modification of the Yamux protocol, but rather
-	/// a modification of the way the implementation works. Different nodes with different
-	/// configured values remain compatible with each other.
-	pub yamux_window_size: Option<u32>,
-
 	/// Networking backend used for P2P communication.
 	pub network_backend: NetworkBackendType,
 }
@@ -697,17 +707,18 @@ impl NetworkConfiguration {
 			client_version: client_version.into(),
 			node_name: node_name.into(),
 			transport: TransportConfig::Normal { enable_mdns: false, allow_private_ip: true },
+			idle_connection_timeout: DEFAULT_IDLE_CONNECTION_TIMEOUT,
 			max_parallel_downloads: 5,
 			max_blocks_per_request: 64,
+			min_peers_to_start_warp_sync: None,
 			sync_mode: SyncMode::Full,
 			enable_dht_random_walk: true,
 			allow_non_globals_in_dht: false,
 			kademlia_disjoint_query_paths: false,
 			kademlia_replication_factor: NonZeroUsize::new(DEFAULT_KADEMLIA_REPLICATION_FACTOR)
 				.expect("value is a constant; constant is non-zero; qed."),
-			yamux_window_size: None,
 			ipfs_server: false,
-			network_backend: NetworkBackendType::Libp2p,
+			network_backend: NetworkBackendType::Litep2p,
 		}
 	}
 
@@ -792,13 +803,16 @@ pub struct FullNetworkConfiguration<B: BlockT + 'static, H: ExHashT, N: NetworkB
 
 	/// Handle to [`PeerStore`](crate::peer_store::PeerStore).
 	peer_store_handle: Arc<dyn PeerStoreProvider>,
+
+	/// Registry for recording prometheus metrics to.
+	pub metrics_registry: Option<Registry>,
 }
 
 impl<B: BlockT + 'static, H: ExHashT, N: NetworkBackend<B, H>> FullNetworkConfiguration<B, H, N> {
 	/// Create new [`FullNetworkConfiguration`].
-	pub fn new(network_config: &NetworkConfiguration) -> Self {
+	pub fn new(network_config: &NetworkConfiguration, metrics_registry: Option<Registry>) -> Self {
 		let bootnodes = network_config.boot_nodes.iter().map(|bootnode| bootnode.peer_id).collect();
-		let peer_store = N::peer_store(bootnodes);
+		let peer_store = N::peer_store(bootnodes, metrics_registry.clone());
 		let peer_store_handle = peer_store.handle();
 
 		Self {
@@ -807,6 +821,7 @@ impl<B: BlockT + 'static, H: ExHashT, N: NetworkBackend<B, H>> FullNetworkConfig
 			notification_protocols: Vec::new(),
 			request_response_protocols: Vec::new(),
 			network_config: network_config.clone(),
+			metrics_registry,
 		}
 	}
 
@@ -887,7 +902,7 @@ impl<B: BlockT + 'static, H: ExHashT, N: NetworkBackend<B, H>> FullNetworkConfig
 				.find(|o| o.peer_id != bootnode.peer_id)
 			{
 				Err(crate::error::Error::DuplicateBootnode {
-					address: bootnode.multiaddr.clone(),
+					address: bootnode.multiaddr.clone().into(),
 					first_id: bootnode.peer_id.into(),
 					second_id: other.peer_id.into(),
 				})
@@ -929,13 +944,21 @@ impl<B: BlockT + 'static, H: ExHashT, N: NetworkBackend<B, H>> FullNetworkConfig
 }
 
 /// Network backend type.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default, Copy)]
 pub enum NetworkBackendType {
-	/// Use libp2p for P2P networking.
-	Libp2p,
-
 	/// Use litep2p for P2P networking.
+	///
+	/// This is the preferred option for Substrate-based chains.
+	#[default]
 	Litep2p,
+
+	/// Use libp2p for P2P networking.
+	///
+	/// The libp2p is still used for compatibility reasons until the
+	/// ecosystem switches entirely to litep2p. The backend will enter
+	/// a "best-effort" maintenance mode, where only critical issues will
+	/// get fixed. If you are unsure, please use `NetworkBackendType::Litep2p`.
+	Libp2p,
 }
 
 #[cfg(test)]
@@ -947,14 +970,8 @@ mod tests {
 		tempfile::Builder::new().prefix(prefix).tempdir().unwrap()
 	}
 
-	fn secret_bytes(kp: Keypair) -> Vec<u8> {
-		kp.try_into_ed25519()
-			.expect("ed25519 keypair")
-			.secret()
-			.as_ref()
-			.iter()
-			.cloned()
-			.collect()
+	fn secret_bytes(kp: ed25519::Keypair) -> Vec<u8> {
+		kp.secret().to_bytes().into()
 	}
 
 	#[test]

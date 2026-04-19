@@ -22,7 +22,7 @@ use std::{
 use async_trait::async_trait;
 use parking_lot::Mutex;
 
-use parity_scale_codec::Encode;
+use codec::Encode;
 
 use sc_network::{
 	config::parse_addr, multiaddr::Multiaddr, service::traits::NetworkService, types::ProtocolName,
@@ -41,26 +41,6 @@ use crate::{metrics::Metrics, validator_discovery::AuthorityDiscovery, WireMessa
 // network bridge network abstraction log target
 const LOG_TARGET: &'static str = "parachain::network-bridge-net";
 
-// Helper function to send a validation v1 message to a list of peers.
-// Messages are always sent via the main protocol, even legacy protocol messages.
-pub(crate) fn send_validation_message_v1(
-	peers: Vec<PeerId>,
-	message: WireMessage<protocol_v1::ValidationProtocol>,
-	metrics: &Metrics,
-	notification_sinks: &Arc<Mutex<HashMap<(PeerSet, PeerId), Box<dyn MessageSink>>>>,
-) {
-	gum::trace!(target: LOG_TARGET, ?peers, ?message, "Sending validation v1 message to peers",);
-
-	send_message(
-		peers,
-		PeerSet::Validation,
-		ValidationVersion::V1.into(),
-		message,
-		metrics,
-		notification_sinks,
-	);
-}
-
 // Helper function to send a validation v3 message to a list of peers.
 // Messages are always sent via the main protocol, even legacy protocol messages.
 pub(crate) fn send_validation_message_v3(
@@ -75,24 +55,6 @@ pub(crate) fn send_validation_message_v3(
 		peers,
 		PeerSet::Validation,
 		ValidationVersion::V3.into(),
-		message,
-		metrics,
-		notification_sinks,
-	);
-}
-
-// Helper function to send a validation v2 message to a list of peers.
-// Messages are always sent via the main protocol, even legacy protocol messages.
-pub(crate) fn send_validation_message_v2(
-	peers: Vec<PeerId>,
-	message: WireMessage<protocol_v2::ValidationProtocol>,
-	metrics: &Metrics,
-	notification_sinks: &Arc<Mutex<HashMap<(PeerSet, PeerId), Box<dyn MessageSink>>>>,
-) {
-	send_message(
-		peers,
-		PeerSet::Validation,
-		ValidationVersion::V2.into(),
 		message,
 		metrics,
 		notification_sinks,
@@ -177,7 +139,7 @@ fn send_message<M>(
 	// network used `Bytes` this would not be necessary.
 	//
 	// peer may have gotten disconnect by the time `send_message()` is called
-	// at which point the the sink is not available.
+	// at which point the sink is not available.
 	let last_peer = peers.pop();
 	peers.into_iter().for_each(|peer| {
 		if let Some(sink) = notification_sinks.get(&(peer_set, peer)) {
@@ -199,6 +161,13 @@ pub trait Network: Clone + Send + 'static {
 	/// until removed from the protocol's peer set.
 	/// Note that `out_peers` setting has no effect on this.
 	async fn set_reserved_peers(
+		&mut self,
+		protocol: ProtocolName,
+		multiaddresses: HashSet<Multiaddr>,
+	) -> Result<(), String>;
+
+	/// Ask the network to extend the reserved set with these nodes.
+	async fn add_peers_to_reserved_set(
 		&mut self,
 		protocol: ProtocolName,
 		multiaddresses: HashSet<Multiaddr>,
@@ -238,6 +207,14 @@ impl Network for Arc<dyn NetworkService> {
 		multiaddresses: HashSet<Multiaddr>,
 	) -> Result<(), String> {
 		<dyn NetworkService>::set_reserved_peers(&**self, protocol, multiaddresses)
+	}
+
+	async fn add_peers_to_reserved_set(
+		&mut self,
+		protocol: ProtocolName,
+		multiaddresses: HashSet<Multiaddr>,
+	) -> Result<(), String> {
+		<dyn NetworkService>::add_peers_to_reserved_set(&**self, protocol, multiaddresses)
 	}
 
 	async fn remove_from_peers_set(

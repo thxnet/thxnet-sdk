@@ -33,20 +33,22 @@ pub use sp_consensus_aura;
 pub use sp_core::{blake2_256, sr25519, storage::Storage, Pair, Public};
 pub use sp_io;
 pub use sp_runtime::traits::{IdentifyAccount, Verify};
-pub use sp_std::{cell::RefCell, collections::vec_deque::VecDeque, marker::PhantomData};
 pub use sp_tracing;
 pub use sp_trie::StorageProof;
+pub use std::{cell::RefCell, collections::vec_deque::VecDeque, marker::PhantomData};
 
 pub use cumulus_pallet_aura_ext;
 pub use cumulus_pallet_dmp_queue;
-pub use cumulus_pallet_parachain_system;
+pub use cumulus_pallet_parachain_system::{
+	self,
+	parachain_inherent::{BasicParachainInherentData, InboundMessagesData},
+};
 pub use cumulus_pallet_xcmp_queue;
 pub use cumulus_primitives_core::{
 	self, relay_chain::BlockNumber as RelayBlockNumber,
 	AggregateMessageOrigin as CumulusAggregateMessageOrigin, DmpMessageHandler, ParaId,
 	PersistedValidationData, XcmpMessageHandler,
 };
-pub use cumulus_primitives_parachain_inherent::ParachainInherentData;
 pub use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 pub use pallet_message_queue::{self, Config as MessageQueueConfig, Pallet as MessageQueuePallet};
 pub use parachain_info;
@@ -76,7 +78,7 @@ pub use polkadot_runtime_parachains::{
 	inclusion::{AggregateMessageOrigin, UmpQueueId},
 };
 pub use std::{collections::HashMap, thread::LocalKey};
-pub use xcm::{v4::prelude::*, VersionedXcm};
+pub use xcm::{v5::prelude::*, VersionedXcm};
 pub use xcm_executor::XcmExecutor;
 
 thread_local! {
@@ -123,7 +125,7 @@ pub trait Network {
 	fn _hrmp_channel_parachain_inherent_data(
 		para_id: u32,
 		relay_parent_number: u32,
-	) -> ParachainInherentData;
+	) -> (BasicParachainInherentData, InboundMessagesData);
 }
 
 pub trait NetworkComponent<N: Network> {
@@ -181,7 +183,7 @@ pub trait NetworkComponent<N: Network> {
 	fn hrmp_channel_parachain_inherent_data(
 		para_id: u32,
 		relay_parent_number: u32,
-	) -> ParachainInherentData {
+	) -> (BasicParachainInherentData, InboundMessagesData) {
 		N::_hrmp_channel_parachain_inherent_data(para_id, relay_parent_number)
 	}
 
@@ -356,7 +358,7 @@ macro_rules! __impl_test_ext_for_relay_chain {
 				// send messages if needed
 				$ext_name.with(|v| {
 					v.borrow_mut().execute_with(|| {
-						use $crate::polkadot_primitives::runtime_api::runtime_decl_for_parachain_host::ParachainHostV10;
+						use $crate::polkadot_primitives::runtime_api::runtime_decl_for_parachain_host::ParachainHostV15;
 
 						//TODO: mark sent count & filter out sent msg
 						for para_id in <$name>::para_ids() {
@@ -580,7 +582,7 @@ macro_rules! __impl_test_ext_for_parachain {
 						// it hasn't been set. The emulator doesn't run full block initialization
 						// (no Aura pre-runtime digest), so we set SlotInfo directly.
 						// The sproof builder uses current_slot = 0, so we match with Slot(0).
-						<$crate::cumulus_pallet_aura_ext::SlotInfo::<
+						<$crate::cumulus_pallet_aura_ext::RelaySlotInfo::<
 							<Self as Parachain>::Runtime,
 						>>::put(($crate::sp_consensus_aura::Slot::from(0u64), 1u32));
 
@@ -597,9 +599,11 @@ macro_rules! __impl_test_ext_for_parachain {
 
 						// Make sure it has been recorded properly
 						let relay_block_number = <$name>::relay_block_number();
+						let (basic_data, inbound_data) = <$name>::hrmp_channel_parachain_inherent_data(para_id, relay_block_number);
 						let _ = <Self as Parachain>::ParachainSystem::set_validation_data(
 							<Self as Parachain>::RuntimeOrigin::none(),
-							<$name>::hrmp_channel_parachain_inherent_data(para_id, relay_block_number),
+							basic_data,
+							inbound_data,
 						);
 					})
 				});
@@ -719,9 +723,12 @@ macro_rules! __impl_parachain {
 					let block_number = <Self as Parachain>::System::block_number();
 
 					// Initialize AuraExt SlotInfo (see execute_with for explanation)
-					<$crate::cumulus_pallet_aura_ext::SlotInfo<<Self as Parachain>::Runtime>>::put(
-						($crate::sp_consensus_aura::Slot::from(0u64), 1u32),
-					);
+					#[allow(clippy::needless_update)]
+					{
+						<$crate::cumulus_pallet_aura_ext::RelaySlotInfo<
+							<Self as Parachain>::Runtime,
+						>>::put(($crate::sp_consensus_aura::Slot::from(0u64), 1u32));
+					}
 
 					// Clear UnincludedSegment (see execute_with for explanation)
 					{
@@ -737,9 +744,12 @@ macro_rules! __impl_parachain {
 						frame_support::storage::unhashed::kill(&key2);
 					}
 
+					let (basic_data, inbound_data) =
+						Self::hrmp_channel_parachain_inherent_data(para_id.into(), 1);
 					let _ = <Self as Parachain>::ParachainSystem::set_validation_data(
 						<Self as Parachain>::RuntimeOrigin::none(),
-						Self::hrmp_channel_parachain_inherent_data(para_id.into(), 1),
+						basic_data,
+						inbound_data,
 					);
 					// set `AnnouncedHrmpMessagesPerCandidate`
 					<Self as Parachain>::ParachainSystem::on_initialize(block_number);
@@ -899,7 +909,7 @@ macro_rules! decl_test_networks {
 				fn _hrmp_channel_parachain_inherent_data(
 					para_id: u32,
 					relay_parent_number: u32,
-				) -> $crate::ParachainInherentData {
+				) -> ($crate::BasicParachainInherentData, $crate::InboundMessagesData) {
 					use $crate::cumulus_primitives_core::{relay_chain::HrmpChannelId, AbridgedHrmpChannel};
 
 					let mut sproof = $crate::RelayStateSproofBuilder::default();
@@ -936,7 +946,7 @@ macro_rules! decl_test_networks {
 
 					let (relay_storage_root, proof) = sproof.into_state_root_and_proof();
 
-					$crate::ParachainInherentData {
+					let basic_data = $crate::BasicParachainInherentData {
 						validation_data: $crate::PersistedValidationData {
 							parent_head: Default::default(),
 							relay_parent_number,
@@ -944,9 +954,16 @@ macro_rules! decl_test_networks {
 							max_pov_size: Default::default(),
 						},
 						relay_chain_state: proof,
+						relay_parent_descendants: Default::default(),
+						collator_peer_id: None,
+					};
+
+					let inbound_data = $crate::InboundMessagesData {
 						downward_messages: Default::default(),
 						horizontal_messages: Default::default(),
-					}
+					};
+
+					(basic_data, inbound_data)
 				}
 			}
 

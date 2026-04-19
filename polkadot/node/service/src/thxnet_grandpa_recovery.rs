@@ -22,7 +22,7 @@ const CURRENT_VERSION: u32 = 3;
 /// Field order must match exactly for correct decoding/encoding.
 #[derive(Debug, Encode, Decode)]
 struct AuthoritySetCompat<H, N> {
-	current_authorities: Vec<(grandpa_primitives::AuthorityId, u64)>,
+	current_authorities: Vec<(sp_consensus_grandpa::AuthorityId, u64)>,
 	set_id: u64,
 	pending_standard_changes: ForkTreeCompat<H, N>,
 	pending_forced_changes: Vec<PendingChangeCompat<H, N>>,
@@ -49,7 +49,7 @@ struct ForkTreeNodeCompat<H, N> {
 /// SCALE-compatible replica of `PendingChange<H, N>`.
 #[derive(Debug, Encode, Decode)]
 struct PendingChangeCompat<H, N> {
-	next_authorities: Vec<(grandpa_primitives::AuthorityId, u64)>,
+	next_authorities: Vec<(sp_consensus_grandpa::AuthorityId, u64)>,
 	delay: N,
 	canon_height: N,
 	canon_hash: H,
@@ -70,7 +70,7 @@ enum DelayKindCompat<N> {
 pub(crate) fn reset_grandpa_state<B: AuxStore>(
 	backend: &B,
 	target_set_id: u64,
-	authorities: &[(grandpa_primitives::AuthorityId, u64)],
+	authorities: &[(sp_consensus_grandpa::AuthorityId, u64)],
 	finalized_number: u32,
 	// Reserved for future use (e.g. authority_set_changes entries that reference specific hashes).
 	_finalized_hash: Hash,
@@ -194,9 +194,9 @@ mod tests {
 		}
 	}
 
-	fn test_authorities() -> Vec<(grandpa_primitives::AuthorityId, u64)> {
+	fn test_authorities() -> Vec<(sp_consensus_grandpa::AuthorityId, u64)> {
 		let addr = "5DQjEK2cWN2Qnp5sFdJQAoQ5RLaveyCxYpCbc8kWK2mbkrHi";
-		vec![(grandpa_primitives::AuthorityId::from_ss58check(addr).unwrap(), 1)]
+		vec![(sp_consensus_grandpa::AuthorityId::from_ss58check(addr).unwrap(), 1)]
 	}
 
 	#[test]

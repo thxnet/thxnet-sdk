@@ -8,6 +8,7 @@ chopsticks-db/
 .local
 .lycheecache
 .vscode
+.zed
 .wasm-binaries
 *.adoc
 *.bin
@@ -15,6 +16,7 @@ chopsticks-db/
 *.orig
 *.rej
 *.swp
+*.wasm
 **/._*
 **/.criterion/
 **/*.rs.bk
@@ -23,13 +25,13 @@ chopsticks-db/
 **/node_modules
 **/target/
 **/wip/*.stderr
+**/__pycache__/
 /.cargo/config
 /.envrc
 artifacts
 bin/node-template/Cargo.lock
 nohup.out
 polkadot_argument_parsing
-polkadot.*
 !docs/sdk/src/polkadot_sdk/polkadot.rs
 pwasm-alloc/Cargo.lock
 pwasm-libc/Cargo.lock
@@ -39,6 +41,8 @@ rls*.log
 runtime/wasm/target/
 substrate.code-workspace
 target/
+*.scale
+rustc-ice-*
 
 # THXNet
 **/chains/

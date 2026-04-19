@@ -44,7 +44,7 @@ use bp_header_chain::{
 };
 use bp_runtime::{BlockNumberOf, HashOf, HasherOf, HeaderId, HeaderOf, OwnedBridgeModule};
 use frame_support::{dispatch::PostDispatchInfo, ensure, DefaultNoBound};
-use sp_consensus_grandpa::SetId;
+use sp_consensus_grandpa::{AuthorityList, SetId};
 use sp_runtime::{
 	traits::{Header as HeaderT, Zero},
 	SaturatedConversion,
@@ -98,6 +98,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config<I: 'static = ()>: frame_system::Config {
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
@@ -117,7 +118,7 @@ pub mod pallet {
 		///
 		/// However, if the bridged chain gets compromised, its validators may generate as many
 		/// "free" headers as they want. And they may fill the whole block (at this chain) for
-		/// free. This constants limits number of calls that we may refund in a single block.
+		/// free. This constant limits number of calls that we may refund in a single block.
 		/// All calls above this limit are accepted, but are not refunded.
 		#[pallet::constant]
 		type MaxFreeHeadersPerBlock: Get<u32>;
@@ -218,10 +219,10 @@ pub mod pallet {
 			ensure!(init_allowed, <Error<T, I>>::AlreadyInitialized);
 			initialize_bridge::<T, I>(init_data.clone())?;
 
-			log::info!(
+			tracing::info!(
 				target: LOG_TARGET,
-				"Pallet has been initialized with the following parameters: {:?}",
-				init_data
+				parameters=?init_data,
+				"Pallet has been initialized"
 			);
 
 			Ok(().into())
@@ -291,10 +292,10 @@ pub mod pallet {
 			ensure_signed(origin)?;
 
 			let (hash, number) = (finality_target.hash(), *finality_target.number());
-			log::trace!(
+			tracing::trace!(
 				target: LOG_TARGET,
-				"Going to try and finalize header {:?}",
-				finality_target
+				header=?finality_target,
+				"Going to try and finalize header"
 			);
 
 			// it checks whether the `number` is better than the current best block number
@@ -331,11 +332,11 @@ pub mod pallet {
 			// to pay for the transaction.
 			let pays_fee = if may_refund_call_fee { Pays::No } else { Pays::Yes };
 
-			log::info!(
+			tracing::info!(
 				target: LOG_TARGET,
-				"Successfully imported finalized header with hash {:?}! Free: {}",
-				hash,
-				if may_refund_call_fee { "Yes" } else { "No" },
+				?hash,
+				?pays_fee,
+				"Successfully imported finalized header!"
 			);
 
 			// the proof size component of the call weight assumes that there are
@@ -360,6 +361,42 @@ pub mod pallet {
 
 			Ok(PostDispatchInfo { actual_weight: Some(actual_weight), pays_fee })
 		}
+
+		/// Set current authorities set and best finalized bridged header to given values
+		/// (almost) without any checks. This call can fail only if:
+		///
+		/// - the call origin is not a root or a pallet owner;
+		///
+		/// - there are too many authorities in the new set.
+		///
+		/// No other checks are made. Previously imported headers stay in the storage and
+		/// are still accessible after the call.
+		#[pallet::call_index(5)]
+		#[pallet::weight(T::WeightInfo::force_set_pallet_state())]
+		pub fn force_set_pallet_state(
+			origin: OriginFor<T>,
+			new_current_set_id: SetId,
+			new_authorities: AuthorityList,
+			new_best_header: Box<BridgedHeader<T, I>>,
+		) -> DispatchResult {
+			Self::ensure_owner_or_root(origin)?;
+
+			// save new authorities set. It only fails if there are too many authorities
+			// in the new set
+			save_authorities_set::<T, I>(
+				CurrentAuthoritySet::<T, I>::get().set_id,
+				new_current_set_id,
+				new_authorities,
+			)?;
+
+			// save new best header. It may be older than the best header that is already
+			// known to the pallet - it changes nothing (except for the fact that previously
+			// imported headers may still be used to prove something)
+			let new_best_header_hash = new_best_header.hash();
+			insert_header::<T, I>(*new_best_header, new_best_header_hash);
+
+			Ok(())
+		}
 	}
 
 	/// Number of free header submissions that we may yet accept in the current block.
@@ -382,7 +419,6 @@ pub mod pallet {
 
 	/// Hash of the best finalized header.
 	#[pallet::storage]
-	#[pallet::getter(fn best_finalized)]
 	pub type BestFinalized<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, BridgedBlockId<T, I>, OptionQuery>;
 
@@ -423,7 +459,7 @@ pub mod pallet {
 	/// Pallet owner has a right to halt all pallet operations and then resume it. If it is
 	/// `None`, then there are no direct ways to halt/resume pallet operations, but other
 	/// runtime methods may still be used to do that (i.e. democracy::referendum to update halt
-	/// flag directly or call the `halt_operations`).
+	/// flag directly or call the `set_operating_mode`).
 	#[pallet::storage]
 	pub type PalletOwner<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, T::AccountId, OptionQuery>;
@@ -592,31 +628,43 @@ pub mod pallet {
 			// GRANDPA only includes a `delay` for forced changes, so this isn't valid.
 			ensure!(change.delay == Zero::zero(), <Error<T, I>>::UnsupportedScheduledChange);
 
-			// TODO [#788]: Stop manually increasing the `set_id` here.
-			let next_authorities = StoredAuthoritySet::<T, I> {
-				authorities: change
-					.next_authorities
-					.try_into()
-					.map_err(|_| Error::<T, I>::TooManyAuthoritiesInSet)?,
-				set_id: current_set_id + 1,
-			};
-
 			// Since our header schedules a change and we know the delay is 0, it must also enact
 			// the change.
-			<CurrentAuthoritySet<T, I>>::put(&next_authorities);
-
-			log::info!(
-				target: LOG_TARGET,
-				"Transitioned from authority set {} to {}! New authorities are: {:?}",
+			// TODO [#788]: Stop manually increasing the `set_id` here.
+			return save_authorities_set::<T, I>(
 				current_set_id,
 				current_set_id + 1,
-				next_authorities,
+				change.next_authorities,
 			);
-
-			return Ok(Some(next_authorities.into()))
 		};
 
 		Ok(None)
+	}
+
+	/// Save new authorities set.
+	pub(crate) fn save_authorities_set<T: Config<I>, I: 'static>(
+		old_current_set_id: SetId,
+		new_current_set_id: SetId,
+		new_authorities: AuthorityList,
+	) -> Result<Option<AuthoritySet>, DispatchError> {
+		let next_authorities = StoredAuthoritySet::<T, I> {
+			authorities: new_authorities
+				.try_into()
+				.map_err(|_| Error::<T, I>::TooManyAuthoritiesInSet)?,
+			set_id: new_current_set_id,
+		};
+
+		<CurrentAuthoritySet<T, I>>::put(&next_authorities);
+
+		tracing::info!(
+			target: LOG_TARGET,
+			%old_current_set_id,
+			%new_current_set_id,
+			?next_authorities,
+			"Transitioned from authority set!"
+		);
+
+		Ok(Some(next_authorities.into()))
 	}
 
 	/// Verify a GRANDPA justification (finality proof) for a given header.
@@ -639,11 +687,11 @@ pub mod pallet {
 			justification,
 		)
 		.map_err(|e| {
-			log::error!(
+			tracing::error!(
 				target: LOG_TARGET,
-				"Received invalid justification for {:?}: {:?}",
-				hash,
-				e,
+				error=?e,
+				?hash,
+				"Received invalid justification"
 			);
 			<Error<T, I>>::InvalidJustification
 		})?)
@@ -666,7 +714,7 @@ pub mod pallet {
 		// Update ring buffer pointer and remove old header.
 		<ImportedHashesPointer<T, I>>::put((index + 1) % T::HeadersToKeep::get());
 		if let Ok(hash) = pruning {
-			log::debug!(target: LOG_TARGET, "Pruning old header: {:?}.", hash);
+			tracing::debug!(target: LOG_TARGET, ?hash, "Pruning old header.");
 			<ImportedHeaders<T, I>>::remove(hash);
 		}
 	}
@@ -680,15 +728,13 @@ pub mod pallet {
 			init_params;
 		let authority_set_length = authority_list.len();
 		let authority_set = StoredAuthoritySet::<T, I>::try_new(authority_list, set_id)
-			.map_err(|e| {
-				log::error!(
+			.inspect_err(|_| {
+				tracing::error!(
 					target: LOG_TARGET,
-					"Failed to initialize bridge. Number of authorities in the set {} is larger than the configured value {}",
-					authority_set_length,
-					T::BridgedChain::MAX_AUTHORITIES_COUNT,
+					%authority_set_length,
+					max_count=%T::BridgedChain::MAX_AUTHORITIES_COUNT,
+					"Failed to initialize bridge. Number of authorities in the set is larger than the configured value"
 				);
-
-				e
 			})?;
 		let initial_hash = header.hash();
 
@@ -743,12 +789,9 @@ where
 	pub fn synced_headers_grandpa_info() -> Vec<StoredHeaderGrandpaInfo<BridgedHeader<T, I>>> {
 		frame_system::Pallet::<T>::read_events_no_consensus()
 			.filter_map(|event| {
-				if let Event::<T, I>::UpdatedBestFinalizedHeader { grandpa_info, .. } =
-					event.event.try_into().ok()?
-				{
-					return Some(grandpa_info)
-				}
-				None
+				let Event::<T, I>::UpdatedBestFinalizedHeader { grandpa_info, .. } =
+					event.event.try_into().ok()?;
+				Some(grandpa_info)
 			})
 			.collect()
 	}
@@ -776,6 +819,13 @@ pub fn initialize_for_benchmarks<T: Config<I>, I: 'static>(header: BridgedHeader
 		operating_mode: bp_runtime::BasicOperatingMode::Normal,
 	})
 	.expect("only used from benchmarks; benchmarks are correct; qed");
+}
+
+impl<T: Config<I>, I: 'static> Pallet<T, I> {
+	/// Returns the hash of the best finalized header.
+	pub fn best_finalized() -> Option<BridgedBlockId<T, I>> {
+		BestFinalized::<T, I>::get()
+	}
 }
 
 #[cfg(test)]
@@ -1395,11 +1445,14 @@ mod tests {
 	}
 
 	#[test]
-	fn parse_finalized_storage_proof_rejects_proof_on_unknown_header() {
+	fn verify_storage_proof_rejects_unknown_header() {
 		run_test(|| {
 			assert_noop!(
-				Pallet::<TestRuntime>::storage_proof_checker(Default::default(), vec![],)
-					.map(|_| ()),
+				Pallet::<TestRuntime>::verify_storage_proof(
+					Default::default(),
+					Default::default(),
+				)
+				.map(|_| ()),
 				bp_header_chain::HeaderChainError::UnknownHeader,
 			);
 		});
@@ -1417,9 +1470,7 @@ mod tests {
 			<BestFinalized<TestRuntime>>::put(HeaderId(2, hash));
 			<ImportedHeaders<TestRuntime>>::insert(hash, header.build());
 
-			assert_ok!(
-				Pallet::<TestRuntime>::storage_proof_checker(hash, storage_proof).map(|_| ())
-			);
+			assert_ok!(Pallet::<TestRuntime>::verify_storage_proof(hash, storage_proof).map(|_| ()));
 		});
 	}
 
@@ -1699,5 +1750,99 @@ mod tests {
 			on_free_header_imported::<TestRuntime, ()>();
 			assert_eq!(FreeHeadersRemaining::<TestRuntime, ()>::get(), Some(0));
 		})
+	}
+
+	#[test]
+	fn force_set_pallet_state_works() {
+		run_test(|| {
+			let header25 = test_header(25);
+			let header50 = test_header(50);
+			let ok_new_set_id = 100;
+			let ok_new_authorities = authority_list();
+			let bad_new_set_id = 100;
+			let bad_new_authorities: Vec<_> = std::iter::repeat((ALICE.into(), 1))
+				.take(MAX_BRIDGED_AUTHORITIES as usize + 1)
+				.collect();
+
+			// initialize and import several headers
+			initialize_substrate_bridge();
+			assert_ok!(submit_finality_proof(30));
+
+			// wrong origin => error
+			assert_noop!(
+				Pallet::<TestRuntime>::force_set_pallet_state(
+					RuntimeOrigin::signed(1),
+					ok_new_set_id,
+					ok_new_authorities.clone(),
+					Box::new(header50.clone()),
+				),
+				DispatchError::BadOrigin,
+			);
+
+			// too many authorities in the set => error
+			assert_noop!(
+				Pallet::<TestRuntime>::force_set_pallet_state(
+					RuntimeOrigin::root(),
+					bad_new_set_id,
+					bad_new_authorities.clone(),
+					Box::new(header50.clone()),
+				),
+				Error::<TestRuntime>::TooManyAuthoritiesInSet,
+			);
+
+			// force import header 50 => ok
+			assert_ok!(Pallet::<TestRuntime>::force_set_pallet_state(
+				RuntimeOrigin::root(),
+				ok_new_set_id,
+				ok_new_authorities.clone(),
+				Box::new(header50.clone()),
+			),);
+
+			// force import header 25 after 50 => ok
+			assert_ok!(Pallet::<TestRuntime>::force_set_pallet_state(
+				RuntimeOrigin::root(),
+				ok_new_set_id,
+				ok_new_authorities.clone(),
+				Box::new(header25.clone()),
+			),);
+
+			// we may import better headers
+			assert_noop!(submit_finality_proof(20), Error::<TestRuntime>::OldHeader);
+			assert_ok!(submit_finality_proof_with_set_id(26, ok_new_set_id));
+
+			// we can even reimport header #50. It **will cause** some issues during pruning
+			// (see below)
+			assert_ok!(submit_finality_proof_with_set_id(50, ok_new_set_id));
+
+			// and all headers are available. Even though there are 4 headers, the ring
+			// buffer thinks that there are 5, because we've imported header $50 twice
+			assert!(GrandpaChainHeaders::<TestRuntime, ()>::finalized_header_state_root(
+				test_header(30).hash()
+			)
+			.is_some());
+			assert!(GrandpaChainHeaders::<TestRuntime, ()>::finalized_header_state_root(
+				test_header(50).hash()
+			)
+			.is_some());
+			assert!(GrandpaChainHeaders::<TestRuntime, ()>::finalized_header_state_root(
+				test_header(25).hash()
+			)
+			.is_some());
+			assert!(GrandpaChainHeaders::<TestRuntime, ()>::finalized_header_state_root(
+				test_header(26).hash()
+			)
+			.is_some());
+
+			// next header import will prune header 30
+			assert_ok!(submit_finality_proof_with_set_id(70, ok_new_set_id));
+			// next header import will prune header 50
+			assert_ok!(submit_finality_proof_with_set_id(80, ok_new_set_id));
+			// next header import will prune header 25
+			assert_ok!(submit_finality_proof_with_set_id(90, ok_new_set_id));
+			// next header import will prune header 26
+			assert_ok!(submit_finality_proof_with_set_id(100, ok_new_set_id));
+			// next header import will prune header 50 again. But it is fine
+			assert_ok!(submit_finality_proof_with_set_id(110, ok_new_set_id));
+		});
 	}
 }

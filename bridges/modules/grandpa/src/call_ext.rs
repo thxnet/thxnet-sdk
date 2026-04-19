@@ -19,11 +19,10 @@ use crate::{
 	CurrentAuthoritySet, Error, FreeHeadersRemaining, Pallet,
 };
 use bp_header_chain::{
-	justification::GrandpaJustification, max_expected_submit_finality_proof_arguments_size,
-	ChainWithGrandpa, GrandpaConsensusLogReader,
+	justification::GrandpaJustification, submit_finality_proof_limits_extras,
+	SubmitFinalityProofInfo,
 };
 use bp_runtime::{BlockNumberOf, Chain, OwnedBridgeModule};
-use codec::Encode;
 use frame_support::{
 	dispatch::CallableCallFor,
 	traits::{Get, IsSubType},
@@ -35,49 +34,16 @@ use sp_runtime::{
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
 	RuntimeDebug, SaturatedConversion,
 };
-
-/// Info about a `SubmitParachainHeads` call which tries to update a single parachain.
-#[derive(Copy, Clone, PartialEq, RuntimeDebug)]
-pub struct SubmitFinalityProofInfo<N> {
-	/// Number of the finality target.
-	pub block_number: N,
-	/// An identifier of the validators set that has signed the submitted justification.
-	/// It might be `None` if deprecated version of the `submit_finality_proof` is used.
-	pub current_set_id: Option<SetId>,
-	/// If `true`, then the call proves new **mandatory** header.
-	pub is_mandatory: bool,
-	/// If `true`, then the call must be free (assuming that everything else is valid) to
-	/// be treated as valid.
-	pub is_free_execution_expected: bool,
-	/// Extra weight that we assume is included in the call.
-	///
-	/// We have some assumptions about headers and justifications of the bridged chain.
-	/// We know that if our assumptions are correct, then the call must not have the
-	/// weight above some limit. The fee paid for weight above that limit, is never refunded.
-	pub extra_weight: Weight,
-	/// Extra size (in bytes) that we assume are included in the call.
-	///
-	/// We have some assumptions about headers and justifications of the bridged chain.
-	/// We know that if our assumptions are correct, then the call must not have the
-	/// weight above some limit. The fee paid for bytes above that limit, is never refunded.
-	pub extra_size: u32,
-}
+use sp_std::fmt::Debug;
 
 /// Verified `SubmitFinalityProofInfo<N>`.
 #[derive(Copy, Clone, PartialEq, RuntimeDebug)]
-pub struct VerifiedSubmitFinalityProofInfo<N> {
+pub struct VerifiedSubmitFinalityProofInfo<N: Debug> {
 	/// Base call information.
 	pub base: SubmitFinalityProofInfo<N>,
 	/// A difference between bundled bridged header and best bridged header known to us
 	/// before the call.
 	pub improved_by: N,
-}
-
-impl<N> SubmitFinalityProofInfo<N> {
-	/// Returns `true` if call size/weight is below our estimations for regular calls.
-	pub fn fits_limits(&self) -> bool {
-		self.extra_weight.is_zero() && self.extra_size.is_zero()
-	}
 }
 
 /// Helper struct that provides methods for working with the `SubmitFinalityProof` call.
@@ -119,11 +85,11 @@ impl<T: Config<I>, I: 'static> SubmitFinalityProofHelper<T, I> {
 
 		// else - if we can not accept more free headers, "reject" the transaction
 		if !Self::has_free_header_slots() {
-			log::trace!(
+			tracing::trace!(
 				target: crate::LOG_TARGET,
-				"Cannot accept free {:?} header {:?}. No more free slots remaining",
-				T::BridgedChain::ID,
-				call_info.block_number,
+				chain_id=?T::BridgedChain::ID,
+				block_number=?call_info.block_number,
+				"Cannot accept free header. No more free slots remaining"
 			);
 
 			return Err(Error::<T, I>::FreeHeadersLimitExceded);
@@ -133,14 +99,13 @@ impl<T: Config<I>, I: 'static> SubmitFinalityProofHelper<T, I> {
 		if !call_info.is_mandatory {
 			if let Some(free_headers_interval) = T::FreeHeadersInterval::get() {
 				if improved_by < free_headers_interval.into() {
-					log::trace!(
+					tracing::trace!(
 						target: crate::LOG_TARGET,
-						"Cannot accept free {:?} header {:?}. Too small difference \
-						between submitted headers: {:?} vs {}",
-						T::BridgedChain::ID,
-						call_info.block_number,
-						improved_by,
-						free_headers_interval,
+						chain_id=?T::BridgedChain::ID,
+						block_number=?call_info.block_number,
+						?improved_by,
+						%free_headers_interval,
+						"Cannot accept free header. Too small difference between submitted headers"
 					);
 
 					return Err(Error::<T, I>::BelowFreeHeaderInterval);
@@ -171,10 +136,10 @@ impl<T: Config<I>, I: 'static> SubmitFinalityProofHelper<T, I> {
 		current_set_id: Option<SetId>,
 	) -> Result<BlockNumberOf<T::BridgedChain>, Error<T, I>> {
 		let best_finalized = BestFinalized::<T, I>::get().ok_or_else(|| {
-			log::trace!(
+			tracing::trace!(
 				target: crate::LOG_TARGET,
-				"Cannot finalize header {:?} because pallet is not yet initialized",
-				finality_target,
+				header=?finality_target,
+				"Cannot finalize header because pallet is not yet initialized"
 			);
 			<Error<T, I>>::NotInitialized
 		})?;
@@ -182,11 +147,11 @@ impl<T: Config<I>, I: 'static> SubmitFinalityProofHelper<T, I> {
 		let improved_by = match finality_target.checked_sub(&best_finalized.number()) {
 			Some(improved_by) if improved_by > Zero::zero() => improved_by,
 			_ => {
-				log::trace!(
+				tracing::trace!(
 					target: crate::LOG_TARGET,
-					"Cannot finalize obsolete header: bundled {:?}, best {:?}",
-					finality_target,
-					best_finalized,
+					bundled=?finality_target,
+					best=?best_finalized,
+					"Cannot finalize obsolete header"
 				);
 
 				return Err(Error::<T, I>::OldHeader)
@@ -196,11 +161,11 @@ impl<T: Config<I>, I: 'static> SubmitFinalityProofHelper<T, I> {
 		if let Some(current_set_id) = current_set_id {
 			let actual_set_id = <CurrentAuthoritySet<T, I>>::get().set_id;
 			if current_set_id != actual_set_id {
-				log::trace!(
+				tracing::trace!(
 					target: crate::LOG_TARGET,
-					"Cannot finalize header signed by unknown authority set: bundled {:?}, best {:?}",
-					current_set_id,
-					actual_set_id,
+					bundled=?current_set_id,
+					best=?actual_set_id,
+					"Cannot finalize header signed by unknown authority set"
 				);
 
 				return Err(Error::<T, I>::InvalidAuthoritySetId)
@@ -303,53 +268,31 @@ pub(crate) fn submit_finality_proof_info_from_args<T: Config<I>, I: 'static>(
 	current_set_id: Option<SetId>,
 	is_free_execution_expected: bool,
 ) -> SubmitFinalityProofInfo<BridgedBlockNumber<T, I>> {
-	let block_number = *finality_target.number();
-
-	// the `submit_finality_proof` call will reject justifications with invalid, duplicate,
-	// unknown and extra signatures. It'll also reject justifications with less than necessary
-	// signatures. So we do not care about extra weight because of additional signatures here.
-	let precommits_len = justification.commit.precommits.len().saturated_into();
-	let required_precommits = precommits_len;
+	// check if call exceeds limits. In other words - whether some size or weight is included
+	// in the call
+	let extras =
+		submit_finality_proof_limits_extras::<T::BridgedChain>(finality_target, justification);
 
 	// We do care about extra weight because of more-than-expected headers in the votes
 	// ancestries. But we have problems computing extra weight for additional headers (weight of
 	// additional header is too small, so that our benchmarks aren't detecting that). So if there
 	// are more than expected headers in votes ancestries, we will treat the whole call weight
 	// as an extra weight.
-	let votes_ancestries_len = justification.votes_ancestries.len().saturated_into();
-	let extra_weight =
-		if votes_ancestries_len > T::BridgedChain::REASONABLE_HEADERS_IN_JUSTIFICATION_ANCESTRY {
-			T::WeightInfo::submit_finality_proof(precommits_len, votes_ancestries_len)
-		} else {
-			Weight::zero()
-		};
-
-	// check if the `finality_target` is a mandatory header. If so, we are ready to refund larger
-	// size
-	let is_mandatory_finality_target =
-		GrandpaConsensusLogReader::<BridgedBlockNumber<T, I>>::find_scheduled_change(
-			finality_target.digest(),
-		)
-		.is_some();
-
-	// we can estimate extra call size easily, without any additional significant overhead
-	let actual_call_size: u32 = finality_target
-		.encoded_size()
-		.saturating_add(justification.encoded_size())
-		.saturated_into();
-	let max_expected_call_size = max_expected_submit_finality_proof_arguments_size::<T::BridgedChain>(
-		is_mandatory_finality_target,
-		required_precommits,
-	);
-	let extra_size = actual_call_size.saturating_sub(max_expected_call_size);
+	let extra_weight = if extras.is_weight_limit_exceeded {
+		let precommits_len = justification.commit.precommits.len().saturated_into();
+		let votes_ancestries_len = justification.votes_ancestries.len().saturated_into();
+		T::WeightInfo::submit_finality_proof(precommits_len, votes_ancestries_len)
+	} else {
+		Weight::zero()
+	};
 
 	SubmitFinalityProofInfo {
-		block_number,
+		block_number: *finality_target.number(),
 		current_set_id,
-		is_mandatory: is_mandatory_finality_target,
+		is_mandatory: extras.is_mandatory_finality_target,
 		is_free_execution_expected,
 		extra_weight,
-		extra_size,
+		extra_size: extras.extra_size,
 	}
 }
 
@@ -362,9 +305,9 @@ mod tests {
 			TestRuntime,
 		},
 		BestFinalized, Config, CurrentAuthoritySet, FreeHeadersRemaining, PalletOperatingMode,
-		StoredAuthoritySet, SubmitFinalityProofInfo, WeightInfo,
+		StoredAuthoritySet, WeightInfo,
 	};
-	use bp_header_chain::ChainWithGrandpa;
+	use bp_header_chain::{ChainWithGrandpa, SubmitFinalityProofInfo};
 	use bp_runtime::{BasicOperatingMode, HeaderId};
 	use bp_test_utils::{
 		make_default_justification, make_justification_for_header, JustificationGeneratorParams,

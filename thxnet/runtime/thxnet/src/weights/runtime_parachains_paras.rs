@@ -294,4 +294,13 @@ impl<T: frame_system::Config> runtime_parachains::paras::WeightInfo for WeightIn
 			.saturating_add(T::DbWeight::get().reads(3))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
+	fn remove_upgrade_cooldown() -> Weight {
+		Weight::zero()
+	}
+	fn authorize_force_set_current_code_hash() -> Weight {
+		Weight::zero()
+	}
+	fn apply_authorized_force_set_current_code(_c: u32) -> Weight {
+		Weight::zero()
+	}
 }

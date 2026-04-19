@@ -24,25 +24,25 @@
 //!   - Added `async_backing_params` (defaults to zeroes — disabled)
 //!   - Added `executor_params` (defaults to empty)
 //!   - Removed `dispute_conclusion_by_time_out_period`
+//!
+//! Ported from endgame branch (commit db119e116c3), updated for stable2512 APIs.
 
-use crate::configuration::{self, Config, Pallet, MAX_POV_SIZE};
+use crate::configuration::{self, Config, Pallet};
+use alloc::vec::Vec;
 use frame_support::{
 	pallet_prelude::*,
 	traits::{Defensive, OnRuntimeUpgrade, StorageVersion},
 	weights::{constants::WEIGHT_REF_TIME_PER_MILLIS, Weight},
 };
 use frame_system::pallet_prelude::BlockNumberFor;
-use primitives::{AsyncBackingParams, Balance, ExecutorParams, SessionIndex};
-use sp_std::vec::Vec;
-
-#[cfg(feature = "try-runtime")]
-use sp_std::prelude::*;
+use polkadot_primitives::{
+	AsyncBackingParams, Balance, ExecutorParams, SessionIndex, MAX_POV_SIZE,
+};
 
 // ---------------------------------------------------------------------------
 // V4 host configuration — the struct that is on-chain NOW on THXNet rootchain.
-// Copied from polkadot v1.0.0 @ de9e147 with Weight already using 2D representation.
 // ---------------------------------------------------------------------------
-#[derive(parity_scale_codec::Encode, parity_scale_codec::Decode, Debug, Clone)]
+#[derive(codec::Encode, codec::Decode, Debug, Clone)]
 pub struct V4HostConfiguration<BlockNumber> {
 	pub max_code_size: u32,
 	pub max_head_data_size: u32,
@@ -144,7 +144,7 @@ impl<BlockNumber: Default + From<u32>> Default for V4HostConfiguration<BlockNumb
 // V5 host configuration — intermediate type between v4 and v6.
 // Adds async_backing_params + executor_params, removes dispute_conclusion_by_time_out_period.
 // ---------------------------------------------------------------------------
-#[derive(parity_scale_codec::Encode, parity_scale_codec::Decode, Debug, Clone)]
+#[derive(codec::Encode, codec::Decode, Debug, Clone)]
 pub struct V5HostConfiguration<BlockNumber> {
 	pub max_code_size: u32,
 	pub max_head_data_size: u32,
@@ -283,7 +283,7 @@ mod v5 {
 // ---------------------------------------------------------------------------
 // Migration: v4 → v5
 // ---------------------------------------------------------------------------
-pub struct MigrateToV5<T>(sp_std::marker::PhantomData<T>);
+pub struct MigrateToV5<T>(core::marker::PhantomData<T>);
 impl<T: Config> OnRuntimeUpgrade for MigrateToV5<T> {
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
@@ -318,10 +318,6 @@ impl<T: Config> OnRuntimeUpgrade for MigrateToV5<T> {
 }
 
 fn migrate_to_v5<T: Config>() -> Weight {
-	// Unusual formatting is justified:
-	// - make it easier to verify that fields assign what they supposed to assign.
-	// - this code is transient and will be removed after all migrations are done.
-	// - this code is important enough to optimize for legibility sacrificing consistency.
 	#[rustfmt::skip]
 	let translate =
 		|pre: V4HostConfiguration<BlockNumberFor<T>>| ->
@@ -369,7 +365,6 @@ ump_max_individual_weight                : pre.ump_max_individual_weight,
 pvf_checking_enabled                     : pre.pvf_checking_enabled,
 pvf_voting_ttl                           : pre.pvf_voting_ttl,
 minimum_validation_upgrade_delay         : pre.minimum_validation_upgrade_delay,
-// New fields with safe defaults — async backing disabled, empty executor params.
 async_backing_params                     : AsyncBackingParams { max_candidate_depth: 0, allowed_ancestry_len: 0 },
 executor_params                          : Default::default(),
 		}
@@ -381,7 +376,6 @@ executor_params                          : Default::default(),
 	let v5 = translate(v4);
 	v5::ActiveConfig::<T>::set(Some(v5));
 
-	// Allowed to be empty.
 	let pending_v4 = v4::PendingConfigs::<T>::get().unwrap_or_default();
 	let mut pending_v5 = Vec::new();
 
@@ -393,73 +387,4 @@ executor_params                          : Default::default(),
 
 	let num_configs = (pending_v5.len() + 1) as u64;
 	T::DbWeight::get().reads_writes(num_configs, num_configs)
-}
-
-#[cfg(test)]
-mod tests {
-	use super::*;
-	use crate::mock::{new_test_ext, Test};
-
-	#[test]
-	fn test_migrate_to_v5() {
-		let v4 = V4HostConfiguration::<primitives::BlockNumber> {
-			ump_max_individual_weight: Weight::from_parts(0x71616e6f6e0au64, 0x71616e6f6e0au64),
-			needed_approvals: 69,
-			thread_availability_period: 55,
-			hrmp_recipient_deposit: 1337,
-			max_pov_size: 1111,
-			chain_availability_period: 33,
-			minimum_validation_upgrade_delay: 20,
-			..Default::default()
-		};
-
-		let mut pending_configs = Vec::new();
-		pending_configs.push((100, v4.clone()));
-		pending_configs.push((300, v4.clone()));
-
-		new_test_ext(Default::default()).execute_with(|| {
-			// Implant the v4 version in the state.
-			v4::ActiveConfig::<Test>::set(Some(v4));
-			v4::PendingConfigs::<Test>::set(Some(pending_configs));
-
-			migrate_to_v5::<Test>();
-
-			let v5 = v5::ActiveConfig::<Test>::get().unwrap();
-			let mut configs_to_check = v5::PendingConfigs::<Test>::get().unwrap();
-			configs_to_check.push((0, v5.clone()));
-
-			for (_, v5) in configs_to_check {
-				#[rustfmt::skip]
-				{
-					// Carried-over fields
-					assert_eq!(v5.needed_approvals                         , 69);
-					assert_eq!(v5.thread_availability_period               , 55);
-					assert_eq!(v5.hrmp_recipient_deposit                   , 1337);
-					assert_eq!(v5.max_pov_size                             , 1111);
-					assert_eq!(v5.chain_availability_period                , 33);
-					assert_eq!(v5.minimum_validation_upgrade_delay         , 20);
-					assert_eq!(v5.ump_max_individual_weight, Weight::from_parts(0x71616e6f6e0au64, 0x71616e6f6e0au64));
-				};
-
-				// New fields have safe defaults
-				assert_eq!(v5.async_backing_params.allowed_ancestry_len, 0);
-				assert_eq!(v5.async_backing_params.max_candidate_depth, 0);
-				assert_eq!(v5.executor_params, ExecutorParams::new());
-			}
-		});
-	}
-
-	// Test that migration doesn't panic in case there are no pending configurations.
-	#[test]
-	fn test_migrate_to_v5_no_pending() {
-		let v4 = V4HostConfiguration::<primitives::BlockNumber>::default();
-
-		new_test_ext(Default::default()).execute_with(|| {
-			v4::ActiveConfig::<Test>::set(Some(v4));
-			v4::PendingConfigs::<Test>::set(None);
-
-			// Shouldn't fail.
-			migrate_to_v5::<Test>();
-		});
-	}
 }

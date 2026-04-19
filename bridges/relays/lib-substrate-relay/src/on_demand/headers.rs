@@ -16,9 +16,7 @@
 
 //! On-demand Substrate -> Substrate header finality relay.
 
-use crate::{
-	finality::SubmitFinalityProofCallBuilder, finality_base::engine::MaxExpectedCallSizeCheck,
-};
+use crate::finality::SubmitFinalityProofCallBuilder;
 
 use async_std::sync::{Arc, Mutex};
 use async_trait::async_trait;
@@ -55,25 +53,30 @@ use crate::{
 /// relay) needs it to continue its regular work. When enough headers are relayed, on-demand stops
 /// syncing headers.
 #[derive(Clone)]
-pub struct OnDemandHeadersRelay<P: SubstrateFinalitySyncPipeline> {
+pub struct OnDemandHeadersRelay<P: SubstrateFinalitySyncPipeline, SourceClnt, TargetClnt> {
 	/// Relay task name.
 	relay_task_name: String,
 	/// Shared reference to maximal required finalized header number.
 	required_header_number: RequiredHeaderNumberRef<P::SourceChain>,
 	/// Client of the source chain.
-	source_client: Client<P::SourceChain>,
+	source_client: SourceClnt,
 	/// Client of the target chain.
-	target_client: Client<P::TargetChain>,
+	target_client: TargetClnt,
 }
 
-impl<P: SubstrateFinalitySyncPipeline> OnDemandHeadersRelay<P> {
+impl<
+		P: SubstrateFinalitySyncPipeline,
+		SourceClnt: Client<P::SourceChain>,
+		TargetClnt: Client<P::TargetChain>,
+	> OnDemandHeadersRelay<P, SourceClnt, TargetClnt>
+{
 	/// Create new on-demand headers relay.
 	///
 	/// If `metrics_params` is `Some(_)`, the metrics of the finality relay are registered.
 	/// Otherwise, all required metrics must be exposed outside of this method.
 	pub fn new(
-		source_client: Client<P::SourceChain>,
-		target_client: Client<P::TargetChain>,
+		source_client: SourceClnt,
+		target_client: TargetClnt,
 		target_transaction_params: TransactionParams<AccountKeyPairOf<P::TargetChain>>,
 		headers_to_relay: HeadersToRelay,
 		metrics_params: Option<MetricsParams>,
@@ -106,8 +109,12 @@ impl<P: SubstrateFinalitySyncPipeline> OnDemandHeadersRelay<P> {
 }
 
 #[async_trait]
-impl<P: SubstrateFinalitySyncPipeline> OnDemandRelay<P::SourceChain, P::TargetChain>
-	for OnDemandHeadersRelay<P>
+impl<
+		P: SubstrateFinalitySyncPipeline,
+		SourceClnt: Client<P::SourceChain>,
+		TargetClnt: Client<P::TargetChain>,
+	> OnDemandRelay<P::SourceChain, P::TargetChain>
+	for OnDemandHeadersRelay<P, SourceClnt, TargetClnt>
 {
 	async fn reconnect(&self) -> Result<(), SubstrateError> {
 		// using clone is fine here (to avoid mut requirement), because clone on Client clones
@@ -119,12 +126,12 @@ impl<P: SubstrateFinalitySyncPipeline> OnDemandRelay<P::SourceChain, P::TargetCh
 	async fn require_more_headers(&self, required_header: BlockNumberOf<P::SourceChain>) {
 		let mut required_header_number = self.required_header_number.lock().await;
 		if required_header > *required_header_number {
-			log::trace!(
+			tracing::trace!(
 				target: "bridge",
-				"[{}] More {} headers required. Going to sync up to the {}",
-				self.relay_task_name,
-				P::SourceChain::NAME,
-				required_header,
+				relay_task_name=%self.relay_task_name,
+				source=%P::SourceChain::NAME,
+				%required_header,
+				"More headers required. Going to sync up"
 			);
 
 			*required_header_number = required_header;
@@ -141,7 +148,7 @@ impl<P: SubstrateFinalitySyncPipeline> OnDemandRelay<P::SourceChain, P::TargetCh
 		loop {
 			// first find proper header (either `current_required_header`) or its descendant
 			let finality_source =
-				SubstrateFinalitySource::<P>::new(self.source_client.clone(), None);
+				SubstrateFinalitySource::<P, _>::new(self.source_client.clone(), None);
 			let (header, mut proof) =
 				finality_source.prove_block_finality(current_required_header).await?;
 			let header_id = header.id();
@@ -156,37 +163,34 @@ impl<P: SubstrateFinalitySyncPipeline> OnDemandRelay<P::SourceChain, P::TargetCh
 
 			// now we have the header and its proof, but we want to minimize our losses, so let's
 			// check if we'll get the full refund for submitting this header
-			let check_result = P::FinalityEngine::check_max_expected_call_size(&header, &proof);
-			if let MaxExpectedCallSizeCheck::Exceeds { call_size, max_call_size } = check_result {
+			let check_result = P::FinalityEngine::check_max_expected_call_limits(&header, &proof);
+			if check_result.is_weight_limit_exceeded || check_result.extra_size != 0 {
 				iterations += 1;
 				current_required_header = header_id.number().saturating_add(One::one());
 				if iterations < MAX_ITERATIONS {
-					log::debug!(
+					tracing::debug!(
 						target: "bridge",
-						"[{}] Requested to prove {} head {:?}. Selected to prove {} head {:?}. But it is too large: {} vs {}. \
-						Going to select next header",
-						self.relay_task_name,
-						P::SourceChain::NAME,
-						required_header,
-						P::SourceChain::NAME,
-						header_id,
-						call_size,
-						max_call_size,
+						relay_task_name=%self.relay_task_name,
+						source=%P::SourceChain::NAME,
+						%required_header,
+						?header_id,
+						?check_result,
+						"Requested to prove head. Selected to prove head. But it exceeds limits. \
+						Going to select next header"
 					);
 
 					continue;
 				}
 			}
 
-			log::debug!(
+			tracing::debug!(
 				target: "bridge",
-				"[{}] Requested to prove {} head {:?}. Selected to prove {} head {:?} (after {} iterations)",
-				self.relay_task_name,
-				P::SourceChain::NAME,
-				required_header,
-				P::SourceChain::NAME,
-				header_id,
-				iterations,
+				relay_task_name=%self.relay_task_name,
+				source=%P::SourceChain::NAME,
+				%required_header,
+				?header_id,
+				%iterations,
+				"Requested to prove head. Selected to prove head (after iterations)",
 			);
 
 			// and then craft the submit-proof call
@@ -201,8 +205,8 @@ impl<P: SubstrateFinalitySyncPipeline> OnDemandRelay<P::SourceChain, P::TargetCh
 
 /// Background task that is responsible for starting headers relay.
 async fn background_task<P: SubstrateFinalitySyncPipeline>(
-	source_client: Client<P::SourceChain>,
-	target_client: Client<P::TargetChain>,
+	source_client: impl Client<P::SourceChain>,
+	target_client: impl Client<P::TargetChain>,
 	target_transaction_params: TransactionParams<AccountKeyPairOf<P::TargetChain>>,
 	headers_to_relay: HeadersToRelay,
 	required_header_number: RequiredHeaderNumberRef<P::SourceChain>,
@@ -212,7 +216,7 @@ async fn background_task<P: SubstrateFinalitySyncPipeline>(
 {
 	let relay_task_name = on_demand_headers_relay_name::<P::SourceChain, P::TargetChain>();
 	let target_transactions_mortality = target_transaction_params.mortality;
-	let mut finality_source = SubstrateFinalitySource::<P>::new(
+	let mut finality_source = SubstrateFinalitySource::<P, _>::new(
 		source_client.clone(),
 		Some(required_header_number.clone()),
 	);
@@ -249,7 +253,8 @@ async fn background_task<P: SubstrateFinalitySyncPipeline>(
 
 		// read best finalized source header number from target
 		let best_finalized_source_header_at_target =
-			best_finalized_source_header_at_target::<P>(&finality_target, &relay_task_name).await;
+			best_finalized_source_header_at_target::<P, _>(&finality_target, &relay_task_name)
+				.await;
 		if matches!(best_finalized_source_header_at_target, Err(ref e) if e.is_connection_error()) {
 			relay_utils::relay_loop::reconnect_failed_client(
 				FailedClient::Target,
@@ -274,14 +279,14 @@ async fn background_task<P: SubstrateFinalitySyncPipeline>(
 		)
 		.await;
 
-		log::trace!(
+		tracing::trace!(
 			target: "bridge",
-			"[{}] Mandatory headers scan range: ({:?}, {:?}, {:?}) -> {:?}",
-			relay_task_name,
-			required_header_number_value,
-			best_finalized_source_header_at_source_fmt,
-			best_finalized_source_header_at_target_fmt,
-			mandatory_scan_range,
+			%relay_task_name,
+			?required_header_number_value,
+			?best_finalized_source_header_at_source_fmt,
+			?best_finalized_source_header_at_target_fmt,
+			?mandatory_scan_range,
+			"Mandatory headers scan range"
 		);
 
 		if let Some(mandatory_scan_range) = mandatory_scan_range {
@@ -303,22 +308,22 @@ async fn background_task<P: SubstrateFinalitySyncPipeline>(
 					// => to avoid scanning the same headers over and over again, remember that
 					latest_non_mandatory_at_source = mandatory_scan_range.1;
 
-					log::trace!(
+					tracing::trace!(
 						target: "bridge",
-						"[{}] No mandatory {} headers in the range {:?}",
-						relay_task_name,
-						P::SourceChain::NAME,
-						mandatory_scan_range,
+						%relay_task_name,
+						source=%P::SourceChain::NAME,
+						?mandatory_scan_range,
+						"No mandatory headers in the range"
 					);
 				},
 				Err(e) => {
-					log::warn!(
+					tracing::warn!(
 						target: "bridge",
-						"[{}] Failed to scan mandatory {} headers range ({:?}): {:?}",
-						relay_task_name,
-						P::SourceChain::NAME,
-						mandatory_scan_range,
-						e,
+						error=?e,
+						%relay_task_name,
+						source=%P::SourceChain::NAME,
+						?mandatory_scan_range,
+						"Failed to scan mandatory headers range"
 					);
 
 					if e.is_connection_error() {
@@ -343,17 +348,14 @@ async fn background_task<P: SubstrateFinalitySyncPipeline>(
 				STALL_TIMEOUT,
 			);
 
-			log::info!(
+			tracing::info!(
 				target: "bridge",
-				"[{}] Starting on-demand headers relay task\n\t\
-					Headers to relay: {:?}\n\t\
-					Tx mortality: {:?} (~{}m)\n\t\
-					Stall timeout: {:?}",
-				relay_task_name,
-				headers_to_relay,
-				target_transactions_mortality,
-				stall_timeout.as_secs_f64() / 60.0f64,
-				stall_timeout,
+				%relay_task_name,
+				?headers_to_relay,
+				?target_transactions_mortality,
+				stall_timeout_as_mins=%stall_timeout.as_secs_f64() / 60.0f64,
+				?stall_timeout,
+				"Starting on-demand headers relay task"
 			);
 
 			finality_relay_task.set(
@@ -413,13 +415,17 @@ async fn mandatory_headers_scan_range<C: Chain>(
 /// it.
 ///
 /// Returns `true` if header was found and (asked to be) relayed and `false` otherwise.
-async fn relay_mandatory_header_from_range<P: SubstrateFinalitySyncPipeline>(
-	finality_source: &SubstrateFinalitySource<P>,
+async fn relay_mandatory_header_from_range<P, SourceClnt>(
+	finality_source: &SubstrateFinalitySource<P, SourceClnt>,
 	required_header_number: &RequiredHeaderNumberRef<P::SourceChain>,
 	best_finalized_source_header_at_target: String,
 	range: (BlockNumberOf<P::SourceChain>, BlockNumberOf<P::SourceChain>),
 	relay_task_name: &str,
-) -> Result<bool, relay_substrate_client::Error> {
+) -> Result<bool, relay_substrate_client::Error>
+where
+	P: SubstrateFinalitySyncPipeline,
+	SourceClnt: Client<P::SourceChain>,
+{
 	// search for mandatory header first
 	let mandatory_source_header_number =
 		find_mandatory_header_in_range(finality_source, range).await?;
@@ -437,14 +443,14 @@ async fn relay_mandatory_header_from_range<P: SubstrateFinalitySyncPipeline>(
 		return Ok(false)
 	}
 
-	log::trace!(
+	tracing::trace!(
 		target: "bridge",
-		"[{}] Too many {} headers missing at target ({} vs {}). Going to sync up to the mandatory {}",
-		relay_task_name,
-		P::SourceChain::NAME,
-		best_finalized_source_header_at_target,
-		range.1,
-		mandatory_source_header_number,
+		%relay_task_name,
+		source=%P::SourceChain::NAME,
+		%best_finalized_source_header_at_target,
+		at_source=%range.1,
+		%mandatory_source_header_number,
+		"Too many headers missing at target. Going to sync up to the mandatory"
 	);
 
 	*required_header_number = mandatory_source_header_number;
@@ -454,16 +460,20 @@ async fn relay_mandatory_header_from_range<P: SubstrateFinalitySyncPipeline>(
 /// Read best finalized source block number from source client.
 ///
 /// Returns `None` if we have failed to read the number.
-async fn best_finalized_source_header_at_source<P: SubstrateFinalitySyncPipeline>(
-	finality_source: &SubstrateFinalitySource<P>,
+async fn best_finalized_source_header_at_source<P, SourceClnt>(
+	finality_source: &SubstrateFinalitySource<P, SourceClnt>,
 	relay_task_name: &str,
-) -> Result<BlockNumberOf<P::SourceChain>, relay_substrate_client::Error> {
+) -> Result<BlockNumberOf<P::SourceChain>, relay_substrate_client::Error>
+where
+	P: SubstrateFinalitySyncPipeline,
+	SourceClnt: Client<P::SourceChain>,
+{
 	finality_source.on_chain_best_finalized_block_number().await.map_err(|error| {
-		log::error!(
+		tracing::error!(
 			target: "bridge",
-			"[{}] Failed to read best finalized source header from source: {:?}",
-			relay_task_name,
-			error,
+			?error,
+			%relay_task_name,
+			"Failed to read best finalized source header from source"
 		);
 
 		error
@@ -473,22 +483,27 @@ async fn best_finalized_source_header_at_source<P: SubstrateFinalitySyncPipeline
 /// Read best finalized source block number from target client.
 ///
 /// Returns `None` if we have failed to read the number.
-async fn best_finalized_source_header_at_target<P: SubstrateFinalitySyncPipeline>(
-	finality_target: &SubstrateFinalityTarget<P>,
+async fn best_finalized_source_header_at_target<P, TargetClnt>(
+	finality_target: &SubstrateFinalityTarget<P, TargetClnt>,
 	relay_task_name: &str,
-) -> Result<BlockNumberOf<P::SourceChain>, <SubstrateFinalityTarget<P> as RelayClient>::Error>
+) -> Result<
+	BlockNumberOf<P::SourceChain>,
+	<SubstrateFinalityTarget<P, TargetClnt> as RelayClient>::Error,
+>
 where
+	P: SubstrateFinalitySyncPipeline,
+	TargetClnt: Client<P::TargetChain>,
 	AccountIdOf<P::TargetChain>: From<<AccountKeyPairOf<P::TargetChain> as sp_core::Pair>::Public>,
 {
 	finality_target
 		.best_finalized_source_block_id()
 		.await
 		.map_err(|error| {
-			log::error!(
+			tracing::error!(
 				target: "bridge",
-				"[{}] Failed to read best finalized source header from target: {:?}",
-				relay_task_name,
-				error,
+				?error,
+				%relay_task_name,
+				"Failed to read best finalized source header from target"
 			);
 
 			error
@@ -499,10 +514,14 @@ where
 /// Read first mandatory header in given inclusive range.
 ///
 /// Returns `Ok(None)` if there were no mandatory headers in the range.
-async fn find_mandatory_header_in_range<P: SubstrateFinalitySyncPipeline>(
-	finality_source: &SubstrateFinalitySource<P>,
+async fn find_mandatory_header_in_range<P, SourceClnt>(
+	finality_source: &SubstrateFinalitySource<P, SourceClnt>,
 	range: (BlockNumberOf<P::SourceChain>, BlockNumberOf<P::SourceChain>),
-) -> Result<Option<BlockNumberOf<P::SourceChain>>, relay_substrate_client::Error> {
+) -> Result<Option<BlockNumberOf<P::SourceChain>>, relay_substrate_client::Error>
+where
+	P: SubstrateFinalitySyncPipeline,
+	SourceClnt: Client<P::SourceChain>,
+{
 	let mut current = range.0;
 	while current <= range.1 {
 		let header = finality_source.client().header_by_number(current).await?;

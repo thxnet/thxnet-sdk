@@ -324,4 +324,10 @@ impl<T: frame_system::Config> pallet_collective::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().writes(3))
 			.saturating_add(Weight::from_parts(0, 32).saturating_mul(p.into()))
 	}
+	fn kill(_m: u32, _p: u32) -> Weight {
+		Weight::zero()
+	}
+	fn release_proposal_cost() -> Weight {
+		Weight::zero()
+	}
 }

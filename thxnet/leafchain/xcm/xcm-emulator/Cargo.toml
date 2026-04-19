@@ -7,41 +7,41 @@ license.workspace = true
 edition.workspace = true
 
 [dependencies]
+casey = "0.4.0"
 codec = { package = "parity-scale-codec", version = "3.0.0" }
+log = { version = "0.4.17", default-features = false }
 paste = "1.0.5"
 quote = "1.0.23"
-casey = "0.4.0"
-log = { version = "0.4.17", default-features = false }
 
 # Substrate crates
 frame-support = { path = "../../../../substrate/frame/support" }
 frame-system = { path = "../../../../substrate/frame/system" }
-sp-io = { path = "../../../../substrate/primitives/io" }
-sp-core = { path = "../../../../substrate/primitives/core" }
-sp-std = { path = "../../../../substrate/primitives/std" }
-sp-arithmetic = { path = "../../../../substrate/primitives/arithmetic" }
-sp-trie = { path = "../../../../substrate/primitives/trie" }
-sp-runtime = { path = "../../../../substrate/primitives/runtime" }
-sp-tracing = { path = "../../../../substrate/primitives/tracing" }
-sp-consensus-aura = { path = "../../../../substrate/primitives/consensus/aura" }
-pallet-balances = { path = "../../../../substrate/frame/balances" }
 pallet-aura = { path = "../../../../substrate/frame/aura" }
+pallet-balances = { path = "../../../../substrate/frame/balances" }
 pallet-message-queue = { path = "../../../../substrate/frame/message-queue" }
+sp-arithmetic = { path = "../../../../substrate/primitives/arithmetic" }
+sp-consensus-aura = { path = "../../../../substrate/primitives/consensus/aura" }
+sp-core = { path = "../../../../substrate/primitives/core" }
+sp-io = { path = "../../../../substrate/primitives/io" }
+sp-runtime = { path = "../../../../substrate/primitives/runtime" }
+sp-std = { path = "../../../../substrate/primitives/std" }
+sp-tracing = { path = "../../../../substrate/primitives/tracing" }
+sp-trie = { path = "../../../../substrate/primitives/trie" }
 
 # Cumulus crates
 cumulus-pallet-aura-ext = { path = "../../../../cumulus/pallets/aura-ext" }
-cumulus-primitives-core = { path = "../../../../cumulus/primitives/core" }
-cumulus-pallet-xcmp-queue = { path = "../../../../cumulus/pallets/xcmp-queue" }
 cumulus-pallet-dmp-queue = { path = "../../../../cumulus/pallets/dmp-queue" }
 cumulus-pallet-parachain-system = { path = "../../../../cumulus/pallets/parachain-system" }
-parachain-info = { package = "staging-parachain-info", path = "../../../../cumulus/parachains/pallets/parachain-info" }
+cumulus-pallet-xcmp-queue = { path = "../../../../cumulus/pallets/xcmp-queue" }
+cumulus-primitives-core = { path = "../../../../cumulus/primitives/core" }
 cumulus-primitives-parachain-inherent = { path = "../../../../cumulus/primitives/parachain-inherent" }
 cumulus-test-relay-sproof-builder = { path = "../../../../cumulus/test/relay-sproof-builder" }
+parachain-info = { package = "staging-parachain-info", path = "../../../../cumulus/parachains/pallets/parachain-info" }
 parachains-common = { path = "../../../../cumulus/parachains/common" }
 
 # Polkadot crates
 polkadot-parachain = { package = "polkadot-parachain-primitives", path = "../../../../polkadot/parachain" }
-xcm = { package = "staging-xcm", path = "../../../../polkadot/xcm" }
-xcm-executor = { package = "staging-xcm-executor", path = "../../../../polkadot/xcm/xcm-executor" }
 polkadot-primitives = { path = "../../../../polkadot/primitives" }
 polkadot-runtime-parachains = { path = "../../../../polkadot/runtime/parachains" }
+xcm = { package = "staging-xcm", path = "../../../../polkadot/xcm" }
+xcm-executor = { package = "staging-xcm-executor", path = "../../../../polkadot/xcm/xcm-executor" }

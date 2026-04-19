@@ -16,14 +16,15 @@
 
 //! Parachain runtime mock.
 
-mod mock_msg_queue;
 mod xcm_config;
 pub use xcm_config::*;
 
 use core::marker::PhantomData;
 use frame_support::{
 	construct_runtime, derive_impl, parameter_types,
-	traits::{ConstU128, ContainsPair, EnsureOrigin, EnsureOriginWithArg, Everything, Nothing},
+	traits::{
+		ConstU128, ContainsPair, Disabled, EnsureOrigin, EnsureOriginWithArg, Everything, Nothing,
+	},
 	weights::{constants::WEIGHT_REF_TIME_PER_SECOND, Weight},
 };
 use frame_system::EnsureRoot;
@@ -32,10 +33,10 @@ use sp_runtime::{
 	traits::{Get, IdentityLookup},
 	AccountId32,
 };
-use sp_std::prelude::*;
 use xcm::latest::prelude::*;
 use xcm_builder::{EnsureXcmOrigin, SignedToAccountId32};
 use xcm_executor::{traits::ConvertLocation, XcmExecutor};
+use xcm_simulator::mock_message_queue;
 
 pub type AccountId = AccountId32;
 pub type Balance = u128;
@@ -101,7 +102,7 @@ impl EnsureOriginWithArg<RuntimeOrigin, Location> for ForeignCreators {
 	fn try_origin(
 		o: RuntimeOrigin,
 		a: &Location,
-	) -> sp_std::result::Result<Self::Success, RuntimeOrigin> {
+	) -> core::result::Result<Self::Success, RuntimeOrigin> {
 		let origin_location = pallet_xcm::EnsureXcm::<Everything>::try_origin(o.clone())?;
 		if !a.starts_with(&origin_location) {
 			return Err(o);
@@ -121,7 +122,7 @@ parameter_types! {
 	pub const ReservedDmpWeight: Weight = Weight::from_parts(WEIGHT_REF_TIME_PER_SECOND.saturating_div(4), 0);
 }
 
-impl mock_msg_queue::Config for Runtime {
+impl mock_message_queue::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type XcmExecutor = XcmExecutor<XcmConfig>;
 }
@@ -167,6 +168,7 @@ impl pallet_xcm::Config for Runtime {
 	type RemoteLockConsumerIdentifier = ();
 	type WeightInfo = pallet_xcm::TestWeightInfo;
 	type AdminOrigin = EnsureRoot<AccountId>;
+	type AuthorizedAliasConsideration = Disabled;
 }
 
 type Block = frame_system::mocking::MockBlock<Runtime>;
@@ -175,7 +177,7 @@ construct_runtime!(
 	pub struct Runtime {
 		System: frame_system,
 		Balances: pallet_balances,
-		MsgQueue: mock_msg_queue,
+		MsgQueue: mock_message_queue,
 		PolkadotXcm: pallet_xcm,
 		ForeignUniques: pallet_uniques,
 	}

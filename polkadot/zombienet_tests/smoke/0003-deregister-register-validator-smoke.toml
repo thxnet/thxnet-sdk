@@ -6,18 +6,18 @@ default_image = "{{ZOMBIENET_INTEGRATION_TEST_IMAGE}}"
 chain = "rococo-local"
 command = "polkadot"
 
-  [[relaychain.nodes]]
-  name = "alice"
-  args = ["-lruntime=debug,parachain=trace" ]
+[[relaychain.nodes]]
+name = "alice"
+args = ["-lruntime=debug,parachain=trace"]
 
-  [[relaychain.nodes]]
-  name = "bob"
-  args = [ "-lruntime=debug,parachain=trace" ]
+[[relaychain.nodes]]
+name = "bob"
+args = ["-lruntime=debug,parachain=trace"]
 
-  [[relaychain.nodes]]
-  name = "charlie"
-  args = [ "-lruntime=debug,parachain=trace" ]
+[[relaychain.nodes]]
+name = "charlie"
+args = ["-lruntime=debug,parachain=trace"]
 
-  [[relaychain.nodes]]
-  name = "dave"
-  args = [ "-lruntime=debug,parachain=trace" ]
+[[relaychain.nodes]]
+name = "dave"
+args = ["-lruntime=debug,parachain=trace"]

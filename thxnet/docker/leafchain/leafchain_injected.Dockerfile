@@ -18,7 +18,6 @@ RUN apt-get update && \
 	useradd -m -u 1000 -U -s /bin/sh -d /leafchain thxnet && \
 	mkdir -p /data /leafchain/.local/share && \
 	chown -R thxnet:thxnet /data && \
-	rm -rf /usr/bin /usr/sbin && \
 	/usr/local/bin/thxnet-leafchain --version
 
 USER thxnet
