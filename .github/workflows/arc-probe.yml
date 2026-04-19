@@ -1,5 +1,8 @@
 name: ARC probe
 on:
+  push:
+    branches: ['tmp/**']
+    paths: ['.github/workflows/arc-probe.yml']
   workflow_dispatch:
 
 jobs:
