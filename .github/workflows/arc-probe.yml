@@ -1,0 +1,39 @@
+name: ARC smoke test
+on:
+  workflow_dispatch:
+  schedule:
+    # Monday 03:00 UTC — catch ARC routing regressions weekly.
+    - cron: '0 3 * * 1'
+
+permissions: {}
+
+concurrency:
+  group: arc-probe-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  probe-heavy:
+    name: hetzner-thxnet (heavy)
+    runs-on: hetzner-thxnet
+    timeout-minutes: 5
+    steps:
+      - name: Prove runner identity
+        run: |
+          echo "scale_set=hetzner-thxnet"
+          hostname
+          id
+          uname -a
+          [[ "$HOSTNAME" == hetzner-thxnet-*-runner-* ]] || { echo "FAIL: not an ARC ephemeral pod"; exit 1; }
+
+  probe-light:
+    name: hetzner-thxnet-light (light)
+    runs-on: hetzner-thxnet-light
+    timeout-minutes: 5
+    steps:
+      - name: Prove runner identity
+        run: |
+          echo "scale_set=hetzner-thxnet-light"
+          hostname
+          id
+          uname -a
+          [[ "$HOSTNAME" == hetzner-thxnet-light-*-runner-* ]] || { echo "FAIL: not an ARC ephemeral pod"; exit 1; }
