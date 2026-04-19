@@ -21673,12 +21673,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "scale-type-resolver"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f0cded6518aa0bd6c1be2b88ac81bf7044992f0f154bfbabd5ad34f43512abcb"
-
-[[package]]
 name = "schannel"
 version = "0.1.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"

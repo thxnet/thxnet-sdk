@@ -2437,14 +2437,37 @@ pub mod migrations {
 				cfg.node_features.set(3, true);
 			});
 
+			// Force-free any stuck AvailabilityCores. In normal flow cores transition
+			// Paras(entry) → Free via ParaInherent bitfield signaling availability complete;
+			// but when the config just changed under an occupied core (e.g. async-backing
+			// enabled while a v1.12.0-pre-#4937 relay has a capacity=2 cumulus collator
+			// producing forks), the occupying entry never concludes. Until session rotation
+			// the core stays stuck. Session rotation calls `push_occupied_cores_to_assignment_provider`
+			// which replaces every Paras(_) with Free. We do the same here so the next
+			// ParaInherent pass can schedule fresh candidates atomically with setCode.
+			//
+			// Caveat: relay-client subsystems cache fragment-chain / SessionInfo per session
+			// in Rust memory. Even after freeing storage, those caches persist until the
+			// next real session boundary OR validator-process restart. Operator action
+			// required: `kubectl rollout restart deploy/validator-*` after setCode.
+			parachains_scheduler::AvailabilityCores::<Runtime>::mutate(|cores| {
+				for core in cores.iter_mut() {
+					*core = parachains_scheduler::CoreOccupied::Free;
+				}
+			});
+			// Drop stale claims too — next block's free_cores_and_fill_claimqueue
+			// repopulates from AssignmentProvider.
+			parachains_scheduler::ClaimQueue::<Runtime>::kill();
+
 			log::info!(
 				target: "runtime",
 				"EnableAsyncBackingAndCoretime: num_cores={}, max_vals_per_core=None, \
-				 lookahead=1, async_backing=(depth=1, ancestry=2), node_features[0,1,3]=true",
+				 lookahead=1, async_backing=(depth=1, ancestry=2), node_features[0,1,3]=true, \
+				 AvailabilityCores freed, ClaimQueue cleared",
 				num_cores,
 			);
 
-			<Runtime as frame_system::Config>::DbWeight::get().reads_writes(1, 1)
+			<Runtime as frame_system::Config>::DbWeight::get().reads_writes(2, 3)
 		}
 	}
 
