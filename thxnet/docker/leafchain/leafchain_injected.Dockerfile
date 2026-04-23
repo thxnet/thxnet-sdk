@@ -1,7 +1,7 @@
 # Lightweight Dockerfile that copies pre-built binaries.
 # Used by CI after building binaries in a separate step.
 # For a from-source build, see leafchain_builder.Dockerfile.
-FROM docker.io/library/ubuntu:20.04
+FROM docker.io/library/ubuntu:24.04
 
 LABEL description="Container image for THXNET. leafchain" \
 	io.thxnet.image.type="final" \
@@ -11,7 +11,11 @@ LABEL description="Container image for THXNET. leafchain" \
 
 COPY target/release/thxnet-leafchain /usr/local/bin
 
-RUN useradd -m -u 1000 -U -s /bin/sh -d /leafchain thxnet && \
+RUN apt-get update && \
+	DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ca-certificates && \
+	rm -rf /var/lib/apt/lists/* && \
+	(userdel -r ubuntu 2>/dev/null || true) && \
+	useradd -m -u 1000 -U -s /bin/sh -d /leafchain thxnet && \
 	mkdir -p /data /leafchain/.local/share && \
 	chown -R thxnet:thxnet /data && \
 	rm -rf /usr/bin /usr/sbin && \

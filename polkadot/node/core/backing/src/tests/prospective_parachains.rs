@@ -67,15 +67,6 @@ async fn activate_leaf(
 		.min()
 		.unwrap_or(&leaf_number);
 
-	assert_matches!(
-		virtual_overseer.recv().await,
-		AllMessages::ProspectiveParachains(
-			ProspectiveParachainsMessage::GetMinimumRelayParents(parent, tx)
-		) if parent == leaf_hash => {
-			tx.send(min_relay_parents).unwrap();
-		}
-	);
-
 	let ancestry_len = leaf_number + 1 - min_min;
 
 	let ancestry_hashes = std::iter::successors(Some(leaf_hash), |h| Some(get_parent_hash(*h)))
@@ -117,6 +108,18 @@ async fn activate_leaf(
 					tx.send(Ok(Some(header))).unwrap();
 				}
 			);
+
+			if requested_len == 0 {
+				assert_matches!(
+					virtual_overseer.recv().await,
+					AllMessages::ProspectiveParachains(
+						ProspectiveParachainsMessage::GetMinimumRelayParents(parent, tx)
+					) if parent == leaf_hash => {
+						tx.send(min_relay_parents.clone()).unwrap();
+					}
+				);
+			}
+
 			requested_len += 1;
 		}
 	}
@@ -207,6 +210,26 @@ async fn activate_leaf(
 				RuntimeApiMessage::Request(parent, RuntimeApiRequest::DisabledValidators(tx))
 			) if parent == hash => {
 				tx.send(Ok(Vec::new())).unwrap();
+			}
+		);
+
+		assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::RuntimeApi(
+				RuntimeApiMessage::Request(parent, RuntimeApiRequest::Version(tx))
+			) if parent == hash => {
+				tx.send(Ok(RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT)).unwrap();
+			}
+		);
+
+		assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::RuntimeApi(
+				RuntimeApiMessage::Request(parent, RuntimeApiRequest::ClaimQueue(tx))
+			) if parent == hash => {
+				tx.send(Ok(
+					test_state.claim_queue.clone()
+				)).unwrap();
 			}
 		);
 	}
