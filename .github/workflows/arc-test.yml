@@ -1,0 +1,134 @@
+name: ARC Runner Validation
+
+on:
+  push:
+    branches: [release/*]
+    paths: [.github/workflows/arc-test.yml]
+  workflow_dispatch:
+
+permissions: {}
+
+env:
+  RUSTC_WRAPPER: sccache
+  CARGO_INCREMENTAL: "0"
+  SCCACHE_DIR: /home/runner/.cache/sccache/arc-test
+  SCCACHE_CACHE_SIZE: 300G
+
+jobs:
+  # ── Test 1: Container job with sccache volume mounts ──────────────────
+  # Validates that workflow container.volumes: host paths are correctly
+  # resolved by the host Docker daemon when running through ARC/k3d.
+  test-container-sccache:
+    name: "Validate: container job + sccache"
+    runs-on: arc-test-heavy
+    timeout-minutes: 30
+    container:
+      image: docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
+      volumes:
+        - /home/runner/.cache/cargo-registry:/usr/local/cargo/registry
+        - /home/runner/.cache/cargo-git:/usr/local/cargo/git
+        - /home/runner/.cache/sccache-bin/sccache:/usr/local/bin/sccache
+        - /home/runner/.cache/sccache:/home/runner/.cache/sccache
+    env:
+      WASM_BUILD_WORKSPACE_HINT: ${{ github.workspace }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Verify sccache binary
+        run: |
+          which sccache
+          sccache --version
+          sccache --show-stats
+
+      - name: Verify cargo registry mount
+        run: ls -la /usr/local/cargo/registry/ | head -10
+
+      - name: Test cargo check with sccache
+        run: |
+          # Build a small crate to verify sccache is caching
+          cargo check --locked -p thxnet-runtime-constants 2>&1 | tail -20
+
+      - name: Show sccache hit rate
+        if: always()
+        run: sccache --show-stats
+
+  # ── Test 2: Bare-host job (no container: key) ────────────────────────
+  # Validates that jobs without container: key work with
+  # ACTIONS_RUNNER_REQUIRE_JOB_CONTAINER=false
+  test-bare-host:
+    name: "Validate: bare-host job"
+    runs-on: arc-test-heavy
+    timeout-minutes: 5
+    steps:
+      - name: Verify Docker socket
+        run: docker info 2>&1 | head -20
+
+      - name: Verify try-runtime snapshots directory
+        run: |
+          ls -la /home/runner/.cache/try-runtime-snapshots/ 2>/dev/null \
+            && echo "Snapshots directory accessible" \
+            || echo "WARNING: snapshots directory not found (expected on first run)"
+
+      - name: Verify try-runtime binary
+        run: |
+          /home/runner/.cargo/bin/try-runtime --version 2>/dev/null \
+            && echo "try-runtime binary accessible" \
+            || echo "WARNING: try-runtime binary not found at /home/runner/.cargo/bin/try-runtime"
+
+      - name: Verify sccache binary
+        run: |
+          /home/runner/.cache/sccache-bin/sccache --version 2>/dev/null \
+            && echo "sccache binary accessible" \
+            || echo "WARNING: sccache binary not found"
+
+      - name: Verify workspace is ephemeral (emptyDir)
+        run: |
+          echo "Working directory: $(pwd)"
+          echo "Disk usage:"
+          df -h . | head -5
+
+  # ── Test 3: Artifact upload/download ──────────────────────────────────
+  test-artifacts:
+    name: "Validate: artifact flow"
+    runs-on: arc-test-heavy
+    timeout-minutes: 5
+    steps:
+      - run: echo "test-artifact-content" > /tmp/test-artifact.txt
+
+      - uses: actions/upload-artifact@v5
+        with:
+          name: arc-test-artifact
+          path: /tmp/test-artifact.txt
+          retention-days: 1
+
+  test-artifact-download:
+    name: "Validate: artifact download"
+    needs: test-artifacts
+    runs-on: arc-test-heavy
+    timeout-minutes: 5
+    steps:
+      - uses: actions/download-artifact@v5
+        with:
+          name: arc-test-artifact
+          path: /tmp/
+
+      - name: Verify artifact content
+        run: |
+          cat /tmp/test-artifact.txt
+          [ "$(cat /tmp/test-artifact.txt)" = "test-artifact-content" ] \
+            && echo "PASS: artifact roundtrip OK" \
+            || (echo "FAIL: artifact content mismatch" && exit 1)
+
+  # ── Test 4: Light runner ──────────────────────────────────────────────
+  test-light-runner:
+    name: "Validate: light runner"
+    runs-on: arc-test-light
+    timeout-minutes: 5
+    steps:
+      - name: Verify Docker socket (needed for image builds)
+        run: docker info 2>&1 | head -5
+
+      - name: Verify basic functionality
+        run: |
+          echo "Light runner is working"
+          uname -a

@@ -4,9 +4,12 @@ on:
   push:
     branches:
       - main
-      - master
-      - main-thxnet
+      - develop
+      - release/*
+      - upgrade/*
+      - experiment/*
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
   merge_group:
 
 env:
@@ -15,7 +18,7 @@ env:
   GIT_CONFIG_VALUE_0: "*"
   RUSTC_WRAPPER: sccache
   CARGO_INCREMENTAL: "0"
-  SCCACHE_DIR: /home/runner/.cache/sccache
+  SCCACHE_DIR: /home/runner/.cache/sccache/${{ github.head_ref || github.ref_name }}
   SCCACHE_CACHE_SIZE: 300G
 
 permissions: {}
@@ -25,9 +28,12 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # File ownership cleanup is handled by the runner-level job-started hook
+  # (ACTIONS_RUNNER_HOOK_JOB_STARTED) — no per-workflow pre-cleanup needed.
+
   nextest:
     name: Cargo nextest
-    runs-on: [self-hosted, hetzner-thxnet]
+    runs-on: hetzner-thxnet
     timeout-minutes: 120
     container:
       image: docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
@@ -58,7 +64,7 @@ jobs:
 
   bench-check:
     name: Benchmark compilation check
-    runs-on: [self-hosted, hetzner-thxnet]
+    runs-on: hetzner-thxnet
     timeout-minutes: 60
     container:
       image: docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
@@ -102,7 +108,7 @@ jobs:
   #     > polkadot/scripts/list-syscalls/prepare-worker-syscalls
   test-syscalls:
     name: Syscalls validation
-    runs-on: [self-hosted, hetzner-thxnet]
+    runs-on: hetzner-thxnet
     timeout-minutes: 60
     continue-on-error: true
     container:

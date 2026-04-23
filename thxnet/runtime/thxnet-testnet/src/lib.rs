@@ -17,6 +17,7 @@
 //! The Polkadot runtime. This can be compiled with `#[no_std]`, ready for Wasm.
 
 #![cfg_attr(not(feature = "std"), no_std)]
+// Force WASM rebuild: invalidate stale target/release/wbuild/ artifacts from other branches.
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
 #![recursion_limit = "512"]
 
@@ -2182,14 +2183,14 @@ pub mod migrations {
 	/// on-chain state so the same migration works on mainnet, testnet, and
 	/// fork-genesis mini-forknet without modification:
 	///
-	/// - `num_cores` = `Parachains::<Runtime>::get().len().max(1)` — one core per
-	///   registered parachain (fallback to 1 if no paras registered).
-	/// - `max_validators_per_core = Some(1)` — one validator group per core
-	///   (matches our forknet topology + standard polkadot deployment).
-	/// - `scheduling_lookahead = 1` — safe default, allows collators to pre-build
-	///   one candidate ahead.
-	/// - `async_backing_params = { max_candidate_depth: 1, allowed_ancestry_len: 2 }`
-	///   — standard async-backing enable values.
+	/// - `num_cores` = `Parachains::<Runtime>::get().len().max(1)` — one core per registered
+	///   parachain (fallback to 1 if no paras registered).
+	/// - `max_validators_per_core = Some(1)` — one validator group per core (matches our forknet
+	///   topology + standard polkadot deployment).
+	/// - `scheduling_lookahead = 1` — safe default, allows collators to pre-build one candidate
+	///   ahead.
+	/// - `async_backing_params = { max_candidate_depth: 1, allowed_ancestry_len: 2 }` — standard
+	///   async-backing enable values.
 	///
 	/// Idempotent: re-running on a chain that already has these values set is a
 	/// no-op writable (the mutate closure just writes the same bytes back).
@@ -2210,10 +2211,8 @@ pub mod migrations {
 				// but only one validator ever sees the collation).
 				cfg.scheduler_params.max_validators_per_core = None;
 				cfg.scheduler_params.lookahead = 1;
-				cfg.async_backing_params = AsyncBackingParams {
-					max_candidate_depth: 1,
-					allowed_ancestry_len: 2,
-				};
+				cfg.async_backing_params =
+					AsyncBackingParams { max_candidate_depth: 1, allowed_ancestry_len: 2 };
 				// Enable node feature bit 3 (CandidateReceiptV2). v1.12.0+ cumulus
 				// collators advertise v2 receipts by default; validators reject with
 				// `BlockedByBacking` unless this bit is on. Without it, para 1003 is
@@ -2233,9 +2232,10 @@ pub mod migrations {
 			// but when the config just changed under an occupied core (e.g. async-backing
 			// enabled while a v1.12.0-pre-#4937 relay has a capacity=2 cumulus collator
 			// producing forks), the occupying entry never concludes. Until session rotation
-			// the core stays stuck. Session rotation calls `push_occupied_cores_to_assignment_provider`
-			// which replaces every Paras(_) with Free. We do the same here so the next
-			// ParaInherent pass can schedule fresh candidates atomically with setCode.
+			// the core stays stuck. Session rotation calls
+			// `push_occupied_cores_to_assignment_provider` which replaces every Paras(_) with Free.
+			// We do the same here so the next ParaInherent pass can schedule fresh candidates
+			// atomically with setCode.
 			//
 			// Caveat: relay-client subsystems cache fragment-chain / SessionInfo per session
 			// in Rust memory. Even after freeing storage, those caches persist until the

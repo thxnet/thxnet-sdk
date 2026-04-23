@@ -1,8 +1,20 @@
 # This is the build stage for THXNET. leafchain. Here we create the binary in a temporary image.
 FROM ci-linux as builder
 
+# Stamp the binary with the exact commit hash. Required — without it,
+# build-script-utils falls back to "unknown" when .git is absent from the
+# build context, producing untraceable binaries. Callers MUST pass this
+# via --build-arg (docker-bake.hcl handles this from host env).
+ARG SUBSTRATE_CLI_GIT_COMMIT_HASH
+ENV SUBSTRATE_CLI_GIT_COMMIT_HASH=$SUBSTRATE_CLI_GIT_COMMIT_HASH
+
 WORKDIR /build
 COPY . /build
+
+RUN test -n "$SUBSTRATE_CLI_GIT_COMMIT_HASH" || { \
+      echo "ERROR: SUBSTRATE_CLI_GIT_COMMIT_HASH not set. Pass it via --build-arg." >&2; \
+      exit 1; \
+    }
 
 RUN cargo build --locked --release -p thxnet-leafchain
 

@@ -1,6 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
 #![recursion_limit = "256"]
+// Force WASM rebuild: invalidate stale target/release/wbuild/ artifacts from other branches.
 
 // Make the WASM binary available.
 #[cfg(feature = "std")]
@@ -188,13 +189,13 @@ impl frame_support::traits::OnRuntimeUpgrade for InitDmpQueueStorageVersion {
 pub struct ClearStaleHostConfiguration;
 impl frame_support::traits::OnRuntimeUpgrade for ClearStaleHostConfiguration {
 	fn on_runtime_upgrade() -> Weight {
-		// ParachainSystem::HostConfiguration = twox128("ParachainSystem") + twox128("HostConfiguration")
-		// Hardcoded since hex-literal is behind runtime-benchmarks feature flag.
+		// ParachainSystem::HostConfiguration = twox128("ParachainSystem") +
+		// twox128("HostConfiguration") Hardcoded since hex-literal is behind runtime-benchmarks
+		// feature flag.
 		let key: [u8; 32] = [
-			0x45, 0x32, 0x3d, 0xf7, 0xcc, 0x47, 0x15, 0x0b,
-			0x39, 0x30, 0xe2, 0x66, 0x6b, 0x0a, 0xa3, 0x13,
-			0xc5, 0x22, 0x23, 0x18, 0x80, 0x23, 0x8a, 0x0c,
-			0x56, 0x02, 0x1b, 0x87, 0x44, 0xa0, 0x07, 0x43,
+			0x45, 0x32, 0x3d, 0xf7, 0xcc, 0x47, 0x15, 0x0b, 0x39, 0x30, 0xe2, 0x66, 0x6b, 0x0a,
+			0xa3, 0x13, 0xc5, 0x22, 0x23, 0x18, 0x80, 0x23, 0x8a, 0x0c, 0x56, 0x02, 0x1b, 0x87,
+			0x44, 0xa0, 0x07, 0x43,
 		];
 		frame_support::storage::unhashed::kill(&key);
 		log::info!(

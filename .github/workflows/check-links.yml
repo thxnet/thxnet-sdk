@@ -1,6 +1,17 @@
 name: Check links
 
 on:
+  push:
+    branches:
+      - main
+      - develop
+      - release/*
+      - upgrade/*
+      - experiment/*
+    paths:
+      - "**/*.rs"
+      - "**/*.md"
+      - "**/*.toml"
   pull_request:
     paths:
       - "**/*.rs"
@@ -18,9 +29,13 @@ concurrency:
 jobs:
   check-links:
     name: Lychee link checker
-    runs-on: [self-hosted, hetzner-thxnet-light]
+    runs-on: hetzner-thxnet-light
     timeout-minutes: 10
     steps:
+      # File ownership cleanup is handled by the runner-level job-started hook.
+      - name: Clean workspace
+        run: rm -rf "$GITHUB_WORKSPACE" && mkdir -p "$GITHUB_WORKSPACE"
+
       - uses: actions/checkout@v5
 
       - name: Restore lychee cache

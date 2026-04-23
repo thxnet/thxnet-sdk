@@ -1,0 +1,159 @@
+# ARC Runner Scale Set: heavy builds
+# Label: hetzner-thxnet (same as existing runners — zero workflow changes)
+# Docs: https://docs.github.com/en/actions/hosting-your-own-runners/managing-self-hosted-runners-with-actions-runner-controller
+#
+# Custom DinD template (no containerMode set) so we can add hostPath volumes
+# to the dind sidecar. Workflow container.volumes: paths are resolved by
+# the dind Docker daemon, so we mount host caches INTO the dind container
+# at the same paths the workflows expect (/home/runner/.cache/...).
+#
+# ARC docs: "When containerMode is set, automatic configuration is injected
+# and cannot be overridden. To customize beyond the preset, comment out
+# containerMode.type and define the full template manually."
+
+githubConfigUrl: "https://github.com/thxnet"
+githubConfigSecret: github-app-secret
+
+runnerScaleSetName: "hetzner-thxnet"
+maxRunners: 6
+minRunners: 0
+
+# containerMode is NOT set — we define the full DinD template manually
+# so we can add hostPath volumes to both runner and dind containers.
+
+template:
+  spec:
+    # ── Init containers ──────────────────────────────────────────────
+    initContainers:
+      # Copy runner externals (node.js for actions) to shared volume
+      - name: init-dind-externals
+        image: ghcr.io/actions/actions-runner:latest
+        command: ["cp", "-r", "/home/runner/externals/.", "/home/runner/tmpDir/"]
+        volumeMounts:
+          - name: dind-externals
+            mountPath: /home/runner/tmpDir
+
+      # DinD sidecar (native sidecar for K8s >= 1.29)
+      - name: dind
+        image: docker:dind
+        args:
+          - dockerd
+          - --host=unix:///var/run/docker.sock
+          - --group=$(DOCKER_GROUP_GID)
+        env:
+          - name: DOCKER_GROUP_GID
+            value: "123"
+        securityContext:
+          privileged: true
+        restartPolicy: Always
+        startupProbe:
+          exec:
+            command: ["docker", "info"]
+          initialDelaySeconds: 0
+          failureThreshold: 24
+          periodSeconds: 5
+        volumeMounts:
+          - name: work
+            mountPath: /home/runner/_work
+          - name: dind-sock
+            mountPath: /var/run
+          - name: dind-externals
+            mountPath: /home/runner/externals
+          # Host cache paths — these must match the paths in workflow
+          # container.volumes: so dind's dockerd can bind-mount them
+          # into job containers.
+          - name: sccache
+            mountPath: /home/runner/.cache/sccache
+          - name: cargo-registry
+            mountPath: /home/runner/.cache/cargo-registry
+          - name: cargo-git
+            mountPath: /home/runner/.cache/cargo-git
+          - name: sccache-bin
+            mountPath: /home/runner/.cache/sccache-bin
+            readOnly: true
+          - name: try-runtime-snapshots
+            mountPath: /home/runner/.cache/try-runtime-snapshots
+          - name: cargo-bin
+            mountPath: /home/runner/.cargo/bin
+            readOnly: true
+
+    # ── Main container ───────────────────────────────────────────────
+    containers:
+      - name: runner
+        image: ghcr.io/actions/actions-runner:latest
+        command: ["/home/runner/run.sh"]
+        env:
+          - name: DOCKER_HOST
+            value: unix:///var/run/docker.sock
+          - name: RUNNER_WAIT_FOR_DOCKER_IN_SECONDS
+            value: "120"
+          # Allow bare-host jobs (try-runtime, zombienet, chopsticks)
+          - name: ACTIONS_RUNNER_REQUIRE_JOB_CONTAINER
+            value: "false"
+        resources:
+          # Minimal requests for K8s scheduling only. Actual resource usage is
+          # OS-managed: DinD privileged containers bypass pod cgroup limits.
+          # Machine: 16 cores AMD EPYC, 30Gi RAM, 601G disk.
+          # With requests 1 CPU + 2Gi, K8s can schedule up to 6 heavy pods.
+          requests:
+            cpu: "1"
+            memory: "2Gi"
+          # No limits — let builds use all available host resources.
+          # This matches the previous persistent runner behavior where
+          # 3 runners shared the full machine without cgroup constraints.
+        volumeMounts:
+          - name: work
+            mountPath: /home/runner/_work
+          - name: dind-sock
+            mountPath: /var/run
+          # Host caches — for bare-host jobs that run inside the runner
+          # container directly (try-runtime, zombienet, chopsticks)
+          - name: sccache
+            mountPath: /home/runner/.cache/sccache
+          - name: cargo-registry
+            mountPath: /home/runner/.cache/cargo-registry
+          - name: cargo-git
+            mountPath: /home/runner/.cache/cargo-git
+          - name: sccache-bin
+            mountPath: /home/runner/.cache/sccache-bin
+            readOnly: true
+          - name: try-runtime-snapshots
+            mountPath: /home/runner/.cache/try-runtime-snapshots
+          - name: cargo-bin
+            mountPath: /home/runner/.cargo/bin
+            readOnly: true
+
+    # ── Volumes ──────────────────────────────────────────────────────
+    volumes:
+      - name: work
+        emptyDir: {}
+      - name: dind-sock
+        emptyDir: {}
+      - name: dind-externals
+        emptyDir: {}
+      # All cache volumes are hostPath — k3d maps /home/runner/.cache → /host-cache.
+      # These persist across ephemeral pod lifecycles on the host NVMe SSD.
+      - name: sccache
+        hostPath:
+          path: /host-cache/sccache
+          type: DirectoryOrCreate
+      - name: cargo-registry
+        hostPath:
+          path: /host-cache/cargo-registry
+          type: DirectoryOrCreate
+      - name: cargo-git
+        hostPath:
+          path: /host-cache/cargo-git
+          type: DirectoryOrCreate
+      - name: sccache-bin
+        hostPath:
+          path: /host-cache/sccache-bin
+          type: Directory
+      - name: try-runtime-snapshots
+        hostPath:
+          path: /host-cache/try-runtime-snapshots
+          type: DirectoryOrCreate
+      - name: cargo-bin
+        hostPath:
+          path: /host-cargo-bin
+          type: Directory
