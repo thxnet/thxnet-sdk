@@ -144,7 +144,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("thxnet"),
 	impl_name: create_runtime_str!("thxnet"),
 	authoring_version: 0,
-	spec_version: 112_000_001,
+	spec_version: 112_000_004,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 25,
@@ -2165,6 +2165,103 @@ pub mod migrations {
 		}
 	}
 
+	/// Enable async backing + coretime core assignment atomically at setCode.
+	///
+	/// v0.9.40 Configuration pallet doesn't have `async_backing_params` or the
+	/// `scheduler_params.num_cores`/`max_validators_per_core`/`scheduling_lookahead`
+	/// fields. The v4 → v12 migration chain adds them with zero defaults. Without
+	/// non-zero values, parachains cannot be scheduled — any registered parachain
+	/// stops producing blocks after the v1.12.0 runtime upgrade.
+	///
+	/// On prod, submitting `configuration.setCoretimeCores(N)` + related extrinsics
+	/// after setCode incurs a 2-session activation delay via `PendingConfigs`. On
+	/// thxnet-testnet that's ~2 hours; mainnet ~8 hours. During that window the
+	/// parachain is halted — unacceptable.
+	///
+	/// This migration writes `ActiveConfig` directly in the setCode block, so
+	/// parachain scheduling resumes on the very next block. Values derived from
+	/// on-chain state so the same migration works on mainnet, testnet, and
+	/// fork-genesis mini-forknet without modification:
+	///
+	/// - `num_cores` = `Parachains::<Runtime>::get().len().max(1)` — one core per registered
+	///   parachain (fallback to 1 if no paras registered).
+	/// - `max_validators_per_core = Some(1)` — one validator group per core (matches our forknet
+	///   topology + standard polkadot deployment).
+	/// - `scheduling_lookahead = 1` — safe default, allows collators to pre-build one candidate
+	///   ahead.
+	/// - `async_backing_params = { max_candidate_depth: 1, allowed_ancestry_len: 2 }` — standard
+	///   async-backing enable values.
+	///
+	/// Idempotent: re-running on a chain that already has these values set is a
+	/// no-op writable (the mutate closure just writes the same bytes back).
+	pub struct EnableAsyncBackingAndCoretime;
+	impl frame_support::traits::OnRuntimeUpgrade for EnableAsyncBackingAndCoretime {
+		fn on_runtime_upgrade() -> Weight {
+			use primitives::AsyncBackingParams;
+
+			let para_count = parachains_paras::Parachains::<Runtime>::get().len();
+			let num_cores = core::cmp::max(para_count, 1) as u32;
+
+			parachains_configuration::ActiveConfig::<Runtime>::mutate(|cfg| {
+				cfg.scheduler_params.num_cores = num_cores;
+				// `None` = no per-core cap → all validators form one group per core.
+				// With 3 validators + 1 core: group = [0,1,2], backing threshold = 2.
+				// `Some(1)` would put 1 validator per group, idling the others and
+				// making backing impossible with majority rule (1/1 always trivially met
+				// but only one validator ever sees the collation).
+				cfg.scheduler_params.max_validators_per_core = None;
+				cfg.scheduler_params.lookahead = 1;
+				cfg.async_backing_params =
+					AsyncBackingParams { max_candidate_depth: 1, allowed_ancestry_len: 2 };
+				// Enable node feature bit 3 (CandidateReceiptV2). v1.12.0+ cumulus
+				// collators advertise v2 receipts by default; validators reject with
+				// `BlockedByBacking` unless this bit is on. Without it, para 1003 is
+				// stuck post-upgrade even though all other config is correct.
+				// Also enable bit 0 (ElasticScalingMVP) + bit 1 (EnableAssignmentsV2)
+				// for forward compatibility with stable2512 (idempotent).
+				if cfg.node_features.len() < 4 {
+					cfg.node_features.resize(4, false);
+				}
+				cfg.node_features.set(0, true);
+				cfg.node_features.set(1, true);
+				cfg.node_features.set(3, true);
+			});
+
+			// Force-free any stuck AvailabilityCores. In normal flow cores transition
+			// Paras(entry) → Free via ParaInherent bitfield signaling availability complete;
+			// but when the config just changed under an occupied core (e.g. async-backing
+			// enabled while a v1.12.0-pre-#4937 relay has a capacity=2 cumulus collator
+			// producing forks), the occupying entry never concludes. Until session rotation
+			// the core stays stuck. Session rotation calls
+			// `push_occupied_cores_to_assignment_provider` which replaces every Paras(_) with Free.
+			// We do the same here so the next ParaInherent pass can schedule fresh candidates
+			// atomically with setCode.
+			//
+			// Caveat: relay-client subsystems cache fragment-chain / SessionInfo per session
+			// in Rust memory. Even after freeing storage, those caches persist until the
+			// next real session boundary OR validator-process restart. Operator action
+			// required: `kubectl rollout restart deploy/validator-*` after setCode.
+			parachains_scheduler::AvailabilityCores::<Runtime>::mutate(|cores| {
+				for core in cores.iter_mut() {
+					*core = parachains_scheduler::CoreOccupied::Free;
+				}
+			});
+			// Drop stale claims too — next block's free_cores_and_fill_claimqueue
+			// repopulates from AssignmentProvider.
+			parachains_scheduler::ClaimQueue::<Runtime>::kill();
+
+			log::info!(
+				target: "runtime",
+				"EnableAsyncBackingAndCoretime: num_cores={}, max_vals_per_core=None, \
+				 lookahead=1, async_backing=(depth=1, ancestry=2), node_features[0,1,3]=true, \
+				 AvailabilityCores freed, ClaimQueue cleared",
+				num_cores,
+			);
+
+			<Runtime as frame_system::Config>::DbWeight::get().reads_writes(2, 3)
+		}
+	}
+
 	/// Cumulative migrations for live chains upgrading from v0.9.40 to v1.12.0.
 	///
 	/// Each migration is internally version-guarded (checks `on_chain_storage_version`),
@@ -2238,6 +2335,10 @@ pub mod migrations {
 		StampParasDisputesV1,
 		// v1.11.0 → v1.12.0
 		pallet_staking::migrations::v15::MigrateV14ToV15<Runtime>,
+		// THXNet-specific: enable async backing + set num_cores atomically with setCode.
+		// Runs LAST so ActiveConfig has all v12 fields populated correctly. See doc comment
+		// on the struct for why this is required to avoid parachain downtime post-upgrade.
+		EnableAsyncBackingAndCoretime,
 	);
 
 	/// Full cumulative migrations for live chains upgrading from v0.9.40 to v1.12.0.

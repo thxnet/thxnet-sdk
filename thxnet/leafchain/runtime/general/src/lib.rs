@@ -178,6 +178,35 @@ impl frame_support::traits::OnRuntimeUpgrade for InitDmpQueueStorageVersion {
 /// - All other chains: on-chain v0, ZERO Crowdfunding data. Stamp is trivially safe.
 /// - Sand testnet: Crowdfunding pallet was never deployed. On-chain reads as v0. Stamp is trivially
 ///   safe.
+/// Clear stale ParachainSystem::HostConfiguration.
+///
+/// v0.9.40-era cumulus stored `AbridgedHostConfiguration` WITHOUT `async_backing_params`
+/// (9 fields). v1.12.0 cumulus adds `async_backing_params` (10 fields). Post-setCode,
+/// the new runtime tries to decode old-format bytes → "Not enough data to fill buffer"
+/// → block production halts. Every parachain block re-populates this storage from the
+/// relay inherent, so killing the stored value is safe — the next block writes fresh
+/// bytes in the new format.
+pub struct ClearStaleHostConfiguration;
+impl frame_support::traits::OnRuntimeUpgrade for ClearStaleHostConfiguration {
+	fn on_runtime_upgrade() -> Weight {
+		// ParachainSystem::HostConfiguration = twox128("ParachainSystem") +
+		// twox128("HostConfiguration") Hardcoded since hex-literal is behind runtime-benchmarks
+		// feature flag.
+		let key: [u8; 32] = [
+			0x45, 0x32, 0x3d, 0xf7, 0xcc, 0x47, 0x15, 0x0b, 0x39, 0x30, 0xe2, 0x66, 0x6b, 0x0a,
+			0xa3, 0x13, 0xc5, 0x22, 0x23, 0x18, 0x80, 0x23, 0x8a, 0x0c, 0x56, 0x02, 0x1b, 0x87,
+			0x44, 0xa0, 0x07, 0x43,
+		];
+		frame_support::storage::unhashed::kill(&key);
+		log::info!(
+			target: "runtime::parachain_system",
+			"ClearStaleHostConfiguration: killed stale AbridgedHostConfiguration; \
+			 next block will re-populate from relay inherent with new format",
+		);
+		<Runtime as frame_system::Config>::DbWeight::get().writes(1)
+	}
+}
+
 pub struct CrowdfundingStampOrMigrateToV3;
 impl frame_support::traits::OnRuntimeUpgrade for CrowdfundingStampOrMigrateToV3 {
 	fn on_runtime_upgrade() -> Weight {
@@ -234,6 +263,9 @@ const IDENTITY_MIGRATION_KEY_LIMIT: u64 = u64::MAX;
 /// Each migration is version-guarded internally (VersionedMigration or manual check).
 /// Including all steps is safe — guards auto-skip when on-chain version doesn't match.
 pub type Migrations = (
+	// Clear stale ParachainSystem::HostConfiguration (must run FIRST before any
+	// block post-upgrade tries to decode the old-format bytes).
+	ClearStaleHostConfiguration,
 	// ── Frame / Cumulus pallet migrations ──
 	// CollatorSelection: invulnerable storage format change (v0→v1)
 	pallet_collator_selection::migration::v1::MigrateToV1<Runtime>,
@@ -301,7 +333,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("thxnet-general-runtime"),
 	impl_name: create_runtime_str!("thxnet-general-runtime"),
 	authoring_version: 1,
-	spec_version: 17,
+	spec_version: 21,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -324,6 +356,29 @@ const MAXIMUM_BLOCK_WEIGHT: Weight = Weight::from_parts(
 
 /// Maximum number of blocks simultaneously accepted by the Runtime, not yet included
 /// into the relay chain.
+///
+/// v1.12.0 WORKAROUND: set to 1 to prevent cumulus fork production at the source.
+/// The v1.12.0 relay-side prospective-parachains subsystem uses the pre-#4937
+/// fragment-chain (`fragment_chain/mod.rs:797`'s `is_fork_or_cycle` rejects any
+/// second candidate at the same parent). In small/uniform topologies (1 core, 1
+/// backing group) the collator re-authors block N every slot until inclusion,
+/// producing forks; fragment-chain rejects them all as "Is not a potential
+/// member", inclusion never completes, para stalls permanently.
+///
+/// Capacity=1 forces `cumulus_pallet_aura_ext::FixedVelocityConsensusHook::
+/// can_build_upon` to return false while any block is unincluded, so the collator
+/// builds exactly one block per inclusion cycle. No forks → fragment-chain
+/// accepts every candidate → inclusion pipeline stays healthy. Tradeoff: para
+/// throughput is synchronous-backing tempo (~18s per block instead of async's
+/// ~6s), but stable.
+///
+/// Empirically validated on forked-testnet 2026-04-18: with
+/// `BLOCK_PROCESSING_VELOCITY=1, UNINCLUDED_SEGMENT_CAPACITY=1`, para reached
+/// block 4556+ with finalization keeping pace. With capacity=2 under the same
+/// topology, para stalls at ~13-30 forever.
+///
+/// The stable2512 hop should restore capacity to 2 (async backing safe once
+/// #4937 is present).
 const UNINCLUDED_SEGMENT_CAPACITY: u32 = 1;
 /// How many parachain blocks are processed by the relay chain per parent. Limits the
 /// number of blocks authored per slot.
