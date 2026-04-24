@@ -155,7 +155,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("thxnet"),
 	impl_name: create_runtime_str!("thxnet"),
 	authoring_version: 0,
-	spec_version: 125_120_005,
+	spec_version: 125_120_006,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 25,
@@ -2387,48 +2387,77 @@ pub mod migrations {
 	/// parachain is halted — unacceptable.
 	///
 	/// This migration writes `ActiveConfig` directly in the setCode block, so
-	/// parachain scheduling resumes on the very next block. Values derived from
-	/// on-chain state so the same migration works on mainnet, testnet, and
-	/// fork-genesis mini-forknet without modification:
+	/// parachain scheduling resumes on the very next block.
 	///
-	/// - `num_cores` = `Parachains::<Runtime>::get().len().max(1)` — one core per
-	///   registered parachain (fallback to 1 if no paras registered).
-	/// - `max_validators_per_core = Some(1)` — one validator group per core
-	///   (matches our forknet topology + standard polkadot deployment).
-	/// - `scheduling_lookahead = 1` — safe default, allows collators to pre-build
-	///   one candidate ahead.
-	/// - `async_backing_params = { max_candidate_depth: 1, allowed_ancestry_len: 2 }`
-	///   — standard async-backing enable values.
+	/// **Topology-aware behavior (mainnet + live-testnet safe):** the migration
+	/// preserves any pre-configured non-zero values and only writes defaults where
+	/// the field is currently at the v0.9.40-era zero. This makes the migration
+	/// safe to apply on:
 	///
-	/// Idempotent: re-running on a chain that already has these values set is a
-	/// no-op writable (the mutate closure just writes the same bytes back).
+	/// - **forknet** (3 validators, 1 para): `max_validators_per_core = None` →
+	///   all validators form one group; `num_cores = 1`.
+	/// - **live testnet / mainnet** (many validators, many paras): if an operator
+	///   pre-sets `max_validators_per_core` via sudo, migration preserves it. If
+	///   it's None AND validator count is large enough to overload a single group,
+	///   migration sets `Some(5)` (polkadot canonical). Otherwise leaves as None.
+	///
+	/// Node feature bit 3 (CandidateReceiptV2) is always force-enabled regardless
+	/// of prior value — without it, stable2512 collators stall silently on all
+	/// chains. Bits 0 + 1 (ElasticScalingMVP, EnableAssignmentsV2) also forced for
+	/// stable2512 compat; both are safe no-ops if collators don't use the features.
+	///
+	/// Idempotent: re-running is a no-op (all writes only fire when current value
+	/// is at zero or requires a strict upgrade).
 	pub struct EnableAsyncBackingAndCoretime;
 	impl frame_support::traits::OnRuntimeUpgrade for EnableAsyncBackingAndCoretime {
 		fn on_runtime_upgrade() -> Weight {
 			use primitives::AsyncBackingParams;
 
 			let para_count = parachains_paras::Parachains::<Runtime>::get().len();
-			let num_cores = core::cmp::max(para_count, 1) as u32;
+			let default_num_cores = core::cmp::max(para_count, 1) as u32;
+
+			// Active validator count at the time of setCode. Used to decide whether
+			// `max_validators_per_core = None` would overload a single group on
+			// mainnet-scale topologies.
+			let active_validators =
+				parachains_shared::ActiveValidatorKeys::<Runtime>::decode_len().unwrap_or(0)
+					as u32;
 
 			parachains_configuration::ActiveConfig::<Runtime>::mutate(|cfg| {
-				cfg.scheduler_params.num_cores = num_cores;
-				// `None` = no per-core cap → all validators form one group per core.
-				// With 3 validators + 1 core: group = [0,1,2], backing threshold = 2.
-				// `Some(1)` would put 1 validator per group, idling the others and
-				// making backing impossible with majority rule (1/1 always trivially met
-				// but only one validator ever sees the collation).
-				cfg.scheduler_params.max_validators_per_core = None;
-				cfg.scheduler_params.lookahead = 1;
-				cfg.async_backing_params = AsyncBackingParams {
-					max_candidate_depth: 1,
-					allowed_ancestry_len: 2,
-				};
-				// Enable node feature bit 3 (CandidateReceiptV2). v1.12.0+ cumulus
-				// collators advertise v2 receipts by default; validators reject with
-				// `BlockedByBacking` unless this bit is on. Without it, para 1003 is
-				// stuck post-upgrade even though all other config is correct.
-				// Also enable bit 0 (ElasticScalingMVP) + bit 1 (EnableAssignmentsV2)
-				// for forward compatibility with stable2512 (idempotent).
+				// num_cores: preserve pre-configured value (operator sudo); fallback
+				// to Parachains count when currently 0 (fresh v0.9.40 → v1.12.0 path).
+				if cfg.scheduler_params.num_cores == 0 {
+					cfg.scheduler_params.num_cores = default_num_cores;
+				}
+
+				// max_validators_per_core:
+				// - preserve pre-configured non-None value,
+				// - if None and topology is "large" (≥15 validators across ≥3 cores),
+				//   set canonical Some(5),
+				// - else keep None (small forknet-style topology).
+				if cfg.scheduler_params.max_validators_per_core.is_none()
+					&& active_validators >= 15
+					&& cfg.scheduler_params.num_cores >= 3
+				{
+					cfg.scheduler_params.max_validators_per_core = Some(5);
+				}
+
+				// scheduling_lookahead: ensure minimum of 1 (collator pre-build slot).
+				if cfg.scheduler_params.lookahead < 1 {
+					cfg.scheduler_params.lookahead = 1;
+				}
+
+				// async_backing_params: ensure minimum (1, 2). Preserve if already
+				// configured higher (operator might have set larger ancestry).
+				if cfg.async_backing_params.max_candidate_depth < 1 {
+					cfg.async_backing_params.max_candidate_depth = 1;
+				}
+				if cfg.async_backing_params.allowed_ancestry_len < 2 {
+					cfg.async_backing_params.allowed_ancestry_len = 2;
+				}
+
+				// node_features: always force bits 0, 1, 3 (critical for stable2512
+				// collators; idempotent if already set).
 				if cfg.node_features.len() < 4 {
 					cfg.node_features.resize(4, false);
 				}
@@ -2444,15 +2473,21 @@ pub mod migrations {
 			// that storage no longer exists in stable2512 after the #4937 rework.)
 			parachains_scheduler::ClaimQueue::<Runtime>::kill();
 
+			let cfg = parachains_configuration::ActiveConfig::<Runtime>::get();
 			log::info!(
 				target: "runtime",
-				"EnableAsyncBackingAndCoretime: num_cores={}, max_vals_per_core=None, \
-				 lookahead=1, async_backing=(depth=1, ancestry=2), node_features[0,1,3]=true, \
-				 ClaimQueue cleared",
-				num_cores,
+				"EnableAsyncBackingAndCoretime: num_cores={}, max_vals_per_core={:?}, \
+				 lookahead={}, async_backing=(depth={}, ancestry={}), \
+				 node_features[0,1,3]=true, ClaimQueue cleared, active_validators={}",
+				cfg.scheduler_params.num_cores,
+				cfg.scheduler_params.max_validators_per_core,
+				cfg.scheduler_params.lookahead,
+				cfg.async_backing_params.max_candidate_depth,
+				cfg.async_backing_params.allowed_ancestry_len,
+				active_validators,
 			);
 
-			<Runtime as frame_system::Config>::DbWeight::get().reads_writes(1, 2)
+			<Runtime as frame_system::Config>::DbWeight::get().reads_writes(2, 2)
 		}
 	}
 
