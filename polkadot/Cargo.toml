@@ -29,6 +29,7 @@ polkadot-cli = { path = "cli", features = [
 	"kusama-native",
 	"westend-native",
 	"rococo-native",
+	"thxnet-native",
 ] }
 polkadot-node-core-pvf = { path = "node/core/pvf" }
 polkadot-node-core-pvf-prepare-worker = { path = "node/core/pvf/prepare-worker" }

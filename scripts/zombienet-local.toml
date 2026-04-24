@@ -1,0 +1,82 @@
+# Zombienet configuration for local development (polkadot-sdk v1.1.0)
+# This launches:
+# - 1 Relay Chain (thxnet-local with 2 validators)
+# - LeafchainA (Para ID 2000) with 2 collators (Alice, Bob)
+# - LeafchainB (Para ID 2001) with 2 collators (Charlie, Dave)
+#
+# Usage:
+#   export RELAY_BIN=/home/raj/thxnet/thxnet-sdk/scripts/polkadot-wrapper.sh
+#   export COLLATOR_BIN=/home/raj/thxnet/thxnet-sdk/scripts/leafchain-wrapper.sh
+#   zombienet -p native spawn scripts/zombienet-local.toml
+#
+# Prerequisites:
+#   - Build: nix develop --command bash -c "cargo build --release -p polkadot -p thxnet-leafchain"
+#   - Install zombienet: npm install -g @zombienet/cli
+#
+# Note: Ports 19944+ to avoid conflict with forked testnet (port-forward on 9944)
+
+[settings]
+timeout = 1000
+
+[relaychain]
+chain = "thxnet-local"
+default_command = "{{RELAY_BIN}}"
+default_args = ["-lparachain=debug"]
+
+  [[relaychain.nodes]]
+  name = "alice"
+  validator = true
+  rpc_port = 19944
+  p2p_port = 30333
+
+  [[relaychain.nodes]]
+  name = "bob"
+  validator = true
+  rpc_port = 19945
+  p2p_port = 30334
+
+[[parachains]]
+id = 2000
+chain = "leafchain-a-local"
+cumulus_based = true
+add_to_genesis = false
+
+  [parachains.collator]
+  name = "leafchain-a-collator-1"
+  command = "{{COLLATOR_BIN}}"
+  args = ["-lparachain=debug,xcm=trace"]
+  rpc_port = 19946
+  p2p_port = 31333
+
+  [[parachains.collators]]
+  name = "leafchain-a-collator-2"
+  command = "{{COLLATOR_BIN}}"
+  args = ["-lparachain=debug,xcm=trace"]
+  rpc_port = 19947
+  p2p_port = 31334
+
+[[parachains]]
+id = 2001
+chain = "leafchain-b-local"
+cumulus_based = true
+add_to_genesis = false
+
+  [parachains.collator]
+  name = "leafchain-b-collator-1"
+  command = "{{COLLATOR_BIN}}"
+  args = ["-lparachain=debug,xcm=trace"]
+  rpc_port = 19948
+  p2p_port = 32333
+
+  [[parachains.collators]]
+  name = "leafchain-b-collator-2"
+  command = "{{COLLATOR_BIN}}"
+  args = ["-lparachain=debug,xcm=trace"]
+  rpc_port = 19949
+  p2p_port = 32334
+
+# HRMP channels: NOT in genesis config because add_to_genesis=false means
+# paras don't exist at genesis time, causing OpenHrmpChannelInvalidRecipient.
+# Open HRMP channels via sudo after paras are onboarded:
+#   paras_sudo_wrapper::sudoEstablishHrmpChannel(2000, 2001, 8, 512)
+#   paras_sudo_wrapper::sudoEstablishHrmpChannel(2001, 2000, 8, 512)

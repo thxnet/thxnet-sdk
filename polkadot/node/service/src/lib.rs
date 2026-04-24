@@ -84,7 +84,9 @@ use telemetry::TelemetryWorker;
 #[cfg(feature = "full-node")]
 use telemetry::{Telemetry, TelemetryWorkerHandle};
 
-pub use chain_spec::{KusamaChainSpec, PolkadotChainSpec, RococoChainSpec, WestendChainSpec};
+pub use chain_spec::{
+	KusamaChainSpec, PolkadotChainSpec, RococoChainSpec, ThxnetChainSpec, WestendChainSpec,
+};
 pub use consensus_common::{Proposal, SelectChain};
 use frame_benchmarking_cli::SUBSTRATE_REFERENCE_HARDWARE;
 use mmr_gadget::MmrGadget;
@@ -110,6 +112,8 @@ pub use {kusama_runtime, kusama_runtime_constants};
 pub use {polkadot_runtime, polkadot_runtime_constants};
 #[cfg(feature = "rococo-native")]
 pub use {rococo_runtime, rococo_runtime_constants};
+#[cfg(feature = "thxnet-native")]
+pub use {thxnet_runtime, thxnet_runtime_constants};
 #[cfg(feature = "westend-native")]
 pub use {westend_runtime, westend_runtime_constants};
 
@@ -269,6 +273,8 @@ pub enum Chain {
 	Rococo,
 	/// Westend.
 	Westend,
+	/// THXNet.
+	Thxnet,
 	/// Unknown chain?
 	Unknown,
 }
@@ -292,6 +298,9 @@ pub trait IdentifyVariant {
 
 	/// Returns if this is a configuration for the `Versi` test network.
 	fn is_versi(&self) -> bool;
+
+	/// Returns if this is a configuration for the `THXnet` network.
+	fn is_thxnet(&self) -> bool;
 
 	/// Returns true if this configuration is for a development network.
 	fn is_dev(&self) -> bool;
@@ -319,11 +328,16 @@ impl IdentifyVariant for Box<dyn ChainSpec> {
 	fn is_versi(&self) -> bool {
 		self.id().starts_with("versi") || self.id().starts_with("vrs")
 	}
+	fn is_thxnet(&self) -> bool {
+		self.id().starts_with("thxnet") || self.id().starts_with("thx")
+	}
 	fn is_dev(&self) -> bool {
 		self.id().ends_with("dev")
 	}
 	fn identify_chain(&self) -> Chain {
-		if self.is_polkadot() {
+		if self.is_thxnet() {
+			Chain::Thxnet
+		} else if self.is_polkadot() {
 			Chain::Polkadot
 		} else if self.is_kusama() {
 			Chain::Kusama

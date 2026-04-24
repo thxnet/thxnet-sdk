@@ -27,6 +27,7 @@ use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 	feature = "polkadot-native",
 	feature = "kusama-native",
 	feature = "westend-native",
+	feature = "thxnet-native",
 ))]
 use pallet_staking::Forcing;
 use polkadot_primitives::{AccountId, AccountPublic, AssignmentId, ValidatorId};
@@ -46,7 +47,8 @@ use sc_chain_spec::ChainSpecExtension;
 	feature = "polkadot-native",
 	feature = "kusama-native",
 	feature = "westend-native",
-	feature = "rococo-native"
+	feature = "rococo-native",
+	feature = "thxnet-native"
 ))]
 use sc_chain_spec::ChainType;
 use serde::{Deserialize, Serialize};
@@ -56,6 +58,7 @@ use sp_runtime::traits::IdentifyAccount;
 	feature = "polkadot-native",
 	feature = "kusama-native",
 	feature = "westend-native",
+	feature = "thxnet-native",
 ))]
 use sp_runtime::Perbill;
 #[cfg(any(
@@ -65,6 +68,10 @@ use sp_runtime::Perbill;
 	feature = "rococo-native"
 ))]
 use telemetry::TelemetryEndpoints;
+#[cfg(feature = "thxnet-native")]
+use thxnet_runtime as thxnet;
+#[cfg(feature = "thxnet-native")]
+use thxnet_runtime_constants::currency::UNITS as THX;
 #[cfg(feature = "westend-native")]
 use westend_runtime as westend;
 #[cfg(feature = "westend-native")]
@@ -146,6 +153,15 @@ pub type VersiChainSpec = RococoChainSpec;
 #[cfg(not(feature = "rococo-native"))]
 pub type RococoChainSpec = DummyChainSpec;
 
+/// The `ChainSpec` parameterized for the thxnet runtime.
+#[cfg(feature = "thxnet-native")]
+pub type ThxnetChainSpec = service::GenericChainSpec<thxnet::RuntimeGenesisConfig, Extensions>;
+
+/// The `ChainSpec` parameterized for the thxnet runtime.
+// Dummy chain spec, but that is fine when we don't have the native runtime.
+#[cfg(not(feature = "thxnet-native"))]
+pub type ThxnetChainSpec = DummyChainSpec;
+
 /// Extension for the Rococo genesis config to support a custom changes to the genesis state.
 #[derive(serde::Serialize, serde::Deserialize)]
 #[cfg(feature = "rococo-native")]
@@ -196,7 +212,8 @@ pub fn wococo_config() -> Result<RococoChainSpec, String> {
 	feature = "rococo-native",
 	feature = "kusama-native",
 	feature = "westend-native",
-	feature = "polkadot-native"
+	feature = "polkadot-native",
+	feature = "thxnet-native"
 ))]
 fn default_parachains_host_configuration(
 ) -> polkadot_runtime_parachains::configuration::HostConfiguration<polkadot_primitives::BlockNumber>
@@ -1243,7 +1260,8 @@ pub fn get_authority_keys_from_seed_no_beefy(
 	feature = "polkadot-native",
 	feature = "kusama-native",
 	feature = "westend-native",
-	feature = "rococo-native"
+	feature = "rococo-native",
+	feature = "thxnet-native"
 ))]
 fn testnet_accounts() -> Vec<AccountId> {
 	vec![
@@ -1976,6 +1994,193 @@ pub fn versi_local_testnet_config() -> Result<RococoChainSpec, String> {
 		Some("versi"),
 		None,
 		None,
+		Default::default(),
+	))
+}
+
+// --- THXNet chain spec functions ---
+
+#[cfg(feature = "thxnet-native")]
+fn thxnet_session_keys(
+	babe: BabeId,
+	grandpa: GrandpaId,
+	im_online: ImOnlineId,
+	para_validator: ValidatorId,
+	para_assignment: AssignmentId,
+	authority_discovery: AuthorityDiscoveryId,
+) -> thxnet::SessionKeys {
+	thxnet::SessionKeys {
+		babe,
+		grandpa,
+		im_online,
+		para_validator,
+		para_assignment,
+		authority_discovery,
+	}
+}
+
+/// Returns the properties for the [`ThxnetChainSpec`].
+#[cfg(feature = "thxnet-native")]
+pub fn thxnet_chain_spec_properties() -> serde_json::map::Map<String, serde_json::Value> {
+	serde_json::json!({
+		"tokenSymbol": "THX",
+		"tokenDecimals": 10,
+		"ss58Format": 42,
+	})
+	.as_object()
+	.expect("Map given; qed")
+	.clone()
+}
+
+/// Helper function to create thxnet `RuntimeGenesisConfig` for testing
+#[cfg(feature = "thxnet-native")]
+pub fn thxnet_testnet_genesis(
+	wasm_binary: &[u8],
+	initial_authorities: Vec<(
+		AccountId,
+		AccountId,
+		BabeId,
+		GrandpaId,
+		ImOnlineId,
+		ValidatorId,
+		AssignmentId,
+		AuthorityDiscoveryId,
+	)>,
+	root_key: AccountId,
+	endowed_accounts: Option<Vec<AccountId>>,
+) -> thxnet::RuntimeGenesisConfig {
+	let endowed_accounts: Vec<AccountId> = endowed_accounts.unwrap_or_else(testnet_accounts);
+
+	const ENDOWMENT: u128 = 1_000_000 * THX;
+	const STASH: u128 = 100 * THX;
+
+	thxnet::RuntimeGenesisConfig {
+		system: thxnet::SystemConfig { code: wasm_binary.to_vec(), ..Default::default() },
+		indices: thxnet::IndicesConfig { indices: vec![] },
+		balances: thxnet::BalancesConfig {
+			balances: endowed_accounts.iter().map(|k| (k.clone(), ENDOWMENT)).collect(),
+		},
+		session: thxnet::SessionConfig {
+			keys: initial_authorities
+				.iter()
+				.map(|x| {
+					(
+						x.0.clone(),
+						x.0.clone(),
+						thxnet_session_keys(
+							x.2.clone(),
+							x.3.clone(),
+							x.4.clone(),
+							x.5.clone(),
+							x.6.clone(),
+							x.7.clone(),
+						),
+					)
+				})
+				.collect::<Vec<_>>(),
+		},
+		staking: thxnet::StakingConfig {
+			minimum_validator_count: 1,
+			validator_count: initial_authorities.len() as u32,
+			stakers: initial_authorities
+				.iter()
+				.map(|x| (x.0.clone(), x.0.clone(), STASH, thxnet::StakerStatus::Validator))
+				.collect(),
+			invulnerables: initial_authorities.iter().map(|x| x.0.clone()).collect(),
+			force_era: Forcing::NotForcing,
+			slash_reward_fraction: Perbill::from_percent(10),
+			..Default::default()
+		},
+		phragmen_election: Default::default(),
+		democracy: thxnet::DemocracyConfig::default(),
+		council: thxnet::CouncilConfig { members: vec![], phantom: Default::default() },
+		technical_committee: thxnet::TechnicalCommitteeConfig {
+			members: vec![],
+			phantom: Default::default(),
+		},
+		technical_membership: Default::default(),
+		babe: thxnet::BabeConfig {
+			authorities: Default::default(),
+			epoch_config: Some(thxnet::BABE_GENESIS_EPOCH_CONFIG),
+			..Default::default()
+		},
+		grandpa: Default::default(),
+		im_online: Default::default(),
+		authority_discovery: thxnet::AuthorityDiscoveryConfig {
+			keys: vec![],
+			..Default::default()
+		},
+		claims: thxnet::ClaimsConfig { claims: vec![], vesting: vec![] },
+		vesting: thxnet::VestingConfig { vesting: vec![] },
+		treasury: Default::default(),
+		hrmp: Default::default(),
+		configuration: thxnet::ConfigurationConfig {
+			config: default_parachains_host_configuration(),
+		},
+		paras: Default::default(),
+		xcm_pallet: Default::default(),
+		nomination_pools: Default::default(),
+		sudo: thxnet::SudoConfig { key: Some(root_key) },
+	}
+}
+
+#[cfg(feature = "thxnet-native")]
+fn thxnet_development_config_genesis(wasm_binary: &[u8]) -> thxnet::RuntimeGenesisConfig {
+	thxnet_testnet_genesis(
+		wasm_binary,
+		vec![get_authority_keys_from_seed_no_beefy("Alice")],
+		get_account_id_from_seed::<sr25519::Public>("Alice"),
+		None,
+	)
+}
+
+/// THXnet development config (single validator Alice)
+#[cfg(feature = "thxnet-native")]
+pub fn thxnet_development_config() -> Result<ThxnetChainSpec, String> {
+	let wasm_binary = thxnet::WASM_BINARY.ok_or("THXnet development wasm not available")?;
+
+	Ok(ThxnetChainSpec::from_genesis(
+		"THXnet Development",
+		"thxnet_dev",
+		ChainType::Development,
+		move || thxnet_development_config_genesis(wasm_binary),
+		vec![],
+		None,
+		Some("thxnet"),
+		None,
+		Some(thxnet_chain_spec_properties()),
+		Default::default(),
+	))
+}
+
+#[cfg(feature = "thxnet-native")]
+fn thxnet_local_testnet_genesis(wasm_binary: &[u8]) -> thxnet::RuntimeGenesisConfig {
+	thxnet_testnet_genesis(
+		wasm_binary,
+		vec![
+			get_authority_keys_from_seed_no_beefy("Alice"),
+			get_authority_keys_from_seed_no_beefy("Bob"),
+		],
+		get_account_id_from_seed::<sr25519::Public>("Alice"),
+		None,
+	)
+}
+
+/// THXnet local testnet config (multivalidator Alice + Bob)
+#[cfg(feature = "thxnet-native")]
+pub fn thxnet_local_testnet_config() -> Result<ThxnetChainSpec, String> {
+	let wasm_binary = thxnet::WASM_BINARY.ok_or("THXnet development wasm not available")?;
+
+	Ok(ThxnetChainSpec::from_genesis(
+		"THXnet Local Testnet",
+		"thxnet_local",
+		ChainType::Local,
+		move || thxnet_local_testnet_genesis(wasm_binary),
+		vec![],
+		None,
+		Some("thxnet"),
+		None,
+		Some(thxnet_chain_spec_properties()),
 		Default::default(),
 	))
 }
