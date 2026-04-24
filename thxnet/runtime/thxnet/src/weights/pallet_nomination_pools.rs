@@ -601,4 +601,9 @@ impl<T: frame_system::Config> pallet_nomination_pools::WeightInfo for WeightInfo
 	fn adjust_pool_deposit() -> Weight {
 		Weight::from_parts(10_000_000, 0)
 	}
+	fn set_commission_claim_permission() -> Weight {
+		Weight::from_parts(17_022_000, 3719)
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
 }

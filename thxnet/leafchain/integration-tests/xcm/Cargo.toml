@@ -39,7 +39,6 @@ sp-io = { path = "../../../../substrate/primitives/io" }
 sp-consensus-babe = { path = "../../../../substrate/primitives/consensus/babe" }
 sp-consensus-grandpa = { path = "../../../../substrate/primitives/consensus/grandpa" }
 sp-authority-discovery = { path = "../../../../substrate/primitives/authority-discovery" }
-pallet-im-online = { path = "../../../../substrate/frame/im-online" }
 pallet-balances = { path = "../../../../substrate/frame/balances" }
 pallet-message-queue = { path = "../../../../substrate/frame/message-queue" }
 pallet-staking = { path = "../../../../substrate/frame/staking" }
