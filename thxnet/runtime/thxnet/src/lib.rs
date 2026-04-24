@@ -2564,14 +2564,14 @@ pub mod migrations {
 	/// defaults where fields are at the v0.9.40-era zero.
 	///
 	/// - `num_cores`: default = `Parachains::get().len().max(1)`; preserved if ≥1.
-	/// - `max_validators_per_core`: preserved if `Some(_)`. If None and topology is
-	///   large (≥15 active validators, ≥3 cores), set to `Some(5)` (polkadot
-	///   canonical); otherwise leave None (small topology).
+	/// - `max_validators_per_core`: preserved if `Some(_)`. If None and topology is large (≥15
+	///   active validators, ≥3 cores), set to `Some(5)` (polkadot canonical); otherwise leave None
+	///   (small topology).
 	/// - `scheduling_lookahead`: ensure ≥1.
 	/// - `async_backing_params`: ensure `(max_candidate_depth ≥ 1, allowed_ancestry_len ≥ 2)`.
-	/// - `node_features`: always force bits 0, 1, 3 — critical for stable2512
-	///   collators, bit 3 (CandidateReceiptV2) especially — without it validators
-	///   silently reject all v2 collations and paras stall at block 0.
+	/// - `node_features`: always force bits 0, 1, 3 — critical for stable2512 collators, bit 3
+	///   (CandidateReceiptV2) especially — without it validators silently reject all v2 collations
+	///   and paras stall at block 0.
 	///
 	/// Also clears `ClaimQueue` so the scheduler rebuilds from the new config on
 	/// the next block without session-rotation wait.
@@ -2584,17 +2584,16 @@ pub mod migrations {
 			let default_num_cores = core::cmp::max(para_count, 1) as u32;
 
 			let active_validators =
-				parachains_shared::ActiveValidatorKeys::<Runtime>::decode_len().unwrap_or(0)
-					as u32;
+				parachains_shared::ActiveValidatorKeys::<Runtime>::decode_len().unwrap_or(0) as u32;
 
 			parachains_configuration::ActiveConfig::<Runtime>::mutate(|cfg| {
 				if cfg.scheduler_params.num_cores == 0 {
 					cfg.scheduler_params.num_cores = default_num_cores;
 				}
 
-				if cfg.scheduler_params.max_validators_per_core.is_none()
-					&& active_validators >= 15
-					&& cfg.scheduler_params.num_cores >= 3
+				if cfg.scheduler_params.max_validators_per_core.is_none() &&
+					active_validators >= 15 &&
+					cfg.scheduler_params.num_cores >= 3
 				{
 					cfg.scheduler_params.max_validators_per_core = Some(5);
 				}

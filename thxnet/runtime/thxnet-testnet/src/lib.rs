@@ -2394,12 +2394,12 @@ pub mod migrations {
 	/// the field is currently at the v0.9.40-era zero. This makes the migration
 	/// safe to apply on:
 	///
-	/// - **forknet** (3 validators, 1 para): `max_validators_per_core = None` →
-	///   all validators form one group; `num_cores = 1`.
-	/// - **live testnet / mainnet** (many validators, many paras): if an operator
-	///   pre-sets `max_validators_per_core` via sudo, migration preserves it. If
-	///   it's None AND validator count is large enough to overload a single group,
-	///   migration sets `Some(5)` (polkadot canonical). Otherwise leaves as None.
+	/// - **forknet** (3 validators, 1 para): `max_validators_per_core = None` → all validators form
+	///   one group; `num_cores = 1`.
+	/// - **live testnet / mainnet** (many validators, many paras): if an operator pre-sets
+	///   `max_validators_per_core` via sudo, migration preserves it. If it's None AND validator
+	///   count is large enough to overload a single group, migration sets `Some(5)` (polkadot
+	///   canonical). Otherwise leaves as None.
 	///
 	/// Node feature bit 3 (CandidateReceiptV2) is always force-enabled regardless
 	/// of prior value — without it, stable2512 collators stall silently on all
@@ -2420,8 +2420,7 @@ pub mod migrations {
 			// `max_validators_per_core = None` would overload a single group on
 			// mainnet-scale topologies.
 			let active_validators =
-				parachains_shared::ActiveValidatorKeys::<Runtime>::decode_len().unwrap_or(0)
-					as u32;
+				parachains_shared::ActiveValidatorKeys::<Runtime>::decode_len().unwrap_or(0) as u32;
 
 			parachains_configuration::ActiveConfig::<Runtime>::mutate(|cfg| {
 				// num_cores: preserve pre-configured value (operator sudo); fallback
@@ -2432,12 +2431,12 @@ pub mod migrations {
 
 				// max_validators_per_core:
 				// - preserve pre-configured non-None value,
-				// - if None and topology is "large" (≥15 validators across ≥3 cores),
-				//   set canonical Some(5),
+				// - if None and topology is "large" (≥15 validators across ≥3 cores), set canonical
+				//   Some(5),
 				// - else keep None (small forknet-style topology).
-				if cfg.scheduler_params.max_validators_per_core.is_none()
-					&& active_validators >= 15
-					&& cfg.scheduler_params.num_cores >= 3
+				if cfg.scheduler_params.max_validators_per_core.is_none() &&
+					active_validators >= 15 &&
+					cfg.scheduler_params.num_cores >= 3
 				{
 					cfg.scheduler_params.max_validators_per_core = Some(5);
 				}
