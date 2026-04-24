@@ -783,4 +783,10 @@ impl<T: frame_system::Config> pallet_staking::WeightInfo for WeightInfo<T> {
 	fn deprecate_controller_batch(_a: u32) -> Weight {
 		Weight::from_parts(10_000_000, 0)
 	}
+	fn restore_ledger() -> Weight {
+		Weight::from_parts(41_210_000, 0)
+			.saturating_add(Weight::from_parts(0, 4764))
+			.saturating_add(T::DbWeight::get().reads(5))
+			.saturating_add(T::DbWeight::get().writes(4))
+	}
 }
