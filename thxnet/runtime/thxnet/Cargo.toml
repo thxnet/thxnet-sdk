@@ -102,7 +102,6 @@ pallet-session-benchmarking = { path = "../../../substrate/frame/session/benchma
 pallet-nomination-pools-benchmarking = { path = "../../../substrate/frame/nomination-pools/benchmarking", default-features = false, optional = true }
 hex-literal = { version = "0.4.1", optional = true }
 
-polkadot-runtime-constants = { path = "../../../polkadot/runtime/polkadot/constants", default-features = false }
 runtime-common = { package = "polkadot-runtime-common", path = "../../../polkadot/runtime/common", default-features = false }
 runtime-parachains = { package = "polkadot-runtime-parachains", path = "../../../polkadot/runtime/parachains", default-features = false }
 primitives = { package = "polkadot-primitives", path = "../../../polkadot/primitives", default-features = false }
@@ -191,7 +190,6 @@ std = [
 	"pallet-xcm-benchmarks?/std",
 	"pallet-xcm/std",
 	"parity-scale-codec/std",
-	"polkadot-runtime-constants/std",
 	"thxnet-runtime-constants/std",
 	"pallet-sudo/std",
 	"pallet-dao/std",

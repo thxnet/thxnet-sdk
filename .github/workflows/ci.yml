@@ -40,6 +40,9 @@ jobs:
       - name: Build rootchain binaries
         run: cargo build --locked --release -p polkadot
 
+      - name: Build testnet runtime WASM
+        run: cargo build --locked --release -p thxnet-testnet-runtime
+
       - name: Build leafchain binary
         run: cargo build --locked --release -p thxnet-leafchain
 

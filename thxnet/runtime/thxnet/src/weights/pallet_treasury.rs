@@ -151,4 +151,16 @@ impl<T: frame_system::Config> pallet_treasury::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().writes((3_u64).saturating_mul(p.into())))
 			.saturating_add(Weight::from_parts(0, 5206).saturating_mul(p.into()))
 	}
+	fn spend_local() -> Weight {
+		Weight::from_parts(10_000_000, 0)
+	}
+	fn payout() -> Weight {
+		Weight::from_parts(10_000_000, 0)
+	}
+	fn check_status() -> Weight {
+		Weight::from_parts(10_000_000, 0)
+	}
+	fn void_spend() -> Weight {
+		Weight::from_parts(10_000_000, 0)
+	}
 }
