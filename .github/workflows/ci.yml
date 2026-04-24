@@ -1,0 +1,330 @@
+name: CI
+
+on:
+  push:
+    tags:
+      - "v*"
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version tag for Docker images (e.g. 1.3.0)"
+        required: true
+
+env:
+  REGISTRY: ghcr.io
+  ROOTCHAIN_IMAGE: ${{ github.repository_owner }}/rootchain
+  LEAFCHAIN_IMAGE: ${{ github.repository_owner }}/leafchain
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ─── Build ────────────────────────────────────────────────────────────
+
+  build-binaries:
+    name: Build binaries
+    runs-on: self-hosted
+    container:
+      image: docker.io/paritytech/ci-unified:bullseye-1.70.0-2023-05-23-v20230706
+      volumes:
+        - /data/ci-cache:/cache
+    env:
+      CARGO_TARGET_DIR: /cache/cargo-target/release
+      CARGO_HOME: /cache/cargo-home
+      WASM_BUILD_WORKSPACE_HINT: ${{ github.workspace }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Build rootchain binaries
+        run: cargo build --locked --release -p polkadot
+
+      - name: Build leafchain binary
+        run: cargo build --locked --release -p thxnet-leafchain
+
+      - name: Upload binaries
+        uses: actions/upload-artifact@v5
+        with:
+          name: binaries
+          retention-days: 3
+          path: |
+            /cache/cargo-target/release/release/polkadot
+            /cache/cargo-target/release/release/polkadot-prepare-worker
+            /cache/cargo-target/release/release/polkadot-execute-worker
+            /cache/cargo-target/release/release/thxnet-leafchain
+
+      - name: Upload WASM runtimes
+        uses: actions/upload-artifact@v5
+        with:
+          name: wasm-runtimes
+          retention-days: 3
+          path: |
+            /cache/cargo-target/release/release/wbuild/thxnet-runtime/thxnet_runtime.compact.compressed.wasm
+            /cache/cargo-target/release/release/wbuild/thxnet-testnet-runtime/thxnet_testnet_runtime.compact.compressed.wasm
+            /cache/cargo-target/release/release/wbuild/general-runtime/general_runtime.compact.compressed.wasm
+
+      - name: Clean build cache
+        if: always()
+        run: rm -rf /cache/cargo-target/release
+
+      - name: Fix workspace permissions
+        if: always()
+        run: chown -R 1000:1001 $GITHUB_WORKSPACE
+
+  # ─── Docker images ───────────────────────────────────────────────────
+
+  rootchain-image:
+    name: Build rootchain image
+    needs: build-binaries
+    runs-on: self-hosted
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Download binaries
+        uses: actions/download-artifact@v5
+        with:
+          name: binaries
+          path: target/release
+
+      - name: Make binaries executable
+        run: chmod +x target/release/polkadot target/release/polkadot-prepare-worker target/release/polkadot-execute-worker
+
+      - name: Install docker buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Login to GitHub Container Registry
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Determine tag
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "tag=${{ github.event.inputs.version }}" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "tag=pr-${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build rootchain image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: thxnet/docker/polkadot/polkadot_injected.Dockerfile
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ env.REGISTRY }}/${{ env.ROOTCHAIN_IMAGE }}:${{ steps.tag.outputs.tag }}
+
+  leafchain-image:
+    name: Build leafchain image
+    needs: build-binaries
+    runs-on: self-hosted
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Download binaries
+        uses: actions/download-artifact@v5
+        with:
+          name: binaries
+          path: target/release
+
+      - name: Make binaries executable
+        run: chmod +x target/release/thxnet-leafchain
+
+      - name: Install docker buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Login to GitHub Container Registry
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Determine tag
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "tag=${{ github.event.inputs.version }}" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "tag=pr-${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build leafchain image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: thxnet/docker/leafchain/leafchain_injected.Dockerfile
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ env.REGISTRY }}/${{ env.LEAFCHAIN_IMAGE }}:${{ steps.tag.outputs.tag }}
+
+  # ─── Upgrade tests (upgrade/* and experiment/* branches only) ────────
+
+  build-upgrade-extras:
+    name: Build try-runtime & fast-runtime
+    needs: build-binaries
+    if: >-
+      startsWith(github.head_ref || github.ref_name, 'upgrade/') ||
+      startsWith(github.head_ref || github.ref_name, 'experiment/')
+    runs-on: self-hosted
+    container:
+      image: docker.io/paritytech/ci-unified:bullseye-1.70.0-2023-05-23-v20230706
+      volumes:
+        - /data/ci-cache:/cache
+    env:
+      CARGO_TARGET_DIR: /cache/cargo-target/upgrade
+      CARGO_HOME: /cache/cargo-home
+      WASM_BUILD_WORKSPACE_HINT: ${{ github.workspace }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Build try-runtime WASMs
+        run: |
+          cargo build --release -p thxnet-testnet-runtime --features try-runtime
+          cargo build --release -p general-runtime --features try-runtime
+          mkdir -p /tmp/try-runtime-wasm
+          cp /cache/cargo-target/upgrade/release/wbuild/thxnet-testnet-runtime/thxnet_testnet_runtime.compact.compressed.wasm \
+            /tmp/try-runtime-wasm/thxnet-testnet-runtime-try-runtime.wasm
+          cp /cache/cargo-target/upgrade/release/wbuild/general-runtime/general_runtime.compact.compressed.wasm \
+            /tmp/try-runtime-wasm/general-runtime-try-runtime.wasm
+
+      - name: Build fast-runtime binary
+        run: |
+          cargo build --release -p polkadot --features fast-runtime
+          mkdir -p /tmp/fast-runtime-bins
+          cp /cache/cargo-target/upgrade/release/polkadot /tmp/fast-runtime-bins/polkadot-fast-runtime
+          cp /cache/cargo-target/upgrade/release/polkadot-prepare-worker /tmp/fast-runtime-bins/
+          cp /cache/cargo-target/upgrade/release/polkadot-execute-worker /tmp/fast-runtime-bins/
+
+      - name: Upload try-runtime WASMs
+        uses: actions/upload-artifact@v5
+        with:
+          name: try-runtime-wasm
+          retention-days: 3
+          path: /tmp/try-runtime-wasm/
+
+      - name: Upload fast-runtime binaries
+        uses: actions/upload-artifact@v5
+        with:
+          name: fast-runtime-bins
+          retention-days: 3
+          path: /tmp/fast-runtime-bins/
+
+      - name: Clean build cache
+        if: always()
+        run: rm -rf /cache/cargo-target/upgrade
+
+      - name: Fix workspace permissions
+        if: always()
+        run: chown -R 1000:1001 $GITHUB_WORKSPACE
+
+  try-runtime:
+    name: try-runtime migration tests
+    needs: build-upgrade-extras
+    runs-on: self-hosted
+    steps:
+      - name: Download try-runtime WASMs
+        uses: actions/download-artifact@v5
+        with:
+          name: try-runtime-wasm
+          path: /tmp/try-runtime-wasm
+
+      - name: try-runtime — rootchain
+        run: |
+          pkill -f "port-forward.*9944" 2>/dev/null || true
+          kubectl port-forward -n forked-testnet svc/archive-node 9944:9944 &
+          sleep 5
+
+          ~/.cargo/bin/try-runtime \
+            --runtime /tmp/try-runtime-wasm/thxnet-testnet-runtime-try-runtime.wasm \
+            on-runtime-upgrade \
+            live --uri ws://localhost:9944
+
+      - name: try-runtime — leafchain
+        run: |
+          pkill -f "port-forward.*9945" 2>/dev/null || true
+          COLLATOR_POD=$(kubectl get pods -n forked-testnet -l app=collator-albania -o jsonpath='{.items[0].metadata.name}')
+          kubectl port-forward -n forked-testnet pod/$COLLATOR_POD 9945:60002 &
+          sleep 5
+
+          ~/.cargo/bin/try-runtime \
+            --runtime /tmp/try-runtime-wasm/general-runtime-try-runtime.wasm \
+            on-runtime-upgrade \
+            live --uri ws://localhost:9945
+
+      - name: Cleanup port-forwards
+        if: always()
+        run: |
+          pkill -f "port-forward.*9944" 2>/dev/null || true
+          pkill -f "port-forward.*9945" 2>/dev/null || true
+
+  zombienet:
+    name: Zombienet smoke test
+    needs: [build-upgrade-extras, build-binaries]
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Download fast-runtime binaries
+        uses: actions/download-artifact@v5
+        with:
+          name: fast-runtime-bins
+          path: /tmp/upgrade-bins
+
+      - name: Download leafchain binary
+        uses: actions/download-artifact@v5
+        with:
+          name: binaries
+          path: /tmp/upgrade-bins-all
+
+      - name: Run zombienet smoke test
+        run: |
+          chmod +x /tmp/upgrade-bins/*
+          cp /tmp/upgrade-bins-all/thxnet-leafchain /tmp/upgrade-bins/
+          chmod +x /tmp/upgrade-bins/thxnet-leafchain
+
+          export RELAY_BIN=/tmp/upgrade-bins/polkadot-fast-runtime
+          export COLLATOR_BIN=/tmp/upgrade-bins/thxnet-leafchain
+
+          /home/raj/.local/bin/zombienet -p native -f test scripts/zombienet-smoke.zndsl
+        timeout-minutes: 15
+
+  xcm-tests:
+    name: XCM integration tests
+    needs: build-upgrade-extras
+    runs-on: self-hosted
+    container:
+      image: docker.io/paritytech/ci-unified:bullseye-1.70.0-2023-05-23-v20230706
+      volumes:
+        - /data/ci-cache:/cache
+    env:
+      CARGO_TARGET_DIR: /cache/cargo-target/xcm
+      CARGO_HOME: /cache/cargo-home
+      WASM_BUILD_WORKSPACE_HINT: ${{ github.workspace }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Run XCM integration tests
+        run: cargo test -p xcm-integration-tests --release
+
+      - name: Clean build cache
+        if: always()
+        run: rm -rf /cache/cargo-target/xcm
+
+      - name: Fix workspace permissions
+        if: always()
+        run: chown -R 1000:1001 $GITHUB_WORKSPACE

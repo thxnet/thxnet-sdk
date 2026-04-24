@@ -215,4 +215,16 @@ impl<T: frame_system::Config> pallet_preimage::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
+	/// Storage:  (r:1 w:1)
+	/// Proof:  (max_values: None, max_size: Some(91), added: 2566, mode: MaxEncodedLen)
+	fn ensure_updated(n: u32) -> Weight {
+		Weight::from_parts(2_000_000, 3593)
+			.saturating_add(Weight::from_parts(17_309_199, 0).saturating_mul(n.into()))
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(n.into())))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+			.saturating_add(T::DbWeight::get().writes((2_u64).saturating_mul(n.into())))
+			.saturating_add(Weight::from_parts(0, 2566).saturating_mul(n.into()))
+	}
+
 }

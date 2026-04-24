@@ -4,14 +4,13 @@ on:
   push:
     branches:
       - main
-      - base/*
-      - experiment/*
-      - feature/*
-      - ci/*
   pull_request:
 
 env:
   CARGO_TERM_COLOR: always
+  CARGO_TARGET_DIR: /cache/cargo-target/check
+  CARGO_HOME: /cache/cargo-home
+  WASM_BUILD_WORKSPACE_HINT: ${{ github.workspace }}
 
 concurrency:
   group: rust-${{ github.ref }}
@@ -20,34 +19,26 @@ concurrency:
 jobs:
   check:
     name: Cargo check (thxnet crates)
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
+    container:
+      image: docker.io/paritytech/ci-unified:bullseye-1.70.0-2023-05-23-v20230706
+      volumes:
+        - /data/ci-cache:/cache
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Install Nix
-        uses: cachix/install-nix-action@v27
-
-      - name: Pre Cache
-        run: |
-          rm -rf ~/.cargo/registry/index/ ~/.cargo/registry/cache/ ~/.cargo/git/db/
-
-      - name: Cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-          key: ${{ runner.os }}-cargo-check-${{ hashFiles('**/Cargo.lock') }}
+      - uses: actions/checkout@v5
 
       - name: Cargo check — rootchain runtimes
         run: |
-          nix develop --command bash -c "cargo check \
+          cargo check \
             --package thxnet-runtime \
-            --package thxnet-testnet-runtime"
+            --package thxnet-testnet-runtime
 
       - name: Cargo check — leafchain
         run: |
-          nix develop --command bash -c "cargo check \
+          cargo check \
             --package general-runtime \
-            --package thxnet-leafchain"
+            --package thxnet-leafchain
+
+      - name: Clean build cache
+        if: always()
+        run: rm -rf /cache/cargo-target/check

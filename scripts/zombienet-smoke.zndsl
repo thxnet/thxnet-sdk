@@ -1,0 +1,19 @@
+Description: THXNet upgrade smoke test — verify relay chain and parachains produce blocks
+Network: ./scripts/zombienet-local.toml
+Creds: config
+
+# Relay chain validators are up
+alice: is up within 30 seconds
+bob: is up within 30 seconds
+
+# Relay chain producing and finalizing blocks
+alice: reports substrate_block_height{status="best"} is at least 10 within 120 seconds
+alice: reports substrate_block_height{status="finalized"} is at least 5 within 180 seconds
+
+# Parachains registered (zombienet handles registration via sudo when add_to_genesis=false)
+alice: parachain 2000 is registered within 300 seconds
+alice: parachain 2001 is registered within 300 seconds
+
+# Parachains producing blocks (requires 2-3 session changes with fast-runtime = ~5 min)
+alice: parachain 2000 block height is at least 3 within 600 seconds
+alice: parachain 2001 block height is at least 3 within 600 seconds

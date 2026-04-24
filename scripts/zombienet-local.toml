@@ -1,16 +1,16 @@
-# Zombienet configuration for local development (polkadot-sdk v1.1.0)
+# Zombienet configuration for local development
 # This launches:
 # - 1 Relay Chain (thxnet-local with 2 validators)
 # - LeafchainA (Para ID 2000) with 2 collators (Alice, Bob)
 # - LeafchainB (Para ID 2001) with 2 collators (Charlie, Dave)
 #
 # Usage:
-#   export RELAY_BIN=/home/raj/thxnet/thxnet-sdk/scripts/polkadot-wrapper.sh
-#   export COLLATOR_BIN=/home/raj/thxnet/thxnet-sdk/scripts/leafchain-wrapper.sh
+#   export RELAY_BIN=/home/raj/thxnet/thxnet-sdk/target/release/polkadot
+#   export COLLATOR_BIN=/home/raj/thxnet/thxnet-sdk/target/release/thxnet-leafchain
 #   zombienet -p native spawn scripts/zombienet-local.toml
 #
 # Prerequisites:
-#   - Build: nix develop --command bash -c "cargo build --release -p polkadot -p thxnet-leafchain"
+#   - Build: cargo build --release -p polkadot -p thxnet-leafchain --features fast-runtime
 #   - Install zombienet: npm install -g @zombienet/cli
 #
 # Note: Ports 19944+ to avoid conflict with forked testnet (port-forward on 9944)
