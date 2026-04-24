@@ -23,13 +23,13 @@ concurrency:
 jobs:
   check-features:
     name: Feature alignment — ${{ matrix.runtime }}
-    runs-on: hetzner-thxnet-light
+    # runs-on: ubuntu-latest required because hack-ink/cargo-featalign v0.6.2
+    # ships a prebuilt binary linked against glibc >= 2.34. The ARC runner
+    # container (paritytech/ci-unified:bullseye-…) is Debian 11 with glibc 2.31,
+    # so the binary fails to load on ARC. No bookworm variant of ci-unified
+    # exists yet. Revisit once a glibc >= 2.34 ARC container is available.
+    runs-on: ubuntu-latest
     timeout-minutes: 15
-    container:
-      image: docker.io/paritytech/ci-unified:bullseye-1.88.0-2025-06-27-v202511141243
-      volumes:
-        - /home/runner/.cache/cargo-registry:/usr/local/cargo/registry
-        - /home/runner/.cache/cargo-git:/usr/local/cargo/git
     strategy:
       fail-fast: false
       matrix:
@@ -43,28 +43,10 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Prepare ARC environment for cargo-featalign
-        run: |
-          if ! command -v zstd >/dev/null 2>&1; then
-            if command -v sudo >/dev/null 2>&1; then
-              sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends zstd
-            else
-              apt-get update -qq && apt-get install -y --no-install-recommends zstd
-            fi
-          fi
-          mkdir -p "$HOME/.cargo/bin"
-          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
-
       - name: Check feature alignment
         uses: hack-ink/cargo-featalign-action@bea88a864d6ca7d0c53c26f1391ce1d431dc7f34 # v0.1.1
         with:
           crate: ${{ matrix.crate }}
           features: std,runtime-benchmarks,try-runtime
-          # sc-executor: not a dependency we control
-          # wasmtime: sp-wasm-interface doesn't propagate std to wasmtime (upstream issue).
-          # Safe to ignore — wasmtime is host-only, not WASM runtime.
-          # sp-wasm-interface: featalign's --ignore stops recursion INTO a crate but
-          # still reports the missing feature on the parent. We must ignore the parent
-          # (sp-wasm-interface) so the wasmtime missing-std issue is never raised.
-          ignore: sc-executor,wasmtime,sp-wasm-interface
+          ignore: sc-executor
           default-std: true
