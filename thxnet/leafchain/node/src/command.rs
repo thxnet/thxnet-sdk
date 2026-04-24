@@ -1,7 +1,5 @@
 use std::{net::SocketAddr, path::PathBuf};
 
-use codec::Encode;
-use cumulus_client_cli::generate_genesis_block;
 use cumulus_primitives_core::ParaId;
 use frame_benchmarking_cli::{BenchmarkCmd, SUBSTRATE_REFERENCE_HARDWARE};
 use general_runtime::Block;
@@ -10,8 +8,7 @@ use sc_cli::{
 	NetworkParams, Result, SharedParams, SubstrateCli,
 };
 use sc_service::config::{BasePath, PrometheusConfig};
-use sp_core::hexdisplay::HexDisplay;
-use sp_runtime::traits::{AccountIdConversion, Block as BlockT};
+use sp_runtime::traits::AccountIdConversion;
 
 #[cfg(feature = "try-runtime")]
 use crate::service::LeafchainNativeExecutor;
@@ -181,9 +178,11 @@ pub fn run() -> Result<()> {
 				cmd.run(config, polkadot_config)
 			})
 		},
-		Some(Subcommand::ExportGenesisState(cmd)) => {
-			construct_async_run!(|components, cli, cmd, config| {
-				Ok(async move { cmd.run(&*config.chain_spec, &*components.client) })
+		Some(Subcommand::ExportGenesisHead(cmd)) => {
+			let runner = cli.create_runner(cmd)?;
+			runner.sync_run(|config| {
+				let partials = new_partial(&config)?;
+				cmd.run(partials.client)
 			})
 		},
 		Some(Subcommand::ExportGenesisWasm(cmd)) => {
@@ -293,19 +292,13 @@ pub fn run() -> Result<()> {
 						&id,
 					);
 
-				let state_version = general_runtime::VERSION.state_version();
-				let block: Block = generate_genesis_block(&*config.chain_spec, state_version)
-					.map_err(|e| format!("{:?}", e))?;
-				let genesis_state = format!("0x{:?}", HexDisplay::from(&block.header().encode()));
-
 				let tokio_handle = config.tokio_handle.clone();
 				let polkadot_config =
 					SubstrateCli::create_configuration(&polkadot_cli, &polkadot_cli, tokio_handle)
 						.map_err(|err| format!("Relay chain argument error: {}", err))?;
 
-				tracing::info!("Leafchain id: {id:?}");
-				tracing::info!("Leafchain Account: {parachain_account}");
-				tracing::info!("Leafchain genesis state: {genesis_state}");
+				tracing::info!("Leafchain id: {:?}", id);
+				tracing::info!("Leafchain Account: {}", parachain_account);
 				tracing::info!(
 					"Is collating: {}",
 					if config.role.is_authority() { "yes" } else { "no" }
