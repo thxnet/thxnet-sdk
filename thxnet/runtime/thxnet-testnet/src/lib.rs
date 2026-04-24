@@ -144,7 +144,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("thxnet"),
 	impl_name: create_runtime_str!("thxnet"),
 	authoring_version: 0,
-	spec_version: 107_000_000,
+	spec_version: 108_000_000,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 25,
@@ -1927,7 +1927,11 @@ pub mod migrations {
 	const IDENTITY_MIGRATION_KEY_LIMIT: u64 = u64::MAX;
 
 	/// v1.6.0 → v1.7.0: XCM pallet storage version migration (forgotten in v1.6.0).
-	pub type Unreleased = (pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,);
+	/// v1.7.0 → v1.8.0: TotalValueLocked sync + permanent XCM version migration.
+	pub type Unreleased = (
+		pallet_nomination_pools::migration::unversioned::TotalValueLockedSync<Runtime>,
+		pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
+	);
 }
 
 /// Unchecked extrinsic type as expected by this runtime.

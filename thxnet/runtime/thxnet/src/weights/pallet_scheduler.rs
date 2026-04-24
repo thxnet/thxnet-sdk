@@ -204,4 +204,35 @@ impl<T: frame_system::Config> pallet_scheduler::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}
+	fn schedule_retry(s: u32, ) -> Weight {
+		Weight::from_parts(13_985_249, 0)
+			.saturating_add(Weight::from_parts(0, 42428))
+			.saturating_add(Weight::from_parts(39_068, 0).saturating_mul(s.into()))
+			.saturating_add(T::DbWeight::get().reads(2))
+			.saturating_add(T::DbWeight::get().writes(4))
+	}
+	fn set_retry() -> Weight {
+		Weight::from_parts(8_440_627, 0)
+			.saturating_add(Weight::from_parts(0, 42428))
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
+	fn set_retry_named() -> Weight {
+		Weight::from_parts(11_708_172, 0)
+			.saturating_add(Weight::from_parts(0, 42428))
+			.saturating_add(T::DbWeight::get().reads(2))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
+	fn cancel_retry() -> Weight {
+		Weight::from_parts(8_440_627, 0)
+			.saturating_add(Weight::from_parts(0, 42428))
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
+	fn cancel_retry_named() -> Weight {
+		Weight::from_parts(11_708_172, 0)
+			.saturating_add(Weight::from_parts(0, 42428))
+			.saturating_add(T::DbWeight::get().reads(2))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
 }
