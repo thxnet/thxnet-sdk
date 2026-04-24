@@ -123,7 +123,8 @@ pub type CheckedExtrinsic = generic::CheckedExtrinsic<AccountId, RuntimeCall, Si
 /// v1.5.0 already deployed — XcmpQueue v4 + DmpQueue version init ran on-chain.
 /// Only v1.6.0-specific migrations needed:
 /// - Identity v0→v1 (username feature added in v1.6.0)
-pub type Migrations = (pallet_identity::migration::versioned::V0ToV1<Runtime, { u64::MAX }>,);
+/// v1.6.0 → v1.7.0: XCM pallet storage version migration (forgotten in v1.6.0).
+pub type Migrations = (pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,);
 
 /// Executive: handles dispatch to the various modules.
 pub type Executive = frame_executive::Executive<
@@ -164,7 +165,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("thxnet-general-runtime"),
 	impl_name: create_runtime_str!("thxnet-general-runtime"),
 	authoring_version: 1,
-	spec_version: 10,
+	spec_version: 11,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -287,7 +288,6 @@ impl pallet_balances::Config for Runtime {
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type MaxFreezes = ConstU32<0>;
-	type MaxHolds = ConstU32<0>;
 	type MaxLocks = ConstU32<50>;
 	type MaxReserves = ConstU32<50>;
 	type ReserveIdentifier = [u8; 8];

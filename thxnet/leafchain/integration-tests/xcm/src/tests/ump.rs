@@ -19,10 +19,8 @@ fn reserve_transfer_from_parachain_to_relay() {
 	// First, fund the parachain sovereign account on relay
 	// This is needed because reserve transfers require the sovereign account to have funds
 	THXnet::execute_with(|| {
-		let para_sovereign = THXnet::sovereign_account_id_of(MultiLocation::new(
-			0,
-			X1(Parachain(leafchain_a::PARA_ID)),
-		));
+		let para_sovereign =
+			THXnet::sovereign_account_id_of(Location::new(0, [Parachain(leafchain_a::PARA_ID)]));
 
 		// Fund the sovereign account
 		assert_ok!(thxnet_runtime::Balances::force_set_balance(
@@ -34,12 +32,12 @@ fn reserve_transfer_from_parachain_to_relay() {
 
 	// Execute on parachain: send to relay
 	LeafchainA::execute_with(|| {
-		let dest = MultiLocation::parent();
-		let beneficiary = MultiLocation::new(
+		let dest = Location::parent();
+		let beneficiary = Location::new(
 			0,
-			X1(AccountId32 { network: None, id: THXnet::account_id_of(BOB).into() }),
+			[AccountId32 { network: None, id: THXnet::account_id_of(BOB).into() }],
 		);
-		let assets: MultiAssets = (Parent, transfer_amount).into();
+		let assets: Assets = (Parent, transfer_amount).into();
 
 		// Use PolkadotXcm pallet on parachain
 		let result = general_runtime::PolkadotXcm::limited_reserve_transfer_assets(
@@ -71,7 +69,7 @@ fn send_xcm_from_parachain_to_relay() {
 	THXnetNetwork::reset();
 
 	LeafchainA::execute_with(|| {
-		let dest = MultiLocation::parent();
+		let dest = Location::parent();
 
 		// Create a simple XCM message to withdraw from sovereign account on relay.
 		// Note: Assets use `Here` (not `Parent`) because this message is executed on the
@@ -86,9 +84,9 @@ fn send_xcm_from_parachain_to_relay() {
 			RefundSurplus,
 			DepositAsset {
 				assets: AllCounted(1).into(),
-				beneficiary: MultiLocation::new(
+				beneficiary: Location::new(
 					0,
-					X1(AccountId32 { network: None, id: THXnet::account_id_of(BOB).into() }),
+					[AccountId32 { network: None, id: THXnet::account_id_of(BOB).into() }],
 				),
 			},
 		]);
@@ -96,7 +94,7 @@ fn send_xcm_from_parachain_to_relay() {
 		let result = general_runtime::PolkadotXcm::send(
 			general_runtime::RuntimeOrigin::root(),
 			bx!(dest.into()),
-			bx!(xcm::VersionedXcm::V3(message)),
+			bx!(xcm::VersionedXcm::V4(message)),
 		);
 
 		log::info!("XCM send result: {:?}", result);
@@ -111,12 +109,12 @@ fn teleport_from_parachain_to_relay() {
 	let transfer_amount: Balance = 5_000_000_000_000; // 5_000 tokens
 
 	LeafchainA::execute_with(|| {
-		let dest = MultiLocation::parent();
-		let beneficiary = MultiLocation::new(
+		let dest = Location::parent();
+		let beneficiary = Location::new(
 			0,
-			X1(AccountId32 { network: None, id: THXnet::account_id_of(CHARLIE).into() }),
+			[AccountId32 { network: None, id: THXnet::account_id_of(CHARLIE).into() }],
 		);
-		let assets: MultiAssets = (Parent, transfer_amount).into();
+		let assets: Assets = (Parent, transfer_amount).into();
 
 		// Note: This may fail if teleportation is not enabled
 		let result = general_runtime::PolkadotXcm::limited_teleport_assets(
