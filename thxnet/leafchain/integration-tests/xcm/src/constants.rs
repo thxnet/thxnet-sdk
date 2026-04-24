@@ -4,6 +4,7 @@
 //! session keys, and staking. For integration testing, consider using a simpler
 //! test runtime or mocking the relay chain behavior.
 
+use polkadot_primitives::{MAX_CODE_SIZE, MAX_POV_SIZE};
 use sp_core::{sr25519, storage::Storage, Pair, Public};
 use sp_runtime::{BuildStorage, Perbill};
 use xcm_emulator::{get_account_id_from_seed, AccountId};
@@ -94,12 +95,7 @@ pub mod thxnet {
 		let stash = INITIAL_BALANCE / 10;
 
 		let genesis_config = thxnet_runtime::RuntimeGenesisConfig {
-			system: thxnet_runtime::SystemConfig {
-				code: thxnet_runtime::WASM_BINARY
-					.expect("WASM binary not available for thxnet runtime")
-					.to_vec(),
-				_config: Default::default(),
-			},
+			system: thxnet_runtime::SystemConfig { _config: Default::default() },
 			balances: thxnet_runtime::BalancesConfig {
 				balances: vec![
 					(get_account_id_from_seed::<sr25519::Public>(ALICE), INITIAL_BALANCE),
@@ -149,6 +145,37 @@ pub mod thxnet {
 			grandpa: Default::default(),
 			authority_discovery: Default::default(),
 			im_online: Default::default(),
+			configuration: polkadot_runtime_parachains::configuration::GenesisConfig {
+				config: polkadot_runtime_parachains::configuration::HostConfiguration {
+					max_code_size: MAX_CODE_SIZE,
+					max_pov_size: MAX_POV_SIZE,
+					max_head_data_size: 32 * 1024,
+					max_upward_queue_count: 8,
+					max_upward_queue_size: 1024 * 1024,
+					max_downward_message_size: 1024 * 1024,
+					max_upward_message_size: 50 * 1024,
+					max_upward_message_num_per_candidate: 5,
+					hrmp_channel_max_capacity: 8,
+					hrmp_channel_max_total_size: 8 * 1024,
+					hrmp_max_parachain_inbound_channels: 4,
+					hrmp_channel_max_message_size: 1024 * 1024,
+					hrmp_max_parachain_outbound_channels: 4,
+					hrmp_max_message_num_per_candidate: 5,
+					group_rotation_frequency: 20,
+					paras_availability_period: 4,
+					no_show_slots: 2,
+					n_delay_tranches: 25,
+					needed_approvals: 2,
+					relay_vrf_modulo_samples: 2,
+					dispute_period: 6,
+					validation_upgrade_cooldown: 2,
+					validation_upgrade_delay: 2,
+					code_retention_period: 1200,
+					minimum_validation_upgrade_delay: 5,
+					..Default::default()
+				},
+				..Default::default()
+			},
 			sudo: thxnet_runtime::SudoConfig {
 				key: Some(get_account_id_from_seed::<sr25519::Public>(ALICE)),
 			},
@@ -171,12 +198,7 @@ pub mod leafchain_a {
 		)];
 
 		let genesis_config = general_runtime::RuntimeGenesisConfig {
-			system: general_runtime::SystemConfig {
-				code: general_runtime::WASM_BINARY
-					.expect("WASM binary not available for general runtime")
-					.to_vec(),
-				_config: Default::default(),
-			},
+			system: general_runtime::SystemConfig { _config: Default::default() },
 			balances: general_runtime::BalancesConfig {
 				balances: vec![
 					(get_account_id_from_seed::<sr25519::Public>(ALICE), INITIAL_BALANCE),
@@ -220,12 +242,7 @@ pub mod leafchain_b {
 		)];
 
 		let genesis_config = general_runtime::RuntimeGenesisConfig {
-			system: general_runtime::SystemConfig {
-				code: general_runtime::WASM_BINARY
-					.expect("WASM binary not available for general runtime")
-					.to_vec(),
-				_config: Default::default(),
-			},
+			system: general_runtime::SystemConfig { _config: Default::default() },
 			balances: general_runtime::BalancesConfig {
 				balances: vec![
 					(get_account_id_from_seed::<sr25519::Public>(ALICE), INITIAL_BALANCE),

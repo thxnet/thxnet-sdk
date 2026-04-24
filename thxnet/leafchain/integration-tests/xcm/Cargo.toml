@@ -28,7 +28,7 @@ parachains-common = { path = "../../../../cumulus/parachains/common" }
 cumulus-pallet-xcmp-queue = { path = "../../../../cumulus/pallets/xcmp-queue" }
 cumulus-pallet-dmp-queue = { path = "../../../../cumulus/pallets/dmp-queue" }
 cumulus-pallet-parachain-system = { path = "../../../../cumulus/pallets/parachain-system" }
-parachain-info = { path = "../../../../cumulus/parachains/pallets/parachain-info" }
+parachain-info = { package = "staging-parachain-info", path = "../../../../cumulus/parachains/pallets/parachain-info" }
 
 # Substrate
 frame-support = { path = "../../../../substrate/frame/support" }
@@ -46,6 +46,7 @@ pallet-staking = { path = "../../../../substrate/frame/staking" }
 
 # Polkadot primitives
 polkadot-primitives = { path = "../../../../polkadot/primitives" }
+polkadot-runtime-parachains = { path = "../../../../polkadot/runtime/parachains" }
 
 # Required for test macros
 sp-tracing = { path = "../../../../substrate/primitives/tracing" }

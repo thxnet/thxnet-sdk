@@ -880,7 +880,7 @@ fn test_invalid_vote_period() {
 	});
 }
 
-// 13.  Successful VRT Issuance with Default Weight Ratio
+// 13. Successful VRT Issuance with Default Weight Ratio
 #[test]
 fn test_successful_vrt_issuance_with_default_weight_ratio() {
 	let mut chain_state = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();

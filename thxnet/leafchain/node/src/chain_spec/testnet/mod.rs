@@ -11,58 +11,48 @@ use general_runtime::{AccountId, AuraId, Balance, UNITS};
 
 use crate::chain_spec::SAFE_XCM_VERSION;
 
-fn testnet_genesis(
+fn testnet_genesis_patch(
 	root_key: Option<AccountId>,
 	endowed_accounts: Vec<(AccountId, Balance)>,
 	invulnerables: Vec<(AccountId, Balance, AuraId)>,
 	id: ParaId,
-) -> general_runtime::RuntimeGenesisConfig {
-	general_runtime::RuntimeGenesisConfig {
-		system: general_runtime::SystemConfig {
-			code: general_runtime::WASM_BINARY
-				.expect("WASM binary was not build, please build it!")
-				.to_vec(),
-			_config: Default::default(),
+) -> serde_json::Value {
+	let balances: Vec<(AccountId, Balance)> = endowed_accounts
+		.iter()
+		.map(|x| (x.0.clone(), x.1))
+		.chain(invulnerables.iter().clone().map(|k| (k.0.clone(), k.1)))
+		.collect();
+
+	let session_keys: Vec<_> = invulnerables
+		.into_iter()
+		.map(|(acc, _, aura)| {
+			(
+				acc.clone(),                           // account id
+				acc,                                   // validator id
+				general_runtime::SessionKeys { aura }, // session keys
+			)
+		})
+		.collect();
+
+	serde_json::json!({
+		"balances": {
+			"balances": balances,
 		},
-		balances: general_runtime::BalancesConfig {
-			balances: endowed_accounts
-				.iter()
-				.map(|x| (x.0.clone(), x.1))
-				.chain(invulnerables.iter().clone().map(|k| (k.0.clone(), k.1)))
-				.collect(),
+		"parachainInfo": {
+			"parachainId": id,
 		},
-		parachain_info: general_runtime::ParachainInfoConfig {
-			parachain_id: id,
-			_config: Default::default(),
+		"collatorSelection": {
+			"invulnerables": session_keys.iter().map(|(acc, _, _)| acc).collect::<Vec<_>>(),
+			"candidacyBond": 100 * UNITS,
 		},
-		collator_selection: general_runtime::CollatorSelectionConfig {
-			invulnerables: invulnerables.iter().cloned().map(|(acc, ..)| acc).collect(),
-			candidacy_bond: 100 * UNITS,
-			..Default::default()
+		"session": {
+			"keys": session_keys,
 		},
-		session: general_runtime::SessionConfig {
-			keys: invulnerables
-				.into_iter()
-				.map(|(acc, _, aura)| {
-					(
-						acc.clone(),                           // account id
-						acc,                                   // validator id
-						general_runtime::SessionKeys { aura }, // session keys
-					)
-				})
-				.collect(),
+		"polkadotXcm": {
+			"safeXcmVersion": Some(SAFE_XCM_VERSION),
 		},
-		// no need to pass anything to aura, in fact it will panic if we do. Session will take care
-		// of this.
-		aura: Default::default(),
-		aura_ext: Default::default(),
-		parachain_system: Default::default(),
-		polkadot_xcm: general_runtime::PolkadotXcmConfig {
-			safe_xcm_version: Some(SAFE_XCM_VERSION),
-			_config: Default::default(),
+		"sudo": {
+			"key": root_key,
 		},
-		transaction_payment: Default::default(),
-		assets: Default::default(),
-		sudo: general_runtime::SudoConfig { key: root_key },
-	}
+	})
 }

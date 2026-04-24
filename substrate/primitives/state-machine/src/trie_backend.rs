@@ -52,7 +52,10 @@ pub trait TrieCacheProvider<H: Hasher> {
 
 	/// Return a [`trie_db::TrieDB`] compatible cache.
 	///
-	/// The `storage_root` parameter should be the storage root of the used trie.
+	/// The `storage_root` parameter *must* be the storage root of the trie this cache is used for.
+	///
+	/// NOTE: Implementors should use the `storage_root` to differentiate between storage keys that
+	/// may belong to different tries.
 	fn as_trie_db_cache(&self, storage_root: H::Out) -> Self::Cache<'_>;
 
 	/// Returns a cache that can be used with a [`trie_db::TrieDBMut`].
@@ -70,7 +73,10 @@ pub trait TrieCacheProvider<H: Hasher> {
 
 #[cfg(feature = "std")]
 impl<H: Hasher> TrieCacheProvider<H> for LocalTrieCache<H> {
-	type Cache<'a> = TrieCache<'a, H> where H: 'a;
+	type Cache<'a>
+		= TrieCache<'a, H>
+	where
+		H: 'a;
 
 	fn as_trie_db_cache(&self, storage_root: H::Out) -> Self::Cache<'_> {
 		self.as_trie_db_cache(storage_root)
@@ -87,7 +93,10 @@ impl<H: Hasher> TrieCacheProvider<H> for LocalTrieCache<H> {
 
 #[cfg(feature = "std")]
 impl<H: Hasher> TrieCacheProvider<H> for &LocalTrieCache<H> {
-	type Cache<'a> = TrieCache<'a, H> where Self: 'a;
+	type Cache<'a>
+		= TrieCache<'a, H>
+	where
+		Self: 'a;
 
 	fn as_trie_db_cache(&self, storage_root: H::Out) -> Self::Cache<'_> {
 		(*self).as_trie_db_cache(storage_root)
@@ -138,7 +147,10 @@ impl<H: Hasher> trie_db::TrieCache<NodeCodec<H>> for UnimplementedCacheProvider<
 
 #[cfg(not(feature = "std"))]
 impl<H: Hasher> TrieCacheProvider<H> for UnimplementedCacheProvider<H> {
-	type Cache<'a> = UnimplementedCacheProvider<H> where H: 'a;
+	type Cache<'a>
+		= UnimplementedCacheProvider<H>
+	where
+		H: 'a;
 
 	fn as_trie_db_cache(&self, _storage_root: <H as Hasher>::Out) -> Self::Cache<'_> {
 		unimplemented!()
