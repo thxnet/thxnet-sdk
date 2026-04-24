@@ -29,7 +29,7 @@ xcm-builder.workspace = true
 xcm-executor.workspace = true
 
 # Optional import for weight accuracy testing
-approx = { workspace = true, default-features = false }
+approx = { version = "0.5.1", default-features = false }
 # Optional import for benchmarking
 bounded-collections = { workspace = true }
 bp-xcm-bridge-hub-router = { optional = true, workspace = true }
