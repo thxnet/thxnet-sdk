@@ -95,7 +95,7 @@ jobs:
     steps:
       - run: echo "test-artifact-content" > /tmp/test-artifact.txt
 
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v7
         with:
           name: arc-test-artifact
           path: /tmp/test-artifact.txt
@@ -107,7 +107,7 @@ jobs:
     runs-on: arc-test-heavy
     timeout-minutes: 5
     steps:
-      - uses: actions/download-artifact@v5
+      - uses: actions/download-artifact@v8
         with:
           name: arc-test-artifact
           path: /tmp/
