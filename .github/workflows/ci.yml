@@ -37,7 +37,7 @@ jobs:
 
   preflight:
     name: Runner pre-flight checks
-    runs-on: [self-hosted, hetzner-thxnet]
+    runs-on: hetzner-thxnet
     timeout-minutes: 2
     steps:
       - name: Verify runner environment
@@ -111,7 +111,7 @@ jobs:
   build-binaries:
     name: Build binaries
     needs: preflight
-    runs-on: [self-hosted, hetzner-thxnet]
+    runs-on: hetzner-thxnet
     timeout-minutes: 90
     container:
       # Container bundles stable 1.77.0 + nightly-2024-04-10.
@@ -162,7 +162,7 @@ jobs:
   rootchain-image:
     name: Build rootchain image
     needs: [preflight, build-binaries]
-    runs-on: [self-hosted, hetzner-thxnet-light]
+    runs-on: hetzner-thxnet-light
     timeout-minutes: 15
     permissions:
       contents: read
@@ -215,7 +215,7 @@ jobs:
   leafchain-image:
     name: Build leafchain image
     needs: [preflight, build-binaries]
-    runs-on: [self-hosted, hetzner-thxnet-light]
+    runs-on: hetzner-thxnet-light
     timeout-minutes: 15
     permissions:
       contents: read
@@ -269,7 +269,7 @@ jobs:
     name: Push WASM runtimes to ghcr.io
     needs: [preflight, build-binaries]
     if: github.event_name != 'pull_request'
-    runs-on: [self-hosted, hetzner-thxnet-light]
+    runs-on: hetzner-thxnet-light
     permissions:
       contents: read
       packages: write
@@ -337,7 +337,7 @@ jobs:
       startsWith(github.head_ref || github.ref_name, 'experiment/') ||
       startsWith(github.head_ref || github.ref_name, 'feat/endgame') ||
       github.ref_name == 'main-thxnet'
-    runs-on: [self-hosted, hetzner-thxnet]
+    runs-on: hetzner-thxnet
     container:
       image: docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
       volumes:
@@ -394,7 +394,7 @@ jobs:
   try-runtime:
     name: try-runtime migration tests
     needs: [preflight, build-upgrade-extras]
-    runs-on: [self-hosted, hetzner-thxnet]
+    runs-on: hetzner-thxnet
     permissions:
       contents: read
     timeout-minutes: 60
@@ -517,7 +517,7 @@ jobs:
   zombienet:
     name: Zombienet smoke test
     needs: [preflight, build-upgrade-extras, build-binaries]
-    runs-on: [self-hosted, hetzner-thxnet]
+    runs-on: hetzner-thxnet
     steps:
       - uses: actions/checkout@v5
 
@@ -557,7 +557,7 @@ jobs:
   chopsticks:
     name: Chopsticks upgrade test
     needs: [preflight, build-binaries]
-    runs-on: [self-hosted, hetzner-thxnet]
+    runs-on: hetzner-thxnet
     timeout-minutes: 15
     if: >-
       startsWith(github.head_ref || github.ref_name, 'upgrade/') ||
@@ -617,7 +617,7 @@ jobs:
       startsWith(github.head_ref || github.ref_name, 'experiment/') ||
       startsWith(github.head_ref || github.ref_name, 'feat/endgame') ||
       github.ref_name == 'main-thxnet'
-    runs-on: [self-hosted, hetzner-thxnet]
+    runs-on: hetzner-thxnet
     container:
       image: docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
       volumes:
@@ -648,7 +648,7 @@ jobs:
     name: Fix cache file ownership
     needs: [build-binaries, build-upgrade-extras, xcm-tests]
     if: always()
-    runs-on: [self-hosted, hetzner-thxnet]
+    runs-on: hetzner-thxnet
     timeout-minutes: 5
     steps:
       - name: Fix ownership of shared cache directories
