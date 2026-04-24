@@ -92,6 +92,12 @@ impl<T: frame_system::Config> pallet_xcm::WeightInfo for WeightInfo<T> {
 	fn transfer_assets() -> Weight {
 		Weight::from_parts(100_000_000, 0)
 	}
+	fn claim_assets() -> Weight {
+		Weight::from_parts(35_299_000, 0)
+			.saturating_add(Weight::from_parts(0, 3488))
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
 	/// Storage: Benchmark Override (r:0 w:0)
 	/// Proof Skipped: Benchmark Override (max_values: None, max_size: None, mode: Measured)
 	fn execute() -> Weight {

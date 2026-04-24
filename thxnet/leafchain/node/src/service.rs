@@ -38,7 +38,10 @@ use substrate_prometheus_endpoint::Registry;
 pub struct LeafchainNativeExecutor;
 
 impl sc_executor::NativeExecutionDispatch for LeafchainNativeExecutor {
-	type ExtendHostFunctions = frame_benchmarking::benchmarking::HostFunctions;
+	type ExtendHostFunctions = (
+		frame_benchmarking::benchmarking::HostFunctions,
+		cumulus_client_service::storage_proof_size::HostFunctions,
+	);
 
 	fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
 		general_runtime::api::dispatch(method, data)
