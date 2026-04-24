@@ -20,7 +20,7 @@ jobs:
   # resolved by the host Docker daemon when running through ARC/k3d.
   test-container-sccache:
     name: "Validate: container job + sccache"
-    runs-on: arc-test-heavy
+    runs-on: hetzner-thxnet
     timeout-minutes: 30
     container:
       image: docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
@@ -57,7 +57,7 @@ jobs:
   # ACTIONS_RUNNER_REQUIRE_JOB_CONTAINER=false
   test-bare-host:
     name: "Validate: bare-host job"
-    runs-on: arc-test-heavy
+    runs-on: hetzner-thxnet
     timeout-minutes: 5
     steps:
       - name: Verify Docker socket
@@ -90,7 +90,7 @@ jobs:
   # ── Test 3: Artifact upload/download ──────────────────────────────────
   test-artifacts:
     name: "Validate: artifact flow"
-    runs-on: arc-test-heavy
+    runs-on: hetzner-thxnet
     timeout-minutes: 5
     steps:
       - run: echo "test-artifact-content" > /tmp/test-artifact.txt
@@ -104,7 +104,7 @@ jobs:
   test-artifact-download:
     name: "Validate: artifact download"
     needs: test-artifacts
-    runs-on: arc-test-heavy
+    runs-on: hetzner-thxnet
     timeout-minutes: 5
     steps:
       - uses: actions/download-artifact@v5
@@ -122,7 +122,7 @@ jobs:
   # ── Test 4: Light runner ──────────────────────────────────────────────
   test-light-runner:
     name: "Validate: light runner"
-    runs-on: arc-test-light
+    runs-on: hetzner-thxnet-light
     timeout-minutes: 5
     steps:
       - name: Verify Docker socket (needed for image builds)

@@ -30,7 +30,7 @@ concurrency:
 jobs:
   check-features:
     name: Feature alignment — ${{ matrix.runtime }}
-    runs-on: ubuntu-latest
+    runs-on: hetzner-thxnet-light
     timeout-minutes: 15
     strategy:
       fail-fast: false
