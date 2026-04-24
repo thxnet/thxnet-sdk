@@ -1,0 +1,58 @@
+Description: THXNet multi-parachain upgrade — verify both parachains survive simultaneous dummy upgrades
+Network: ./scripts/zombienet-local.toml
+Creds: config
+
+# ═══════════════════════════════════════════════
+# Phase 1: Network Bootstrap
+# ═══════════════════════════════════════════════
+
+# Relay chain validators are up
+alice: is up within 30 seconds
+bob: is up within 30 seconds
+
+# Relay chain producing and finalizing blocks
+alice: reports substrate_block_height{status="finalized"} is at least 5 within 180 seconds
+
+# Both parachains registered and producing blocks
+alice: parachain 2000 is registered within 300 seconds
+alice: parachain 2001 is registered within 300 seconds
+alice: parachain 2000 block height is at least 5 within 600 seconds
+alice: parachain 2001 block height is at least 5 within 600 seconds
+
+# ═══════════════════════════════════════════════
+# Phase 2: Pre-Upgrade Baseline
+# ═══════════════════════════════════════════════
+
+# Record that both parachains' collators are healthy before upgrade
+leafchain-a-collator-1: reports substrate_block_height{status="best"} is at least 5 within 120 seconds
+leafchain-b-collator-1: reports substrate_block_height{status="best"} is at least 5 within 120 seconds
+
+# ═══════════════════════════════════════════════
+# Phase 3: Simultaneous Runtime Upgrade on Both Parachains
+# ═══════════════════════════════════════════════
+
+# Perform dummy upgrade on parachain 2000 (appends custom WASM section, changes code hash)
+alice: parachain 2000 perform dummy upgrade within 600 seconds
+
+# Perform dummy upgrade on parachain 2001
+alice: parachain 2001 perform dummy upgrade within 600 seconds
+
+# ═══════════════════════════════════════════════
+# Phase 4: Post-Upgrade Verification
+# ═══════════════════════════════════════════════
+
+# Verify runtime code has changed on BOTH parachains
+leafchain-a-collator-1: js-script ./zombienet-js/verify-runtime-change.js within 120 seconds
+leafchain-b-collator-1: js-script ./zombienet-js/verify-runtime-change.js within 120 seconds
+
+# Verify both collators are healthy and producing blocks after upgrade
+leafchain-a-collator-1: js-script ./zombienet-js/verify-leafchain-upgrade.js within 120 seconds
+leafchain-b-collator-1: js-script ./zombienet-js/verify-leafchain-upgrade.js within 120 seconds
+
+# ═══════════════════════════════════════════════
+# Phase 5: Continued Block Production
+# ═══════════════════════════════════════════════
+
+# Both parachains continue producing blocks well past the upgrade point
+alice: parachain 2000 block height is at least 20 within 300 seconds
+alice: parachain 2001 block height is at least 20 within 300 seconds

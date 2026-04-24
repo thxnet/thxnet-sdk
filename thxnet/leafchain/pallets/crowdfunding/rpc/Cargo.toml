@@ -1,0 +1,18 @@
+[package]
+name = "pallet-crowdfunding-rpc"
+version = "0.3.3"
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "3.6.1" }
+jsonrpsee = { version = "0.22.0", features = ["client-core", "macros", "server"] }
+serde = { version = "1.0.152", features = ["derive"] }
+
+sp-api = { path = "../../../../../substrate/primitives/api" }
+sp-blockchain = { path = "../../../../../substrate/primitives/blockchain" }
+sp-runtime = { path = "../../../../../substrate/primitives/runtime" }
+
+pallet-crowdfunding = { path = ".." }
+pallet-crowdfunding-runtime-api = { path = "../runtime-api" }

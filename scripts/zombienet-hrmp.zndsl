@@ -1,0 +1,23 @@
+Description: THXNet HRMP channel test — open bidirectional channels and verify from both parachains
+Network: ./scripts/zombienet-local.toml
+Creds: config
+
+# Relay chain validators are up
+alice: is up within 30 seconds
+bob: is up within 30 seconds
+
+# Relay chain producing and finalizing blocks
+alice: reports substrate_block_height{status="finalized"} is at least 5 within 180 seconds
+
+# Parachains registered and producing blocks
+alice: parachain 2000 is registered within 300 seconds
+alice: parachain 2001 is registered within 300 seconds
+alice: parachain 2000 block height is at least 3 within 600 seconds
+alice: parachain 2001 block height is at least 3 within 600 seconds
+
+# Open bidirectional HRMP channels: 2000 <-> 2001
+alice: js-script ./zombienet-js/open-hrmp-channels.js with "2000,2001,8,512" within 60 seconds
+
+# Verify HRMP channels are open from both sides
+leafchain-a-collator-1: js-script ./zombienet-js/verify-hrmp-channel.js with "2001" within 120 seconds
+leafchain-b-collator-1: js-script ./zombienet-js/verify-hrmp-channel.js with "2000" within 120 seconds

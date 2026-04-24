@@ -1,22 +1,70 @@
-name: Rustfmt check
+name: Quick checks
 
 on:
   push:
     branches:
       - main
+      - develop
+      - release/*
+      - upgrade/*
+      - experiment/*
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
+  merge_group:
+
+permissions: {}
+
+env:
+  GIT_CONFIG_COUNT: "1"
+  GIT_CONFIG_KEY_0: safe.directory
+  GIT_CONFIG_VALUE_0: "*"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  quick_check:
-    strategy:
-      matrix:
-        os: ["ubuntu-latest"]
-    runs-on: ${{ matrix.os }}
+  fmt:
+    name: Rustfmt
+    runs-on: hetzner-thxnet-light
+    timeout-minutes: 10
     container:
-      image: paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
+      image: docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
+      volumes:
+        - /home/runner/.cache/cargo-registry:/usr/local/cargo/registry
+        - /home/runner/.cache/cargo-git:/usr/local/cargo/git
     steps:
       - uses: actions/checkout@v5
 
       - name: Cargo fmt
         run: cargo +nightly fmt --all -- --check
+
+  taplo:
+    name: TOML format
+    runs-on: hetzner-thxnet-light
+    timeout-minutes: 10
+    container:
+      image: docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
+      volumes:
+        - /home/runner/.cache/cargo-registry:/usr/local/cargo/registry
+        - /home/runner/.cache/cargo-git:/usr/local/cargo/git
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Check TOML formatting
+        run: taplo format --check --config .config/taplo.toml
+
+  zepter:
+    name: Feature propagation
+    runs-on: hetzner-thxnet-light
+    timeout-minutes: 10
+    container:
+      image: docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
+      volumes:
+        - /home/runner/.cache/cargo-registry:/usr/local/cargo/registry
+        - /home/runner/.cache/cargo-git:/usr/local/cargo/git
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Check feature propagation
+        run: zepter run check

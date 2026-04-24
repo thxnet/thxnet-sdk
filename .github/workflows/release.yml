@@ -3,65 +3,272 @@ name: Release
 on:
   push:
     tags:
-      - "v*"
+      - "thxnet-v*"
   workflow_dispatch:
     inputs:
       version:
         description: "Version label for the release (e.g. 1.3.0)"
         required: true
 
+env:
+  SUBWASM_VERSION: 0.21.3
+  REGISTRY: ghcr.io
+  ROOTCHAIN_IMAGE: ${{ github.repository_owner }}/rootchain
+  LEAFCHAIN_IMAGE: ${{ github.repository_owner }}/leafchain
+  GIT_CONFIG_COUNT: "1"
+  GIT_CONFIG_KEY_0: safe.directory
+  GIT_CONFIG_VALUE_0: "*"
+  RUSTC_WRAPPER: sccache
+  CARGO_INCREMENTAL: "0"
+  SCCACHE_DIR: /home/runner/.cache/sccache/${{ github.head_ref || github.ref_name }}
+  SCCACHE_CACHE_SIZE: 300G
+  # Stamp every binary with the exact commit it was built from. Without this,
+  # substrate/utils/build-script-utils/src/version.rs falls back to "unknown"
+  # if git is unavailable or .git is missing, producing untraceable binaries
+  # like "Version: 0.5.0-unknown" (see v1.12.0 incident, 2026-04-11).
+  SUBSTRATE_CLI_GIT_COMMIT_HASH: ${{ github.sha }}
+
+permissions: {}
+
 defaults:
   run:
     shell: bash
 
 jobs:
-  wasm:
-    name: Build WASM runtimes
-    runs-on: self-hosted
+  # File ownership cleanup is handled by the runner-level job-started hook
+  # (ACTIONS_RUNNER_HOOK_JOB_STARTED) — no per-workflow pre-cleanup needed.
+
+  build-runtimes:
+    name: Build runtime WASMs
+    runs-on: hetzner-thxnet
+    timeout-minutes: 90
     container:
       image: docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
       volumes:
-        - /data/ci-cache:/cache
+        - /home/runner/.cache/cargo-registry:/usr/local/cargo/registry
+        - /home/runner/.cache/cargo-git:/usr/local/cargo/git
+        - /home/runner/.cache/sccache-bin/sccache:/usr/local/bin/sccache
+        - /home/runner/.cache/sccache:/home/runner/.cache/sccache
     env:
-      CARGO_TARGET_DIR: /cache/cargo-target/release
-      CARGO_HOME: /cache/cargo-home
       WASM_BUILD_WORKSPACE_HINT: ${{ github.workspace }}
     steps:
       - uses: actions/checkout@v5
 
-      - name: Build WASM runtimes
+      - name: Build all runtime WASMs
+        run: cargo build --locked --release -p polkadot -p thxnet-testnet-runtime -p thxnet-leafchain
+
+      - name: Verify binary version stamps
         run: |
-          cargo build --release \
-            --package thxnet-runtime \
-            --package thxnet-testnet-runtime \
-            --package general-runtime
-          cp /cache/cargo-target/release/release/wbuild/thxnet-runtime/thxnet_runtime.compact.compressed.wasm thxnet-runtime.wasm
-          cp /cache/cargo-target/release/release/wbuild/thxnet-testnet-runtime/thxnet_testnet_runtime.compact.compressed.wasm thxnet-testnet-runtime.wasm
-          cp /cache/cargo-target/release/release/wbuild/general-runtime/general_runtime.compact.compressed.wasm general-runtime.wasm
+          set -eu
+          check_version() {
+            local bin="$1"
+            local out
+            out=$("$bin" --version 2>&1)
+            echo "::group::$(basename "$bin") --version"
+            echo "$out"
+            echo "::endgroup::"
+            if echo "$out" | grep -qiF 'unknown'; then
+              echo "::error::$(basename "$bin") version contains 'unknown' — SUBSTRATE_CLI_GIT_COMMIT_HASH was not honored"
+              exit 1
+            fi
+            if ! echo "$out" | grep -qF -- "-${GITHUB_SHA}"; then
+              echo "::error::$(basename "$bin") version does not contain expected commit hash ${GITHUB_SHA}"
+              exit 1
+            fi
+            echo "[OK] $(basename "$bin") stamped with ${GITHUB_SHA}"
+          }
+          check_version ./target/release/thxnet-leafchain
+          check_version ./target/release/polkadot
 
-      - name: Clean build cache
+      - name: sccache stats
         if: always()
-        run: rm -rf /cache/cargo-target/release
+        run: sccache --show-stats
 
-      - name: Publish WASM runtimes
-        if: startsWith(github.ref, 'refs/tags/')
+      - name: Prepare release artifacts
+        run: |
+          mkdir -p release-artifacts
+
+          for rt in \
+            "thxnet:target/release/wbuild/thxnet-runtime/thxnet_runtime.compact.compressed.wasm" \
+            "thxnet-testnet:target/release/wbuild/thxnet-testnet-runtime/thxnet_testnet_runtime.compact.compressed.wasm" \
+            "thxnet-general:target/release/wbuild/general-runtime/general_runtime.compact.compressed.wasm"
+          do
+            NAME="${rt%%:*}"
+            WASM="${rt#*:}"
+            echo "=== ${NAME} ==="
+            ls -la "${WASM}"
+            sha256sum "${WASM}" | tee "release-artifacts/${NAME}-runtime.sha256"
+            cp "${WASM}" "release-artifacts/${NAME}-runtime.compact.compressed.wasm"
+          done
+
+          ls -la release-artifacts/
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v5
+        with:
+          name: release-runtimes
+          retention-days: 7
+          path: release-artifacts/
+
+      - name: Upload node binaries
+        uses: actions/upload-artifact@v5
+        with:
+          name: release-binaries
+          retention-days: 7
+          path: |
+            target/release/polkadot
+            target/release/polkadot-prepare-worker
+            target/release/polkadot-execute-worker
+            target/release/thxnet-leafchain
+
+  # ─── Docker images ───────────────────────────────────────────────────
+
+  rootchain-image:
+    name: Build rootchain image
+    needs: build-runtimes
+    runs-on: hetzner-thxnet-light
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Download binaries
+        uses: actions/download-artifact@v5
+        with:
+          name: release-binaries
+          path: target/release
+
+      - name: Make binaries executable
+        run: chmod +x target/release/polkadot target/release/polkadot-prepare-worker target/release/polkadot-execute-worker
+
+      - uses: docker/setup-buildx-action@v4
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.PACKAGES_TOKEN }}
+
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.ROOTCHAIN_IMAGE }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/') }}
+            type=raw,value=${{ inputs.version }},enable=${{ github.event_name == 'workflow_dispatch' }}
+            type=sha,prefix=
+
+      - name: Build & push rootchain image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: thxnet/docker/polkadot/polkadot_injected.Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.ROOTCHAIN_IMAGE }}:buildcache
+          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.ROOTCHAIN_IMAGE }}:buildcache,mode=max
+
+  leafchain-image:
+    name: Build leafchain image
+    needs: build-runtimes
+    runs-on: hetzner-thxnet-light
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Download binaries
+        uses: actions/download-artifact@v5
+        with:
+          name: release-binaries
+          path: target/release
+
+      - name: Make binaries executable
+        run: chmod +x target/release/thxnet-leafchain
+
+      - uses: docker/setup-buildx-action@v4
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.PACKAGES_TOKEN }}
+
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.LEAFCHAIN_IMAGE }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/') }}
+            type=raw,value=${{ inputs.version }},enable=${{ github.event_name == 'workflow_dispatch' }}
+            type=sha,prefix=
+
+      - name: Build & push leafchain image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: thxnet/docker/leafchain/leafchain_injected.Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.LEAFCHAIN_IMAGE }}:buildcache
+          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.LEAFCHAIN_IMAGE }}:buildcache,mode=max
+
+  publish:
+    name: Publish release
+    needs: build-runtimes
+    runs-on: hetzner-thxnet
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - name: Download release artifacts
+        uses: actions/download-artifact@v5
+        with:
+          name: release-runtimes
+          path: runtimes/
+
+      - name: Install subwasm
+        run: |
+          # subwasm .deb needs libssl3 + glibc >= 2.34 — host runner
+          # (Ubuntu 24.04) has these, but the bullseye build container doesn't.
+          wget -q "https://github.com/chevdor/subwasm/releases/download/v${SUBWASM_VERSION}/subwasm_linux_amd64_v${SUBWASM_VERSION}.deb"
+          sudo dpkg -i "subwasm_linux_amd64_v${SUBWASM_VERSION}.deb"
+          subwasm --version
+
+      - name: Generate runtime metadata
+        run: |
+          for wasm in runtimes/*.wasm; do
+            NAME=$(basename "$wasm" -runtime.compact.compressed.wasm)
+            echo "=== ${NAME} ==="
+            subwasm info "$wasm"
+            subwasm --json info "$wasm" > "runtimes/${NAME}-info.json"
+            subwasm --json meta "$wasm" > "runtimes/${NAME}-metadata.json"
+          done
+
+      - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || format('v{0}', inputs.version) }}
           draft: false
           prerelease: false
           files: |
-            thxnet-runtime.wasm
-            thxnet-testnet-runtime.wasm
-            general-runtime.wasm
+            runtimes/*.wasm
+            runtimes/*.sha256
+            runtimes/*-info.json
+            runtimes/*-metadata.json
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload WASM artifacts
-        if: github.event_name == 'workflow_dispatch'
-        uses: actions/upload-artifact@v5
-        with:
-          name: wasm-runtimes
-          path: |
-            thxnet-runtime.wasm
-            thxnet-testnet-runtime.wasm
-            general-runtime.wasm

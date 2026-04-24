@@ -1,0 +1,46 @@
+Description: THXNet resilience test — collator restart after upgrade, continued block production
+Network: ./scripts/zombienet-local.toml
+Creds: config
+
+# ═══════════════════════════════════════════════
+# Phase 1: Network Bootstrap (same as zombienet-full)
+# ═══════════════════════════════════════════════
+
+alice: is up within 30 seconds
+bob: is up within 30 seconds
+alice: reports substrate_block_height{status="finalized"} is at least 5 within 180 seconds
+alice: parachain 2000 is registered within 300 seconds
+alice: parachain 2000 block height is at least 3 within 600 seconds
+
+# ═══════════════════════════════════════════════
+# Phase 2: Runtime Upgrade
+# ═══════════════════════════════════════════════
+
+alice: parachain 2000 perform dummy upgrade within 600 seconds
+leafchain-a-collator-1: js-script ./zombienet-js/verify-runtime-change.js within 120 seconds
+
+# ═══════════════════════════════════════════════
+# Phase 3: Collator Restart
+# ═══════════════════════════════════════════════
+
+# Pause collator-1, verify collator-2 keeps producing
+leafchain-a-collator-1: pause
+
+# Give time for network to stabilize with one collator
+sleep 30 seconds
+
+# Resume collator-1
+leafchain-a-collator-1: resume
+
+# Wait for restarted collator to sync and resume
+sleep 30 seconds
+
+# ═══════════════════════════════════════════════
+# Phase 4: Post-Restart Verification
+# ═══════════════════════════════════════════════
+
+# Verify the restarted collator is healthy and producing blocks
+leafchain-a-collator-1: js-script ./zombienet-js/verify-leafchain-upgrade.js within 120 seconds
+
+# Parachain continues producing blocks
+alice: parachain 2000 block height is at least 30 within 300 seconds

@@ -1,6 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
 #![recursion_limit = "256"]
+// Force WASM rebuild: invalidate stale target/release/wbuild/ artifacts from other branches.
 
 // Make the WASM binary available.
 #[cfg(feature = "std")]
@@ -18,8 +19,8 @@ use frame_support::{
 	dispatch::DispatchClass,
 	parameter_types,
 	traits::{
-		tokens::nonfungibles_v2::Inspect, AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU32,
-		ConstU64, Everything, InstanceFilter, TransformOrigin,
+		tokens::nonfungibles_v2::Inspect, AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU16,
+		ConstU32, ConstU64, Everything, InstanceFilter, TransformOrigin,
 	},
 	weights::{constants::WEIGHT_REF_TIME_PER_SECOND, ConstantMultiplier, Weight},
 	PalletId,
@@ -38,7 +39,10 @@ use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 pub use sp_runtime::BuildStorage;
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
-	traits::{AccountIdLookup, BlakeTwo256, Block as BlockT, ConvertInto, IdentifyAccount, Verify},
+	traits::{
+		AccountIdConversion, AccountIdLookup, BlakeTwo256, Block as BlockT, ConvertInto,
+		IdentifyAccount, Verify,
+	},
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, MultiSignature,
 };
@@ -62,7 +66,7 @@ pub use constants::{currency::*, fee::*, time::*};
 /// Implementations of some helper traits passed into runtime modules as
 /// associated types.
 pub mod impls;
-use impls::CreditToBlockAuthor;
+use impls::{CreditToBlockAuthor, CrowdfundingLifecycleGuard, RwaLicenseVerifier};
 
 /// Alias to 512-bit hash when used in the context of a transaction signature on
 /// the chain.
@@ -118,10 +122,175 @@ pub type UncheckedExtrinsic =
 /// Extrinsic type that has already been checked.
 pub type CheckedExtrinsic = generic::CheckedExtrinsic<AccountId, RuntimeCall, SignedExtra>;
 
-/// Migrations for v1.10.0 → v1.11.0 leafchain runtime upgrade.
+/// Force-stamp cumulus_pallet_dmp_queue StorageVersion to v2.
 ///
-/// CollatorSelection v1→v2: Migrates old `Candidates` storage to `CandidateList`.
-pub type Migrations = (pallet_collator_selection::migration::v2::MigrationToV2<Runtime>,);
+/// Context: All 9 leafchains have DmpQueue with ZERO storage keys (no data).
+/// On-chain StorageVersion is NULL (never set, reads as 0). Code declares STORAGE_VERSION = 2.
+/// The lazy migration stub in v1.12.0 DmpQueue does NOT write a version stamp itself.
+/// Without this stamp, try-runtime fails on `on_chain != in_code` assertion.
+///
+/// Safety: No data exists — purely a metadata correction.
+pub struct InitDmpQueueStorageVersion;
+impl frame_support::traits::OnRuntimeUpgrade for InitDmpQueueStorageVersion {
+	fn on_runtime_upgrade() -> Weight {
+		use frame_support::traits::GetStorageVersion;
+		let on_chain = cumulus_pallet_dmp_queue::Pallet::<Runtime>::on_chain_storage_version();
+		if on_chain < 2 {
+			log::info!(
+				target: "runtime::dmp_queue",
+				"InitDmpQueueStorageVersion: stamping on-chain version from {:?} to 2",
+				on_chain,
+			);
+			frame_support::traits::StorageVersion::new(2)
+				.put::<cumulus_pallet_dmp_queue::Pallet<Runtime>>();
+			<Runtime as frame_system::Config>::DbWeight::get().reads_writes(1, 1)
+		} else {
+			log::info!(
+				target: "runtime::dmp_queue",
+				"InitDmpQueueStorageVersion: already at {:?}, skipping",
+				on_chain,
+			);
+			<Runtime as frame_system::Config>::DbWeight::get().reads(1)
+		}
+	}
+
+	#[cfg(feature = "try-runtime")]
+	fn post_upgrade(_state: sp_std::vec::Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+		use frame_support::traits::GetStorageVersion;
+		frame_support::ensure!(
+			cumulus_pallet_dmp_queue::Pallet::<Runtime>::on_chain_storage_version() >= 2,
+			"DmpQueue on-chain version should be >= 2 after migration"
+		);
+		Ok(())
+	}
+}
+
+/// Force-stamp pallet_crowdfunding StorageVersion to v3.
+///
+/// Context: The upstream MigrateToV3 guard checks `on_chain == 2` before migrating.
+/// On ALL leafchains, on-chain is 0 (never set), so the guard always skips, leaving
+/// on_chain stuck at 0 while code declares v3 — causing try-runtime assertion failure.
+///
+/// Chain-specific scenarios:
+/// - Avatect mainnet: on-chain v0, but data IS already v3 format (protocol_fee_bps exists in all 21
+///   campaigns from genesis). MigrateToV3 would skip due to guard. Stamp is safe — no data
+///   transformation needed.
+/// - All other chains: on-chain v0, ZERO Crowdfunding data. Stamp is trivially safe.
+/// - Sand testnet: Crowdfunding pallet was never deployed. On-chain reads as v0. Stamp is trivially
+///   safe.
+/// Clear stale ParachainSystem::HostConfiguration.
+///
+/// v0.9.40-era cumulus stored `AbridgedHostConfiguration` WITHOUT `async_backing_params`
+/// (9 fields). v1.12.0 cumulus adds `async_backing_params` (10 fields). Post-setCode,
+/// the new runtime tries to decode old-format bytes → "Not enough data to fill buffer"
+/// → block production halts. Every parachain block re-populates this storage from the
+/// relay inherent, so killing the stored value is safe — the next block writes fresh
+/// bytes in the new format.
+pub struct ClearStaleHostConfiguration;
+impl frame_support::traits::OnRuntimeUpgrade for ClearStaleHostConfiguration {
+	fn on_runtime_upgrade() -> Weight {
+		// ParachainSystem::HostConfiguration = twox128("ParachainSystem") +
+		// twox128("HostConfiguration") Hardcoded since hex-literal is behind runtime-benchmarks
+		// feature flag.
+		let key: [u8; 32] = [
+			0x45, 0x32, 0x3d, 0xf7, 0xcc, 0x47, 0x15, 0x0b, 0x39, 0x30, 0xe2, 0x66, 0x6b, 0x0a,
+			0xa3, 0x13, 0xc5, 0x22, 0x23, 0x18, 0x80, 0x23, 0x8a, 0x0c, 0x56, 0x02, 0x1b, 0x87,
+			0x44, 0xa0, 0x07, 0x43,
+		];
+		frame_support::storage::unhashed::kill(&key);
+		log::info!(
+			target: "runtime::parachain_system",
+			"ClearStaleHostConfiguration: killed stale AbridgedHostConfiguration; \
+			 next block will re-populate from relay inherent with new format",
+		);
+		<Runtime as frame_system::Config>::DbWeight::get().writes(1)
+	}
+}
+
+pub struct CrowdfundingStampOrMigrateToV3;
+impl frame_support::traits::OnRuntimeUpgrade for CrowdfundingStampOrMigrateToV3 {
+	fn on_runtime_upgrade() -> Weight {
+		use frame_support::traits::GetStorageVersion;
+		let on_chain = pallet_crowdfunding::Pallet::<Runtime>::on_chain_storage_version();
+		if on_chain < 3 {
+			log::info!(
+				target: "runtime::crowdfunding",
+				"CrowdfundingStampOrMigrateToV3: stamping on-chain version from {:?} to 3 \
+				(data already in v3 format or non-existent)",
+				on_chain,
+			);
+			frame_support::traits::StorageVersion::new(3)
+				.put::<pallet_crowdfunding::Pallet<Runtime>>();
+			<Runtime as frame_system::Config>::DbWeight::get().reads_writes(1, 1)
+		} else {
+			log::info!(
+				target: "runtime::crowdfunding",
+				"CrowdfundingStampOrMigrateToV3: already at {:?}, skipping",
+				on_chain,
+			);
+			<Runtime as frame_system::Config>::DbWeight::get().reads(1)
+		}
+	}
+
+	#[cfg(feature = "try-runtime")]
+	fn post_upgrade(_state: sp_std::vec::Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+		use frame_support::traits::GetStorageVersion;
+		frame_support::ensure!(
+			pallet_crowdfunding::Pallet::<Runtime>::on_chain_storage_version() >= 3,
+			"Crowdfunding on-chain version should be >= 3 after migration"
+		);
+		Ok(())
+	}
+}
+
+// Leafchains have only 4-6 identity entries each; u64::MAX is safe here because
+// the migration iterates all entries in a single block, and the VersionedMigration
+// wrapper ensures it runs at most once (gated on on-chain StorageVersion == 0).
+// With so few entries the PoV / weight impact is negligible.
+const IDENTITY_MIGRATION_KEY_LIMIT: u64 = u64::MAX;
+
+/// Cumulative migrations for live leafchains upgrading from v0.9.40 to v1.12.0.
+///
+/// On-chain state at v0.9.40:
+///   - XcmpQueue: v2 (ECQ chains) or v3 (Group A chains)
+///   - DmpQueue:  v0 (NULL, never set) — all chains have ZERO DmpQueue storage keys
+///   - CollatorSelection: v0
+///   - Rwa:            v0 (new pallet, or v5 on Avatect)
+///   - Crowdfunding:   v0 (never set, but data is v3 format on Avatect)
+///   - TrustlessAgent: v0 (new pallet)
+///   - Treasury:       v0 (NULL, in on-chain metadata but not in old source)
+///
+/// Each migration is version-guarded internally (VersionedMigration or manual check).
+/// Including all steps is safe — guards auto-skip when on-chain version doesn't match.
+pub type Migrations = (
+	// Clear stale ParachainSystem::HostConfiguration (must run FIRST before any
+	// block post-upgrade tries to decode the old-format bytes).
+	ClearStaleHostConfiguration,
+	// ── Frame / Cumulus pallet migrations ──
+	// CollatorSelection: invulnerable storage format change (v0→v1)
+	pallet_collator_selection::migration::v1::MigrateToV1<Runtime>,
+	// XcmpQueue: QueueConfigData 1D Weight → 2D Weight (v1→v2)
+	cumulus_pallet_xcmp_queue::migration::v2::MigrationToV2<Runtime>,
+	// XcmpQueue: Overweight counter initialization (v2→v3)
+	cumulus_pallet_xcmp_queue::migration::v3::MigrationToV3<Runtime>,
+	// XcmpQueue: QueueConfigData simplification, drop deprecated fields (v3→v4)
+	cumulus_pallet_xcmp_queue::migration::v4::MigrationToV4<Runtime>,
+	// XCM pallet: migrate stored XCM versions to latest (covers v3→v4 transition)
+	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
+	// CollatorSelection v1→v2 (Candidates → CandidateList)
+	pallet_collator_selection::migration::v2::MigrationToV2<Runtime>,
+	// DmpQueue: force-stamp StorageVersion to v2 (all chains have 0 DmpQueue data)
+	InitDmpQueueStorageVersion,
+	// Identity: username/authority feature migration (v0→v1)
+	pallet_identity::migration::versioned::V0ToV1<Runtime, IDENTITY_MIGRATION_KEY_LIMIT>,
+	// ── Custom pallet migrations ──
+	// RWA: stamp on-chain version to v5 (noop if already ≥5, no data change)
+	pallet_rwa::migrations::v5::MigrateToV5<Runtime>,
+	// Crowdfunding: force-stamp to v3 (replaces MigrateToV3 which has broken v2 guard)
+	CrowdfundingStampOrMigrateToV3,
+	// TrustlessAgent: initial deployment, initialize counters (v0→v1)
+	pallet_trustless_agent::migrations::Migrations<Runtime>,
+);
 
 /// Executive: handles dispatch to the various modules.
 pub type Executive = frame_executive::Executive<
@@ -162,7 +331,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("thxnet-general-runtime"),
 	impl_name: create_runtime_str!("thxnet-general-runtime"),
 	authoring_version: 1,
-	spec_version: 15,
+	spec_version: 21,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -185,6 +354,29 @@ const MAXIMUM_BLOCK_WEIGHT: Weight = Weight::from_parts(
 
 /// Maximum number of blocks simultaneously accepted by the Runtime, not yet included
 /// into the relay chain.
+///
+/// v1.12.0 WORKAROUND: set to 1 to prevent cumulus fork production at the source.
+/// The v1.12.0 relay-side prospective-parachains subsystem uses the pre-#4937
+/// fragment-chain (`fragment_chain/mod.rs:797`'s `is_fork_or_cycle` rejects any
+/// second candidate at the same parent). In small/uniform topologies (1 core, 1
+/// backing group) the collator re-authors block N every slot until inclusion,
+/// producing forks; fragment-chain rejects them all as "Is not a potential
+/// member", inclusion never completes, para stalls permanently.
+///
+/// Capacity=1 forces `cumulus_pallet_aura_ext::FixedVelocityConsensusHook::
+/// can_build_upon` to return false while any block is unincluded, so the collator
+/// builds exactly one block per inclusion cycle. No forks → fragment-chain
+/// accepts every candidate → inclusion pipeline stays healthy. Tradeoff: para
+/// throughput is synchronous-backing tempo (~18s per block instead of async's
+/// ~6s), but stable.
+///
+/// Empirically validated on forked-testnet 2026-04-18: with
+/// `BLOCK_PROCESSING_VELOCITY=1, UNINCLUDED_SEGMENT_CAPACITY=1`, para reached
+/// block 4556+ with finalization keeping pace. With capacity=2 under the same
+/// topology, para stalls at ~13-30 forever.
+///
+/// The stable2512 hop should restore capacity to 2 (async backing safe once
+/// #4937 is present).
 const UNINCLUDED_SEGMENT_CAPACITY: u32 = 1;
 /// How many parachain blocks are processed by the relay chain per parent. Limits the
 /// number of blocks authored per slot.
@@ -451,6 +643,51 @@ impl pallet_sudo::Config for Runtime {
 	type WeightInfo = pallet_sudo::weights::SubstrateWeight<Runtime>;
 }
 
+// ── Treasury Pallet ─────────────────────────────────────────────────────
+//
+// Treasury was present in on-chain metadata (index 19) for all 9 leafchains
+// at genesis, with NULL StorageVersion and 0 data keys. It was later removed
+// from the source code but stayed in on-chain state. Re-adding it here to
+// keep the runtime consistent with on-chain metadata.
+
+parameter_types! {
+	pub const TreasuryPalletId: PalletId = PalletId(*b"py/trsry");
+	pub TreasuryAccount: AccountId = TreasuryPalletId::get().into_account_truncating();
+	pub const ProposalBond: Permill = Permill::from_percent(5);
+	pub const ProposalBondMinimum: Balance = 100 * DOLLARS;
+	pub const ProposalBondMaximum: Balance = 500 * DOLLARS;
+	pub const SpendPeriod: BlockNumber = 24 * DAYS;
+	pub const TreasuryBurn: Permill = Permill::from_percent(1);
+	pub const MaxApprovals: u32 = 100;
+}
+
+impl pallet_treasury::Config for Runtime {
+	type PalletId = TreasuryPalletId;
+	type Currency = Balances;
+	type ApproveOrigin = EnsureRoot<AccountId>;
+	type RejectOrigin = EnsureRoot<AccountId>;
+	type RuntimeEvent = RuntimeEvent;
+	type OnSlash = Treasury;
+	type ProposalBond = ProposalBond;
+	type ProposalBondMinimum = ProposalBondMinimum;
+	type ProposalBondMaximum = ProposalBondMaximum;
+	type SpendPeriod = SpendPeriod;
+	type Burn = TreasuryBurn;
+	type BurnDestination = ();
+	type SpendFunds = ();
+	type MaxApprovals = MaxApprovals;
+	type WeightInfo = pallet_treasury::weights::SubstrateWeight<Runtime>;
+	type SpendOrigin = frame_support::traits::NeverEnsureOrigin<Balance>;
+	type AssetKind = ();
+	type Beneficiary = AccountId;
+	type BeneficiaryLookup = sp_runtime::traits::IdentityLookup<AccountId>;
+	type Paymaster = frame_support::traits::tokens::PayFromAccount<Balances, TreasuryAccount>;
+	type BalanceConverter = frame_support::traits::tokens::UnityAssetBalanceConversion;
+	type PayoutPeriod = SpendPeriod;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = ();
+}
+
 parameter_types! {
 	// One storage item; key size is 32; value is size 4+4+16+32 bytes = 56 bytes.
 	pub const DepositBase: Balance = deposit(1, 88);
@@ -618,6 +855,232 @@ mod proxy_type_tests {
 	}
 }
 
+// ════════════════════════════════════════════════════════════════════════════
+// Migration correctness tests for leafchain v0.9.40 → v1.12.0 upgrade.
+//
+// These tests validate every custom leafchain migration that has NO existing
+// unit tests. Each test targets exactly one MECE partition.
+// ════════════════════════════════════════════════════════════════════════════
+#[cfg(test)]
+mod leafchain_migration_tests {
+	use super::*;
+	use frame_support::traits::{GetStorageVersion, OnRuntimeUpgrade, StorageVersion};
+
+	// ── A4: InitDmpQueueStorageVersion ──────────────────────────────────────
+	// Partition: {on_chain < 2 → stamps to 2, on_chain >= 2 → skips}
+
+	#[test]
+	fn init_dmp_queue_stamps_v2_when_on_chain_is_0() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			// Arrange: on-chain version is 0 (never set — default)
+			assert_eq!(
+				cumulus_pallet_dmp_queue::Pallet::<Runtime>::on_chain_storage_version(),
+				StorageVersion::new(0)
+			);
+
+			// Act
+			let weight = InitDmpQueueStorageVersion::on_runtime_upgrade();
+
+			// Assert: stamped to v2
+			assert_eq!(
+				cumulus_pallet_dmp_queue::Pallet::<Runtime>::on_chain_storage_version(),
+				StorageVersion::new(2),
+				"InitDmpQueueStorageVersion must stamp on-chain version to 2"
+			);
+			// Assert: weight = 1 read + 1 write
+			assert_eq!(
+				weight,
+				<Runtime as frame_system::Config>::DbWeight::get().reads_writes(1, 1)
+			);
+		});
+	}
+
+	#[test]
+	fn init_dmp_queue_skips_when_already_v2() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			// Arrange: already at v2
+			StorageVersion::new(2).put::<cumulus_pallet_dmp_queue::Pallet<Runtime>>();
+
+			// Act
+			let weight = InitDmpQueueStorageVersion::on_runtime_upgrade();
+
+			// Assert: still v2, not changed
+			assert_eq!(
+				cumulus_pallet_dmp_queue::Pallet::<Runtime>::on_chain_storage_version(),
+				StorageVersion::new(2)
+			);
+			// Assert: weight = 1 read only (skip path)
+			assert_eq!(weight, <Runtime as frame_system::Config>::DbWeight::get().reads(1));
+		});
+	}
+
+	#[test]
+	fn init_dmp_queue_skips_when_above_v2() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			// Arrange: somehow at v3
+			StorageVersion::new(3).put::<cumulus_pallet_dmp_queue::Pallet<Runtime>>();
+
+			// Act
+			let weight = InitDmpQueueStorageVersion::on_runtime_upgrade();
+
+			// Assert: stays at v3
+			assert_eq!(
+				cumulus_pallet_dmp_queue::Pallet::<Runtime>::on_chain_storage_version(),
+				StorageVersion::new(3)
+			);
+			assert_eq!(weight, <Runtime as frame_system::Config>::DbWeight::get().reads(1));
+		});
+	}
+
+	// ── A5: CrowdfundingStampOrMigrateToV3 ──────────────────────────────────
+	// Partition: {on_chain < 3 → stamps to 3, on_chain >= 3 → skips}
+
+	#[test]
+	fn crowdfunding_stamp_sets_v3_when_on_chain_is_0() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			// Arrange: on-chain version is 0 (never set)
+			assert_eq!(
+				pallet_crowdfunding::Pallet::<Runtime>::on_chain_storage_version(),
+				StorageVersion::new(0)
+			);
+
+			// Act
+			let weight = CrowdfundingStampOrMigrateToV3::on_runtime_upgrade();
+
+			// Assert: stamped to v3
+			assert_eq!(
+				pallet_crowdfunding::Pallet::<Runtime>::on_chain_storage_version(),
+				StorageVersion::new(3),
+				"CrowdfundingStampOrMigrateToV3 must stamp on-chain version to 3"
+			);
+			assert_eq!(
+				weight,
+				<Runtime as frame_system::Config>::DbWeight::get().reads_writes(1, 1)
+			);
+		});
+	}
+
+	#[test]
+	fn crowdfunding_stamp_skips_when_already_v3() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			// Arrange: already at v3
+			StorageVersion::new(3).put::<pallet_crowdfunding::Pallet<Runtime>>();
+
+			// Act
+			let weight = CrowdfundingStampOrMigrateToV3::on_runtime_upgrade();
+
+			// Assert: still v3
+			assert_eq!(
+				pallet_crowdfunding::Pallet::<Runtime>::on_chain_storage_version(),
+				StorageVersion::new(3)
+			);
+			assert_eq!(weight, <Runtime as frame_system::Config>::DbWeight::get().reads(1));
+		});
+	}
+
+	#[test]
+	fn crowdfunding_stamp_sets_v3_when_on_chain_is_2() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			// Arrange: on-chain version is 2 (the "normal" pre-migration state for
+			// chains that actually ran v2 migration)
+			StorageVersion::new(2).put::<pallet_crowdfunding::Pallet<Runtime>>();
+
+			// Act
+			let weight = CrowdfundingStampOrMigrateToV3::on_runtime_upgrade();
+
+			// Assert: stamped to v3 (stamp path, not MigrateToV3 data migration)
+			assert_eq!(
+				pallet_crowdfunding::Pallet::<Runtime>::on_chain_storage_version(),
+				StorageVersion::new(3),
+				"CrowdfundingStampOrMigrateToV3 must stamp from v2 to v3"
+			);
+			assert_eq!(
+				weight,
+				<Runtime as frame_system::Config>::DbWeight::get().reads_writes(1, 1)
+			);
+		});
+	}
+
+	// ── A6: RWA MigrateToV5 ────────────────────────────────────────────────
+	// Partition: {on_chain < 5 → stamps to 5, on_chain >= 5 → skips}
+
+	#[test]
+	fn rwa_stamp_sets_v5_when_on_chain_is_0() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			// Arrange: on-chain version is 0 (never set)
+			assert_eq!(
+				pallet_rwa::Pallet::<Runtime>::on_chain_storage_version(),
+				StorageVersion::new(0)
+			);
+
+			// Act
+			let weight = pallet_rwa::migrations::v5::MigrateToV5::<Runtime>::on_runtime_upgrade();
+
+			// Assert: stamped to v5
+			assert_eq!(
+				pallet_rwa::Pallet::<Runtime>::on_chain_storage_version(),
+				StorageVersion::new(5),
+				"RWA MigrateToV5 must stamp on-chain version to 5"
+			);
+			// Assert: weight = 1 write
+			assert_eq!(weight, <Runtime as frame_system::Config>::DbWeight::get().writes(1));
+		});
+	}
+
+	#[test]
+	fn rwa_stamp_skips_when_already_v5() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			// Arrange: already at v5
+			StorageVersion::new(5).put::<pallet_rwa::Pallet<Runtime>>();
+
+			// Act
+			let weight = pallet_rwa::migrations::v5::MigrateToV5::<Runtime>::on_runtime_upgrade();
+
+			// Assert: still v5
+			assert_eq!(
+				pallet_rwa::Pallet::<Runtime>::on_chain_storage_version(),
+				StorageVersion::new(5)
+			);
+			// Assert: weight = 0 (skip path)
+			assert_eq!(weight, frame_support::weights::Weight::zero());
+		});
+	}
+
+	// ── Zero-Fee Configuration (Leafchain) ──────────────────────────────────
+
+	#[test]
+	fn leafchain_weight_to_fee_returns_zero() {
+		use frame_support::weights::{Weight, WeightToFee as WeightToFeeT};
+
+		let test_weights =
+			[Weight::zero(), Weight::from_parts(1, 0), Weight::from_parts(u64::MAX, u64::MAX)];
+		for w in &test_weights {
+			let fee = constants::fee::WeightToFee::weight_to_fee(w);
+			assert_eq!(fee, 0, "Leafchain WeightToFee must return 0 for {:?}", w);
+		}
+	}
+
+	#[test]
+	fn leafchain_transaction_byte_fee_is_zero() {
+		assert_eq!(constants::fee::TRANSACTION_BYTE_FEE, 0u128);
+	}
+
+	#[test]
+	fn leafchain_operational_fee_multiplier_is_zero() {
+		assert_eq!(constants::fee::OPERATIONAL_FEE_MULTIPLIER, 0u8);
+	}
+
+	// ── Leafchain migration tuple compiles ──────────────────────────────────
+
+	#[test]
+	fn leafchain_migration_tuple_compiles_and_is_non_empty() {
+		// This test passes by compilation alone. The Migrations type is used by
+		// Executive (which requires OnRuntimeUpgrade). If the tuple had type errors,
+		// or any migration had incorrect generic params, this crate would not compile.
+		let _ = core::any::type_name::<Migrations>();
+	}
+}
+
 impl Default for ProxyType {
 	fn default() -> Self {
 		Self::Any
@@ -762,6 +1225,99 @@ impl pallet_trustless_agent::Config for Runtime {
 	type WeightInfo = weights::pallet_trustless_agent::WeightInfo<Runtime>;
 }
 
+// ── RWA Pallet ──────────────────────────────────────────────────────────
+
+parameter_types! {
+	// MUST match old leafchains runtime PalletId exactly -- sub-account derivation.
+	pub const RwaPalletId: PalletId = PalletId(*b"py/rwaaa");
+	pub const RwaAssetRegistrationDeposit: Balance = 100 * DOLLARS;
+	pub const RwaMaxAssetsPerOwner: u32 = 100;
+	pub const RwaMaxMetadataLen: u32 = 256;
+	pub const RwaMaxSlashRecipients: u32 = 5;
+	pub const RwaMaxGroupSize: u32 = 10;
+	pub const RwaMaxPendingApprovals: u32 = 100;
+	// MUST be >= old leafchains value (50) for BoundedVec decode safety.
+	pub const RwaMaxSunsettingPerBlock: u32 = 50;
+	// Match old leafchains (50). Can increase later but never decrease.
+	pub const RwaMaxParticipationsPerHolder: u32 = 50;
+	pub const RwaMinParticipationDeposit: Balance = 1 * DOLLARS;
+}
+
+impl pallet_rwa::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type AssetId = u32;
+	type NativeCurrency = Balances;
+	type Fungibles = Assets;
+	type AdminOrigin = EnsureRoot<AccountId>;
+	type ForceOrigin = EnsureRoot<AccountId>;
+	type PalletId = RwaPalletId;
+	type AssetRegistrationDeposit = RwaAssetRegistrationDeposit;
+	type MaxAssetsPerOwner = RwaMaxAssetsPerOwner;
+	type MaxMetadataLen = RwaMaxMetadataLen;
+	type MaxSlashRecipients = RwaMaxSlashRecipients;
+	type MaxGroupSize = RwaMaxGroupSize;
+	type MaxPendingApprovals = RwaMaxPendingApprovals;
+	type MaxSunsettingPerBlock = RwaMaxSunsettingPerBlock;
+	type MaxParticipationsPerHolder = RwaMaxParticipationsPerHolder;
+	type MinParticipationDeposit = RwaMinParticipationDeposit;
+	type WeightInfo = pallet_rwa::weights::SubstrateWeight<Runtime>;
+	type ParticipationFilter = ();
+	type AssetLifecycleGuard = CrowdfundingLifecycleGuard;
+}
+
+// ── Crowdfunding Pallet ─────────────────────────────────────────────────
+
+parameter_types! {
+	// MUST match old leafchains runtime PalletId exactly -- sub-account derivation.
+	pub const CrowdfundingPalletId: PalletId = PalletId(*b"py/crwdf");
+	pub const CfCampaignCreationDeposit: Balance = 50 * DOLLARS;
+	// MUST be >= old leafchains value (20) for BoundedVec decode safety.
+	pub const CfMaxCampaignsPerCreator: u32 = 20;
+	pub const CfMinCampaignDuration: BlockNumber = 1 * DAYS;
+	pub const CfMaxCampaignDuration: BlockNumber = 90 * DAYS;
+	pub const CfEarlyWithdrawalPenaltyBps: u16 = 100;
+	pub const CfMaxMilestones: u32 = 10;
+	pub const CfMaxEligibilityRules: u32 = 5;
+	pub const CfMaxNftSets: u32 = 5;
+	pub const CfMaxNftsPerSet: u32 = 5;
+	// MUST be >= old leafchains value (50) for BoundedVec decode safety.
+	pub const CfMaxInvestmentsPerInvestor: u32 = 50;
+	pub const CfProtocolFeeBps: u16 = 200;
+	pub const CfMaxWhitelistSize: u32 = 500;
+	// WARNING: This is the burn address [0u8;32]. MUST be reconfigured via
+	// set_protocol_config before any campaigns are created on mainnet.
+	pub CfProtocolFeeRecipient: AccountId = AccountId::from([0u8; 32]);
+}
+
+impl pallet_crowdfunding::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type AssetId = u32;
+	type CollectionId = u32;
+	type ItemId = u32;
+	type NativeCurrency = Balances;
+	type Fungibles = Assets;
+	type NftInspect = Nfts;
+	type AdminOrigin = EnsureRoot<AccountId>;
+	type ForceOrigin = EnsureRoot<AccountId>;
+	type MilestoneApprover = EnsureRoot<AccountId>;
+	type PalletId = CrowdfundingPalletId;
+	type CampaignCreationDeposit = CfCampaignCreationDeposit;
+	type MaxCampaignsPerCreator = CfMaxCampaignsPerCreator;
+	type MinCampaignDuration = CfMinCampaignDuration;
+	type MaxCampaignDuration = CfMaxCampaignDuration;
+	type EarlyWithdrawalPenaltyBps = CfEarlyWithdrawalPenaltyBps;
+	type MaxMilestones = CfMaxMilestones;
+	type MaxEligibilityRules = CfMaxEligibilityRules;
+	type MaxNftSets = CfMaxNftSets;
+	type MaxNftsPerSet = CfMaxNftsPerSet;
+	type MaxInvestmentsPerInvestor = CfMaxInvestmentsPerInvestor;
+	type ProtocolFeeBps = ConstU16<200>;
+	type ProtocolFeeRecipient = CfProtocolFeeRecipient;
+	type MaxWhitelistSize = CfMaxWhitelistSize;
+	type LicenseVerifier = RwaLicenseVerifier;
+	type WeightInfo = pallet_crowdfunding::weights::SubstrateWeight<Runtime>;
+}
+
 // Create the runtime by composing the FRAME pallets that were previously
 // configured.
 construct_runtime!(
@@ -783,6 +1339,9 @@ construct_runtime!(
 		AssetTxPayment: pallet_asset_tx_payment = 12,
 		Assets: pallet_assets = 13,
 		Nfts: pallet_nfts = 14,
+
+		// Treasury (present in on-chain metadata at index 19 since genesis, 0 data keys)
+		Treasury: pallet_treasury = 19,
 
 		// Collator support. The order of these 4 are important and shall not change.
 		Authorship: pallet_authorship = 20,
@@ -807,6 +1366,10 @@ construct_runtime!(
 		DmpQueue: cumulus_pallet_dmp_queue = 33,
 		MessageQueue: pallet_message_queue = 34,
 
+		// RWA + Crowdfunding (indices match Avatect mainnet deployment)
+		Rwa: pallet_rwa = 40,
+		Crowdfunding: pallet_crowdfunding = 41,
+
 		Sudo: pallet_sudo = 255,
 	}
 );
@@ -821,8 +1384,11 @@ mod benches {
 		[pallet_multisig, Multisig]
 		[pallet_identity, Identity]
 		[pallet_trustless_agent, TrustlessAgent]
+		[pallet_rwa, Rwa]
+		[pallet_crowdfunding, Crowdfunding]
 		[pallet_nfts, Nfts]
 		[pallet_proxy, Proxy]
+		[pallet_treasury, Treasury]
 		[pallet_session, SessionBench::<Runtime>]
 		[pallet_timestamp, Timestamp]
 		[pallet_collator_selection, CollatorSelection]
@@ -1021,6 +1587,71 @@ impl_runtime_apis! {
 
 		fn collection_attribute(collection: u32, key: Vec<u8>) -> Option<Vec<u8>> {
 			<Nfts as Inspect<AccountId>>::collection_attribute(&collection, &key)
+		}
+	}
+
+	impl pallet_rwa_runtime_api::RwaApi<Block, AccountId, Balance, BlockNumber, u32> for Runtime {
+		fn effective_participation_status(
+			asset_id: u32,
+			participation_id: u32,
+		) -> Option<pallet_rwa::ParticipationStatus<BlockNumber>> {
+			Rwa::effective_participation_status(asset_id, participation_id)
+		}
+
+		fn can_participate(
+			asset_id: u32,
+			who: AccountId,
+		) -> Result<(), pallet_rwa::CanParticipateError> {
+			Rwa::can_participate(asset_id, who)
+		}
+
+		fn assets_by_owner(owner: AccountId) -> Vec<u32> {
+			Rwa::assets_by_owner(owner)
+		}
+
+		fn participations_by_holder(holder: AccountId) -> Vec<(u32, u32)> {
+			Rwa::participations_by_holder(holder)
+		}
+
+		fn active_participant_count(asset_id: u32) -> u32 {
+			Rwa::active_participant_count(asset_id)
+		}
+	}
+
+	impl pallet_crowdfunding_runtime_api::CrowdfundingApi<Block, AccountId, Balance, BlockNumber, u32> for Runtime {
+		fn check_eligibility(
+			campaign_id: u32,
+			who: AccountId,
+		) -> Result<(), pallet_crowdfunding::EligibilityError> {
+			Crowdfunding::check_eligibility(campaign_id, who)
+		}
+
+		fn preview_withdrawal(
+			campaign_id: u32,
+			investor: AccountId,
+			amount: Balance,
+		) -> Option<pallet_crowdfunding::WithdrawalPreview<Balance>> {
+			Crowdfunding::preview_withdrawal(campaign_id, investor, amount)
+		}
+
+		fn campaign_summary(campaign_id: u32) -> Option<pallet_crowdfunding::CampaignSummary<Balance, BlockNumber>> {
+			Crowdfunding::campaign_summary(campaign_id)
+		}
+
+		fn campaigns_by_creator(creator: AccountId) -> Vec<u32> {
+			Crowdfunding::campaigns_by_creator(creator)
+		}
+
+		fn campaigns_by_investor(investor: AccountId) -> Vec<u32> {
+			Crowdfunding::campaigns_by_investor(investor)
+		}
+
+		fn get_investment(campaign_id: u32, investor: AccountId) -> Option<pallet_crowdfunding::Investment<Balance>> {
+			Crowdfunding::get_investment(campaign_id, investor)
+		}
+
+		fn get_protocol_config() -> (u16, AccountId) {
+			Crowdfunding::get_protocol_config()
 		}
 	}
 

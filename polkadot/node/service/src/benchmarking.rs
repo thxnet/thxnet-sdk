@@ -70,12 +70,10 @@ macro_rules! identify_chain {
 				#[cfg(feature = "thxnet-native")]
 				{
 					use thxnet_runtime as runtime;
-
-					let call = $generic_code;
-
+					let call =
+						runtime::RuntimeCall::System(frame_system::Call::remark { remark: vec![] });
 					Ok(thxnet_sign_call(call, $nonce, $current_block, $period, $genesis, $signer))
 				}
-
 				#[cfg(not(feature = "thxnet-native"))]
 				{
 					let _ = $nonce;
@@ -83,7 +81,6 @@ macro_rules! identify_chain {
 					let _ = $period;
 					let _ = $genesis;
 					let _ = $signer;
-
 					Err("`thxnet-native` feature not enabled")
 				}
 			},
@@ -222,6 +219,7 @@ fn westend_sign_call(
 		frame_system::CheckNonce::<runtime::Runtime>::from(nonce),
 		frame_system::CheckWeight::<runtime::Runtime>::new(),
 		pallet_transaction_payment::ChargeTransactionPayment::<runtime::Runtime>::from(0),
+		frame_metadata_hash_extension::CheckMetadataHash::<runtime::Runtime>::new(false),
 	);
 
 	let payload = runtime::SignedPayload::from_raw(
@@ -236,6 +234,7 @@ fn westend_sign_call(
 			(),
 			(),
 			(),
+			None,
 		),
 	);
 
@@ -274,6 +273,7 @@ fn rococo_sign_call(
 		frame_system::CheckNonce::<runtime::Runtime>::from(nonce),
 		frame_system::CheckWeight::<runtime::Runtime>::new(),
 		pallet_transaction_payment::ChargeTransactionPayment::<runtime::Runtime>::from(0),
+		frame_metadata_hash_extension::CheckMetadataHash::<runtime::Runtime>::new(false),
 	);
 
 	let payload = runtime::SignedPayload::from_raw(
@@ -288,6 +288,7 @@ fn rococo_sign_call(
 			(),
 			(),
 			(),
+			None,
 		),
 	);
 

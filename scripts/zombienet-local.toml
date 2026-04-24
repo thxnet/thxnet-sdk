@@ -23,17 +23,17 @@ chain = "thxnet-local"
 default_command = "{{RELAY_BIN}}"
 default_args = ["-lparachain=debug"]
 
-  [[relaychain.nodes]]
-  name = "alice"
-  validator = true
-  rpc_port = 19944
-  p2p_port = 30333
+[[relaychain.nodes]]
+name = "alice"
+validator = true
+rpc_port = 19944
+p2p_port = 30333
 
-  [[relaychain.nodes]]
-  name = "bob"
-  validator = true
-  rpc_port = 19945
-  p2p_port = 30334
+[[relaychain.nodes]]
+name = "bob"
+validator = true
+rpc_port = 19945
+p2p_port = 30334
 
 [[parachains]]
 id = 2000
@@ -41,19 +41,19 @@ chain = "leafchain-a-local"
 cumulus_based = true
 add_to_genesis = false
 
-  [parachains.collator]
-  name = "leafchain-a-collator-1"
-  command = "{{COLLATOR_BIN}}"
-  args = ["-lparachain=debug,xcm=trace"]
-  rpc_port = 19946
-  p2p_port = 31333
+[parachains.collator]
+name = "leafchain-a-collator-1"
+command = "{{COLLATOR_BIN}}"
+args = ["-lparachain=debug,xcm=trace"]
+rpc_port = 19946
+p2p_port = 31333
 
-  [[parachains.collators]]
-  name = "leafchain-a-collator-2"
-  command = "{{COLLATOR_BIN}}"
-  args = ["-lparachain=debug,xcm=trace"]
-  rpc_port = 19947
-  p2p_port = 31334
+[[parachains.collators]]
+name = "leafchain-a-collator-2"
+command = "{{COLLATOR_BIN}}"
+args = ["-lparachain=debug,xcm=trace"]
+rpc_port = 19947
+p2p_port = 31334
 
 [[parachains]]
 id = 2001
@@ -61,19 +61,19 @@ chain = "leafchain-b-local"
 cumulus_based = true
 add_to_genesis = false
 
-  [parachains.collator]
-  name = "leafchain-b-collator-1"
-  command = "{{COLLATOR_BIN}}"
-  args = ["-lparachain=debug,xcm=trace"]
-  rpc_port = 19948
-  p2p_port = 32333
+[parachains.collator]
+name = "leafchain-b-collator-1"
+command = "{{COLLATOR_BIN}}"
+args = ["-lparachain=debug,xcm=trace"]
+rpc_port = 19948
+p2p_port = 32333
 
-  [[parachains.collators]]
-  name = "leafchain-b-collator-2"
-  command = "{{COLLATOR_BIN}}"
-  args = ["-lparachain=debug,xcm=trace"]
-  rpc_port = 19949
-  p2p_port = 32334
+[[parachains.collators]]
+name = "leafchain-b-collator-2"
+command = "{{COLLATOR_BIN}}"
+args = ["-lparachain=debug,xcm=trace"]
+rpc_port = 19949
+p2p_port = 32334
 
 # HRMP channels: NOT in genesis config because add_to_genesis=false means
 # paras don't exist at genesis time, causing OpenHrmpChannelInvalidRecipient.

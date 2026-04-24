@@ -1,0 +1,5 @@
+endpoint: wss://node.testnet.thxnet.org/archive-001/ws
+port: 8100
+mock-signature-host: true
+db: ./chopsticks-db/rootchain-testnet.sqlite
+runtime-log-level: 3

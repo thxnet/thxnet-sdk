@@ -4,41 +4,57 @@ on:
   push:
     branches:
       - main
+      - develop
+      - release/*
+      - upgrade/*
+      - experiment/*
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  merge_group:
 
 env:
   CARGO_TERM_COLOR: always
-  CARGO_TARGET_DIR: /cache/cargo-target/check
-  CARGO_HOME: /cache/cargo-home
   WASM_BUILD_WORKSPACE_HINT: ${{ github.workspace }}
+  GIT_CONFIG_COUNT: "1"
+  GIT_CONFIG_KEY_0: safe.directory
+  GIT_CONFIG_VALUE_0: "*"
+  RUSTC_WRAPPER: sccache
+  CARGO_INCREMENTAL: "0"
+  SCCACHE_DIR: /home/runner/.cache/sccache/${{ github.head_ref || github.ref_name }}
+  SCCACHE_CACHE_SIZE: 300G
+
+permissions: {}
 
 concurrency:
-  group: rust-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
+  # File ownership cleanup is handled by the runner-level job-started hook
+  # (ACTIONS_RUNNER_HOOK_JOB_STARTED) — no per-workflow pre-cleanup needed.
+
   check:
     name: Cargo check (thxnet crates)
-    runs-on: self-hosted
+    runs-on: hetzner-thxnet
+    timeout-minutes: 60
     container:
       image: docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
       volumes:
-        - /data/ci-cache:/cache
+        - /home/runner/.cache/cargo-registry:/usr/local/cargo/registry
+        - /home/runner/.cache/cargo-git:/usr/local/cargo/git
+        - /home/runner/.cache/sccache-bin/sccache:/usr/local/bin/sccache
+        - /home/runner/.cache/sccache:/home/runner/.cache/sccache
     steps:
       - uses: actions/checkout@v5
 
-      - name: Cargo check — rootchain runtimes
+      - name: Cargo check — all thxnet crates
         run: |
-          cargo check \
+          cargo check --locked \
             --package thxnet-runtime \
-            --package thxnet-testnet-runtime
-
-      - name: Cargo check — leafchain
-        run: |
-          cargo check \
+            --package thxnet-testnet-runtime \
             --package general-runtime \
             --package thxnet-leafchain
 
-      - name: Clean build cache
+      - name: sccache stats
         if: always()
-        run: rm -rf /cache/cargo-target/check
+        run: sccache --show-stats 2>/dev/null || true

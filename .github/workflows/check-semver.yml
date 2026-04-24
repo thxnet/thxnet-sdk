@@ -1,0 +1,66 @@
+# Semver compatibility check for thxnet-sdk library crates.
+# Uses cargo-semver-checks to compare public API of pallets and runtime-api
+# crates against the main branch baseline. Catches unintended breaking
+# changes in crate APIs before merge.
+#
+# NOTE: continue-on-error is enabled during the v0.9.40 → v1.12.0 upgrade
+# since nearly all APIs have intentional breaking changes. Remove once the
+# upgrade lands and the new baseline is established on main.
+#
+# cf. polkadot-sdk .github/workflows/check-semver.yml
+
+name: Check Semver
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+      - release/*
+      - upgrade/*
+      - experiment/*
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  merge_group:
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check-semver:
+    name: Semver check — ${{ matrix.crate }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        crate:
+          # Custom pallets with public APIs
+          - pallet-crowdfunding
+          - pallet-crowdfunding-runtime-api
+          - pallet-dao
+          - pallet-rwa
+          - pallet-rwa-runtime-api
+          - pallet-trustless-agent
+          - pallet-finality-rescue
+          # Runtime constants (consumed by node & tooling)
+          - thxnet-runtime-constants
+          - thxnet-testnet-runtime-constants
+    env:
+      SKIP_WASM_BUILD: 1
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Fetch baseline branch
+        run: git fetch --no-tags --no-recurse-submodules --depth=1 origin main
+
+      - name: Check semver compatibility
+        uses: obi1kenobi/cargo-semver-checks-action@v2
+        with:
+          package: ${{ matrix.crate }}
+          baseline-rev: origin/main

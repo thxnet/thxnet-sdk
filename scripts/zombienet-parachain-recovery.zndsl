@@ -1,0 +1,62 @@
+Description: THXNet parachain offline recovery — verify parachain recovers after all collators go offline
+Network: ./scripts/zombienet-local.toml
+Creds: config
+
+# ═══════════════════════════════════════════════
+# Phase 1: Network Bootstrap
+# ═══════════════════════════════════════════════
+
+# Relay chain validators are up
+alice: is up within 30 seconds
+bob: is up within 30 seconds
+
+# Relay chain producing and finalizing blocks
+alice: reports substrate_block_height{status="finalized"} is at least 5 within 180 seconds
+
+# Parachain registered and producing blocks
+alice: parachain 2000 is registered within 300 seconds
+alice: parachain 2000 block height is at least 5 within 600 seconds
+
+# ═══════════════════════════════════════════════
+# Phase 2: Pre-Pause Baseline
+# ═══════════════════════════════════════════════
+
+# Record that both collators are healthy before taking them offline
+leafchain-a-collator-1: reports substrate_block_height{status="best"} is at least 5 within 120 seconds
+leafchain-a-collator-2: reports substrate_block_height{status="best"} is at least 5 within 120 seconds
+
+# ═══════════════════════════════════════════════
+# Phase 3: Full Parachain Offline (All Collators Paused)
+# ═══════════════════════════════════════════════
+
+# Pause BOTH collators — parachain 2000 should stop producing blocks entirely
+# This differs from resilience.zndsl which only pauses one collator
+leafchain-a-collator-1: pause
+leafchain-a-collator-2: pause
+
+# Relay chain continues producing and finalizing while parachain is offline
+# This proves the relay is unaffected by a single parachain going down
+sleep 60 seconds
+alice: reports substrate_block_height{status="finalized"} is at least 15 within 180 seconds
+
+# ═══════════════════════════════════════════════
+# Phase 4: Resume Collators
+# ═══════════════════════════════════════════════
+
+# Resume both collators — parachain should recover and resume block production
+leafchain-a-collator-1: resume
+leafchain-a-collator-2: resume
+
+# Allow time for collators to reconnect, sync, and begin producing again
+sleep 60 seconds
+
+# ═══════════════════════════════════════════════
+# Phase 5: Post-Recovery Verification
+# ═══════════════════════════════════════════════
+
+# Verify collators are healthy after resume
+leafchain-a-collator-1: js-script ./zombienet-js/verify-leafchain-upgrade.js within 120 seconds
+
+# Parachain continues producing blocks beyond the pre-pause baseline
+# (block height at least 10 proves recovery — we had at least 5 before pause)
+alice: parachain 2000 block height is at least 10 within 600 seconds

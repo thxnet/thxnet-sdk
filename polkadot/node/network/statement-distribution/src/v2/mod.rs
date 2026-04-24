@@ -37,7 +37,7 @@ use polkadot_node_primitives::{
 use polkadot_node_subsystem::{
 	messages::{
 		network_bridge_event::NewGossipTopology, CandidateBackingMessage, HypotheticalCandidate,
-		HypotheticalFrontierRequest, NetworkBridgeEvent, NetworkBridgeTxMessage,
+		HypotheticalMembershipRequest, NetworkBridgeEvent, NetworkBridgeTxMessage,
 		ProspectiveParachainsMessage,
 	},
 	overseer, ActivatedLeaf,
@@ -59,6 +59,8 @@ use sp_keystore::KeystorePtr;
 use fatality::Nested;
 use futures::{
 	channel::{mpsc, oneshot},
+	future::FutureExt,
+	select,
 	stream::FuturesUnordered,
 	SinkExt, StreamExt,
 };
@@ -73,6 +75,7 @@ use std::{
 
 use crate::{
 	error::{JfyiError, JfyiErrorResult},
+	metrics::Metrics,
 	LOG_TARGET,
 };
 use candidates::{BadAdvertisement, Candidates, PostConfirmation};
@@ -180,8 +183,8 @@ struct ActiveValidatorState {
 	index: ValidatorIndex,
 	// our validator group
 	group: GroupIndex,
-	// the assignment of our validator group, if any.
-	assignment: Option<ParaId>,
+	// the assignments of our validator group, if any.
+	assignments: Vec<ParaId>,
 	// the 'direct-in-group' communication at this relay-parent.
 	cluster_tracker: ClusterTracker,
 }
@@ -750,7 +753,7 @@ pub(crate) async fn handle_active_leaves_update<Context>(
 		}
 	}
 
-	new_leaf_fragment_tree_updates(ctx, state, activated.hash).await;
+	new_leaf_fragment_chain_updates(ctx, state, activated.hash).await;
 
 	Ok(())
 }
@@ -771,8 +774,8 @@ fn find_active_validator_state(
 	let our_group = groups.by_validator_index(validator_index)?;
 
 	let core_index = group_rotation_info.core_for_group(our_group, availability_cores.len());
-	let para_assigned_to_core = if let Some(claim_queue) = maybe_claim_queue {
-		claim_queue.get_claim_for(core_index, 0)
+	let paras_assigned_to_core = if let Some(claim_queue) = maybe_claim_queue {
+		claim_queue.iter_claims_for_core(&core_index).copied().collect()
 	} else {
 		availability_cores
 			.get(core_index.0 as usize)
@@ -784,6 +787,8 @@ fn find_active_validator_state(
 					.map(|scheduled_core| scheduled_core.para_id),
 				CoreState::Free | CoreState::Occupied(_) => None,
 			})
+			.into_iter()
+			.collect()
 	};
 	let group_validators = groups.get(our_group)?.to_owned();
 
@@ -791,7 +796,7 @@ fn find_active_validator_state(
 		active: Some(ActiveValidatorState {
 			index: validator_index,
 			group: our_group,
-			assignment: para_assigned_to_core,
+			assignments: paras_assigned_to_core,
 			cluster_tracker: ClusterTracker::new(group_validators, seconding_limit)
 				.expect("group is non-empty because we are in it; qed"),
 		}),
@@ -826,7 +831,16 @@ pub(crate) fn handle_deactivate_leaves(state: &mut State, leaves: &[Hash]) {
 	// clean up sessions based on everything remaining.
 	let sessions: HashSet<_> = state.per_relay_parent.values().map(|r| r.session).collect();
 	state.per_session.retain(|s, _| sessions.contains(s));
-	state.unused_topologies.retain(|s, _| sessions.contains(s));
+
+	let last_session_index = state.unused_topologies.keys().max().copied();
+	// Do not clean-up the last saved toplogy unless we moved to the next session
+	// This is needed because handle_deactive_leaves, gets also called when
+	// prospective_parachains APIs are not present, so we would actually remove
+	// the topology without using it because `per_relay_parent` is empty until
+	// prospective_parachains gets enabled
+	state
+		.unused_topologies
+		.retain(|s, _| sessions.contains(s) || last_session_index == Some(*s));
 }
 
 #[overseer::contextbounds(StatementDistribution, prefix=self::overseer)]
@@ -1184,10 +1198,10 @@ pub(crate) async fn share_local_statement<Context>(
 		None => return Ok(()),
 	};
 
-	let (local_index, local_assignment, local_group) =
+	let (local_index, local_assignments, local_group) =
 		match per_relay_parent.active_validator_state() {
 			None => return Err(JfyiError::InvalidShare),
-			Some(l) => (l.index, l.assignment, l.group),
+			Some(l) => (l.index, &l.assignments, l.group),
 		};
 
 	// Two possibilities: either the statement is `Seconded` or we already
@@ -1225,7 +1239,7 @@ pub(crate) async fn share_local_statement<Context>(
 		return Err(JfyiError::InvalidShare)
 	}
 
-	if local_assignment != Some(expected_para) || relay_parent != expected_relay_parent {
+	if !local_assignments.contains(&expected_para) || relay_parent != expected_relay_parent {
 		return Err(JfyiError::InvalidShare)
 	}
 
@@ -2166,12 +2180,11 @@ async fn determine_groups_per_para(
 	let n_cores = availability_cores.len();
 
 	// Determine the core indices occupied by each para at the current relay parent. To support
-	// on-demand parachains we also consider the core indices at next block if core has a candidate
-	// pending availability.
-	let para_core_indices: Vec<_> = if let Some(claim_queue) = maybe_claim_queue {
+	// on-demand parachains we also consider the core indices at next blocks.
+	let schedule: HashMap<CoreIndex, Vec<ParaId>> = if let Some(claim_queue) = maybe_claim_queue {
 		claim_queue
-			.iter_claims_at_depth(0)
-			.map(|(core_index, para)| (para, core_index))
+			.iter_all_claims()
+			.map(|(core_index, paras)| (*core_index, paras.iter().copied().collect()))
 			.collect()
 	} else {
 		availability_cores
@@ -2179,12 +2192,12 @@ async fn determine_groups_per_para(
 			.enumerate()
 			.filter_map(|(index, core)| match core {
 				CoreState::Scheduled(scheduled_core) =>
-					Some((scheduled_core.para_id, CoreIndex(index as u32))),
+					Some((CoreIndex(index as u32), vec![scheduled_core.para_id])),
 				CoreState::Occupied(occupied_core) =>
 					if max_candidate_depth >= 1 {
-						occupied_core
-							.next_up_on_available
-							.map(|scheduled_core| (scheduled_core.para_id, CoreIndex(index as u32)))
+						occupied_core.next_up_on_available.map(|scheduled_core| {
+							(CoreIndex(index as u32), vec![scheduled_core.para_id])
+						})
 					} else {
 						None
 					},
@@ -2195,16 +2208,19 @@ async fn determine_groups_per_para(
 
 	let mut groups_per_para = HashMap::new();
 	// Map from `CoreIndex` to `GroupIndex` and collect as `HashMap`.
-	for (para, core_index) in para_core_indices {
+	for (core_index, paras) in schedule {
 		let group_index = group_rotation_info.group_for_core(core_index, n_cores);
-		groups_per_para.entry(para).or_insert_with(Vec::new).push(group_index)
+
+		for para in paras {
+			groups_per_para.entry(para).or_insert_with(Vec::new).push(group_index);
+		}
 	}
 
 	groups_per_para
 }
 
 #[overseer::contextbounds(StatementDistribution, prefix=self::overseer)]
-async fn fragment_tree_update_inner<Context>(
+async fn fragment_chain_update_inner<Context>(
 	ctx: &mut Context,
 	state: &mut State,
 	active_leaf_hash: Option<Hash>,
@@ -2218,31 +2234,34 @@ async fn fragment_tree_update_inner<Context>(
 	};
 
 	// 2. find out which are in the frontier
-	let frontier = {
+	gum::debug!(
+		target: LOG_TARGET,
+		"Calling getHypotheticalMembership from statement distribution"
+	);
+	let candidate_memberships = {
 		let (tx, rx) = oneshot::channel();
-		ctx.send_message(ProspectiveParachainsMessage::GetHypotheticalFrontier(
-			HypotheticalFrontierRequest {
+		ctx.send_message(ProspectiveParachainsMessage::GetHypotheticalMembership(
+			HypotheticalMembershipRequest {
 				candidates: hypotheticals,
-				fragment_tree_relay_parent: active_leaf_hash,
-				backed_in_path_only: false,
+				fragment_chain_relay_parent: active_leaf_hash,
 			},
 			tx,
 		))
 		.await;
 
 		match rx.await {
-			Ok(frontier) => frontier,
+			Ok(candidate_memberships) => candidate_memberships,
 			Err(oneshot::Canceled) => return,
 		}
 	};
 	// 3. note that they are importable under a given leaf hash.
-	for (hypo, membership) in frontier {
-		// skip parablocks outside of the frontier
+	for (hypo, membership) in candidate_memberships {
+		// skip parablocks which aren't potential candidates
 		if membership.is_empty() {
 			continue
 		}
 
-		for (leaf_hash, _) in membership {
+		for leaf_hash in membership {
 			state.candidates.note_importable_under(&hypo, leaf_hash);
 		}
 
@@ -2286,31 +2305,31 @@ async fn fragment_tree_update_inner<Context>(
 }
 
 #[overseer::contextbounds(StatementDistribution, prefix=self::overseer)]
-async fn new_leaf_fragment_tree_updates<Context>(
+async fn new_leaf_fragment_chain_updates<Context>(
 	ctx: &mut Context,
 	state: &mut State,
 	leaf_hash: Hash,
 ) {
-	fragment_tree_update_inner(ctx, state, Some(leaf_hash), None, None).await
+	fragment_chain_update_inner(ctx, state, Some(leaf_hash), None, None).await
 }
 
 #[overseer::contextbounds(StatementDistribution, prefix=self::overseer)]
-async fn prospective_backed_notification_fragment_tree_updates<Context>(
+async fn prospective_backed_notification_fragment_chain_updates<Context>(
 	ctx: &mut Context,
 	state: &mut State,
 	para_id: ParaId,
 	para_head: Hash,
 ) {
-	fragment_tree_update_inner(ctx, state, None, Some((para_head, para_id)), None).await
+	fragment_chain_update_inner(ctx, state, None, Some((para_head, para_id)), None).await
 }
 
 #[overseer::contextbounds(StatementDistribution, prefix=self::overseer)]
-async fn new_confirmed_candidate_fragment_tree_updates<Context>(
+async fn new_confirmed_candidate_fragment_chain_updates<Context>(
 	ctx: &mut Context,
 	state: &mut State,
 	candidate: HypotheticalCandidate,
 ) {
-	fragment_tree_update_inner(ctx, state, None, None, Some(vec![candidate])).await
+	fragment_chain_update_inner(ctx, state, None, None, Some(vec![candidate])).await
 }
 
 struct ManifestImportSuccess<'a> {
@@ -2853,7 +2872,7 @@ pub(crate) async fn handle_backed_candidate_message<Context>(
 	.await;
 
 	// Search for children of the backed candidate to request.
-	prospective_backed_notification_fragment_tree_updates(
+	prospective_backed_notification_fragment_chain_updates(
 		ctx,
 		state,
 		confirmed.para_id(),
@@ -2944,7 +2963,8 @@ async fn apply_post_confirmation<Context>(
 		post_confirmation.hypothetical.relay_parent(),
 	)
 	.await;
-	new_confirmed_candidate_fragment_tree_updates(ctx, state, post_confirmation.hypothetical).await;
+	new_confirmed_candidate_fragment_chain_updates(ctx, state, post_confirmation.hypothetical)
+		.await;
 }
 
 /// Dispatch pending requests for candidate data & statements.
@@ -3173,8 +3193,8 @@ pub(crate) async fn handle_response<Context>(
 
 	let confirmed = state.candidates.get_confirmed(&candidate_hash).expect("just confirmed; qed");
 
-	// Although the candidate is confirmed, it isn't yet on the
-	// hypothetical frontier of the fragment tree. Later, when it is,
+	// Although the candidate is confirmed, it isn't yet a
+	// hypothetical member of the fragment chain. Later, when it is,
 	// we will import statements.
 	if !confirmed.is_importable(None) {
 		return
@@ -3414,35 +3434,61 @@ pub(crate) struct ResponderMessage {
 pub(crate) async fn respond_task(
 	mut receiver: IncomingRequestReceiver<AttestedCandidateRequest>,
 	mut sender: mpsc::Sender<ResponderMessage>,
+	metrics: Metrics,
 ) {
 	let mut pending_out = FuturesUnordered::new();
+	let mut active_peers = HashSet::new();
+
 	loop {
-		// Ensure we are not handling too many requests in parallel.
-		if pending_out.len() >= MAX_PARALLEL_ATTESTED_CANDIDATE_REQUESTS as usize {
-			// Wait for one to finish:
-			pending_out.next().await;
-		}
+		select! {
+			// New request
+			request_result = receiver.recv(|| vec![COST_INVALID_REQUEST]).fuse() => {
+				let request = match request_result.into_nested() {
+					Ok(Ok(v)) => v,
+					Err(fatal) => {
+						gum::debug!(target: LOG_TARGET, error = ?fatal, "Shutting down request responder");
+						return
+					},
+					Ok(Err(jfyi)) => {
+						gum::debug!(target: LOG_TARGET, error = ?jfyi, "Decoding request failed");
+						continue
+					},
+				};
 
-		let req = match receiver.recv(|| vec![COST_INVALID_REQUEST]).await.into_nested() {
-			Ok(Ok(v)) => v,
-			Err(fatal) => {
-				gum::debug!(target: LOG_TARGET, error = ?fatal, "Shutting down request responder");
-				return
-			},
-			Ok(Err(jfyi)) => {
-				gum::debug!(target: LOG_TARGET, error = ?jfyi, "Decoding request failed");
-				continue
-			},
-		};
+				// If peer currently being served drop request
+				if active_peers.contains(&request.peer) {
+					gum::trace!(target: LOG_TARGET, "Peer already being served, dropping request");
+					metrics.on_request_dropped_peer_rate_limit();
+					continue
+				}
 
-		let (pending_sent_tx, pending_sent_rx) = oneshot::channel();
-		if let Err(err) = sender
-			.feed(ResponderMessage { request: req, sent_feedback: pending_sent_tx })
-			.await
-		{
-			gum::debug!(target: LOG_TARGET, ?err, "Shutting down responder");
-			return
+				// If we are over parallel limit wait for one to finish
+				if pending_out.len() >= MAX_PARALLEL_ATTESTED_CANDIDATE_REQUESTS as usize {
+					gum::trace!(target: LOG_TARGET, "Over max parallel requests, waiting for one to finish");
+					metrics.on_max_parallel_requests_reached();
+					let (_, peer) = pending_out.select_next_some().await;
+					active_peers.remove(&peer);
+				}
+
+				// Start serving the request
+				let (pending_sent_tx, pending_sent_rx) = oneshot::channel();
+				let peer = request.peer;
+				if let Err(err) = sender
+					.feed(ResponderMessage { request, sent_feedback: pending_sent_tx })
+					.await
+				{
+					gum::debug!(target: LOG_TARGET, ?err, "Shutting down responder");
+					return
+				}
+				let future_with_peer = pending_sent_rx.map(move |result| (result, peer));
+				pending_out.push(future_with_peer);
+				active_peers.insert(peer);
+			},
+			// Request served/finished
+			result = pending_out.select_next_some() => {
+				let (_, peer) = result;
+				active_peers.remove(&peer);
+			},
 		}
-		pending_out.push(pending_sent_rx);
 	}
 }

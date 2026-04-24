@@ -1,0 +1,54 @@
+# Per-runtime feature alignment check using cargo-featalign.
+# Complements the workspace-wide zepter propagation lint in fmt-check.yml:
+# zepter catches missing feature forwarding across workspace crates;
+# featalign verifies that a specific runtime crate's full dependency tree
+# has consistent std/try-runtime/runtime-benchmarks activation.
+#
+# cf. polkadot-sdk .github/workflows/check-features.yml
+
+name: Check Features
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+      - release/*
+      - upgrade/*
+      - experiment/*
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  merge_group:
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check-features:
+    name: Feature alignment — ${{ matrix.runtime }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runtime: thxnet-runtime
+            crate: thxnet/runtime/thxnet
+          - runtime: thxnet-testnet-runtime
+            crate: thxnet/runtime/thxnet-testnet
+          - runtime: general-runtime
+            crate: thxnet/leafchain/runtime/general
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Check feature alignment
+        uses: hack-ink/cargo-featalign-action@bea88a864d6ca7d0c53c26f1391ce1d431dc7f34 # v0.1.1
+        with:
+          crate: ${{ matrix.crate }}
+          features: std,runtime-benchmarks,try-runtime
+          ignore: sc-executor
+          default-std: true
