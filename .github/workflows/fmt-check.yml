@@ -54,7 +54,7 @@ jobs:
 
   zepter:
     name: Feature propagation
-    runs-on: hetzner-thxnet-light
+    runs-on: hetzner-thxnet
     timeout-minutes: 10
     container:
       image: docker.io/paritytech/ci-unified:bullseye-1.88.0-2025-06-27-v202511141243
