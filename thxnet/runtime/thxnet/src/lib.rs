@@ -155,7 +155,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("thxnet"),
 	impl_name: create_runtime_str!("thxnet"),
 	authoring_version: 0,
-	spec_version: 125_120_005,
+	spec_version: 125_120_006,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 25,
@@ -2545,6 +2545,99 @@ pub mod migrations {
 		}
 	}
 
+	/// Enable async backing + coretime core assignment atomically at setCode.
+	///
+	/// Mirrors the `thxnet-testnet-runtime` migration of the same name but adapted
+	/// for mainnet topology. Needed because v0.9.40 mainnet Configuration pallet
+	/// doesn't have `async_backing_params` or the new `scheduler_params` fields;
+	/// the v4 → v12 migration chain adds them with zero defaults, which halts
+	/// parachain scheduling without explicit values.
+	///
+	/// Submitting `configuration.setCoretimeCores(N)` + related extrinsics after
+	/// setCode incurs a 2-session activation delay via `PendingConfigs` — ~8 hours
+	/// on mainnet (4h epoch × 2 sessions). During that window every parachain is
+	/// halted. Unacceptable for prod. This migration writes `ActiveConfig`
+	/// directly, so parachain scheduling resumes on the very next block.
+	///
+	/// **Topology-aware:** preserves any pre-configured non-zero values so
+	/// operators can pre-stage config via sudo if they want, and only writes
+	/// defaults where fields are at the v0.9.40-era zero.
+	///
+	/// - `num_cores`: default = `Parachains::get().len().max(1)`; preserved if ≥1.
+	/// - `max_validators_per_core`: preserved if `Some(_)`. If None and topology is large (≥15
+	///   active validators, ≥3 cores), set to `Some(5)` (polkadot canonical); otherwise leave None
+	///   (small topology).
+	/// - `scheduling_lookahead`: ensure ≥1.
+	/// - `async_backing_params`: ensure `(max_candidate_depth ≥ 1, allowed_ancestry_len ≥ 2)`.
+	/// - `node_features`: always force bits 0, 1, 3 — critical for stable2512 collators, bit 3
+	///   (CandidateReceiptV2) especially — without it validators silently reject all v2 collations
+	///   and paras stall at block 0.
+	///
+	/// Also clears `ClaimQueue` so the scheduler rebuilds from the new config on
+	/// the next block without session-rotation wait.
+	pub struct EnableAsyncBackingAndCoretime;
+	impl frame_support::traits::OnRuntimeUpgrade for EnableAsyncBackingAndCoretime {
+		fn on_runtime_upgrade() -> Weight {
+			use primitives::AsyncBackingParams;
+
+			let para_count = parachains_paras::Parachains::<Runtime>::get().len();
+			let default_num_cores = core::cmp::max(para_count, 1) as u32;
+
+			let active_validators =
+				parachains_shared::ActiveValidatorKeys::<Runtime>::decode_len().unwrap_or(0) as u32;
+
+			parachains_configuration::ActiveConfig::<Runtime>::mutate(|cfg| {
+				if cfg.scheduler_params.num_cores == 0 {
+					cfg.scheduler_params.num_cores = default_num_cores;
+				}
+
+				if cfg.scheduler_params.max_validators_per_core.is_none() &&
+					active_validators >= 15 &&
+					cfg.scheduler_params.num_cores >= 3
+				{
+					cfg.scheduler_params.max_validators_per_core = Some(5);
+				}
+
+				if cfg.scheduler_params.lookahead < 1 {
+					cfg.scheduler_params.lookahead = 1;
+				}
+
+				if cfg.async_backing_params.max_candidate_depth < 1 {
+					cfg.async_backing_params.max_candidate_depth = 1;
+				}
+				if cfg.async_backing_params.allowed_ancestry_len < 2 {
+					cfg.async_backing_params.allowed_ancestry_len = 2;
+				}
+
+				if cfg.node_features.len() < 4 {
+					cfg.node_features.resize(4, false);
+				}
+				cfg.node_features.set(0, true);
+				cfg.node_features.set(1, true);
+				cfg.node_features.set(3, true);
+			});
+
+			parachains_scheduler::ClaimQueue::<Runtime>::kill();
+
+			let cfg = parachains_configuration::ActiveConfig::<Runtime>::get();
+			log::info!(
+				target: "runtime",
+				"EnableAsyncBackingAndCoretime (mainnet): num_cores={}, \
+				 max_vals_per_core={:?}, lookahead={}, \
+				 async_backing=(depth={}, ancestry={}), node_features[0,1,3]=true, \
+				 ClaimQueue cleared, active_validators={}",
+				cfg.scheduler_params.num_cores,
+				cfg.scheduler_params.max_validators_per_core,
+				cfg.scheduler_params.lookahead,
+				cfg.async_backing_params.max_candidate_depth,
+				cfg.async_backing_params.allowed_ancestry_len,
+				active_validators,
+			);
+
+			<Runtime as frame_system::Config>::DbWeight::get().reads_writes(2, 2)
+		}
+	}
+
 	/// Migrations for v1.12.0 → stable2512.
 	type MigrationsStable2512 = (
 		parachains_shared::migration::MigrateToV1<Runtime>,
@@ -2561,6 +2654,9 @@ pub mod migrations {
 		// Uses ThxnetMigrateToCoretime wrapper which skips the DMP post_upgrade check
 		// (THXNet has no coretime chain, so XCM send always fails).
 		ThxnetMigrateToCoretime,
+		// THXNet: write async-backing + node_features config atomically (no 2-session wait).
+		// Topology-aware; preserves any operator-set values.
+		EnableAsyncBackingAndCoretime,
 		// On-demand parachain storage v0→v1
 		parachains_on_demand::migration::MigrateV0ToV1<Runtime>,
 	);
