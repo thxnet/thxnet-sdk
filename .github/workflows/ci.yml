@@ -539,7 +539,11 @@ jobs:
         run: |
           result="${{ needs.try-runtime.result }}"
           echo "Matrix result: ${result}"
-          if [[ "${result}" != "success" ]]; then
+          # Treat 'skipped' as success: the heavy try-runtime matrix is gated to
+          # the upgrade/release/experiment/feat/endgame branch families. On other
+          # branches (incl. workflow_dispatch on non-matching refs) every matrix
+          # row is correctly skipped — that's the intended behaviour, not a fail.
+          if [[ "${result}" != "success" && "${result}" != "skipped" ]]; then
             echo "::error::try-runtime matrix failed (result=${result})"
             exit 1
           fi
