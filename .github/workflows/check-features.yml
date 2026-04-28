@@ -9,13 +9,6 @@
 name: Check Features
 
 on:
-  push:
-    branches:
-      - main
-      - develop
-      - release/*
-      - upgrade/*
-      - experiment/*
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
   merge_group:
@@ -30,6 +23,11 @@ concurrency:
 jobs:
   check-features:
     name: Feature alignment — ${{ matrix.runtime }}
+    # runs-on: ubuntu-latest required because hack-ink/cargo-featalign v0.6.2
+    # ships a prebuilt binary linked against glibc >= 2.34. The ARC runner
+    # container (paritytech/ci-unified:bullseye-…) is Debian 11 with glibc 2.31,
+    # so the binary fails to load on ARC. No bookworm variant of ci-unified
+    # exists yet. Revisit once a glibc >= 2.34 ARC container is available.
     runs-on: ubuntu-latest
     timeout-minutes: 15
     strategy:

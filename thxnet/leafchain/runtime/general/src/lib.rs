@@ -178,6 +178,35 @@ impl frame_support::traits::OnRuntimeUpgrade for InitDmpQueueStorageVersion {
 /// - All other chains: on-chain v0, ZERO Crowdfunding data. Stamp is trivially safe.
 /// - Sand testnet: Crowdfunding pallet was never deployed. On-chain reads as v0. Stamp is trivially
 ///   safe.
+/// Clear stale ParachainSystem::HostConfiguration.
+///
+/// v0.9.40-era cumulus stored `AbridgedHostConfiguration` WITHOUT `async_backing_params`
+/// (9 fields). v1.12.0 cumulus adds `async_backing_params` (10 fields). Post-setCode,
+/// the new runtime tries to decode old-format bytes → "Not enough data to fill buffer"
+/// → block production halts. Every parachain block re-populates this storage from the
+/// relay inherent, so killing the stored value is safe — the next block writes fresh
+/// bytes in the new format.
+pub struct ClearStaleHostConfiguration;
+impl frame_support::traits::OnRuntimeUpgrade for ClearStaleHostConfiguration {
+	fn on_runtime_upgrade() -> Weight {
+		// ParachainSystem::HostConfiguration = twox128("ParachainSystem") +
+		// twox128("HostConfiguration") Hardcoded since hex-literal is behind runtime-benchmarks
+		// feature flag.
+		let key: [u8; 32] = [
+			0x45, 0x32, 0x3d, 0xf7, 0xcc, 0x47, 0x15, 0x0b, 0x39, 0x30, 0xe2, 0x66, 0x6b, 0x0a,
+			0xa3, 0x13, 0xc5, 0x22, 0x23, 0x18, 0x80, 0x23, 0x8a, 0x0c, 0x56, 0x02, 0x1b, 0x87,
+			0x44, 0xa0, 0x07, 0x43,
+		];
+		frame_support::storage::unhashed::kill(&key);
+		log::info!(
+			target: "runtime::parachain_system",
+			"ClearStaleHostConfiguration: killed stale AbridgedHostConfiguration; \
+			 next block will re-populate from relay inherent with new format",
+		);
+		<Runtime as frame_system::Config>::DbWeight::get().writes(1)
+	}
+}
+
 pub struct CrowdfundingStampOrMigrateToV3;
 impl frame_support::traits::OnRuntimeUpgrade for CrowdfundingStampOrMigrateToV3 {
 	fn on_runtime_upgrade() -> Weight {
@@ -234,6 +263,9 @@ const IDENTITY_MIGRATION_KEY_LIMIT: u64 = u64::MAX;
 /// Each migration is version-guarded internally (VersionedMigration or manual check).
 /// Including all steps is safe — guards auto-skip when on-chain version doesn't match.
 pub type Migrations = (
+	// Clear stale ParachainSystem::HostConfiguration (must run FIRST before any
+	// block post-upgrade tries to decode the old-format bytes).
+	ClearStaleHostConfiguration,
 	// ── Frame / Cumulus pallet migrations ──
 	// CollatorSelection: invulnerable storage format change (v0→v1)
 	pallet_collator_selection::migration::v1::MigrateToV1<Runtime>,
@@ -247,6 +279,8 @@ pub type Migrations = (
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 	// CollatorSelection v1→v2 (Candidates → CandidateList)
 	pallet_collator_selection::migration::v2::MigrationToV2<Runtime>,
+	// ParachainSystem: extend HostConfiguration with async_backing_params (v2→v3)
+	cumulus_pallet_parachain_system::migration::Migration<Runtime>,
 	// DmpQueue: force-stamp StorageVersion to v2 (all chains have 0 DmpQueue data)
 	InitDmpQueueStorageVersion,
 	// Identity: username/authority feature migration (v0→v1)

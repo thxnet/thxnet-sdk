@@ -157,7 +157,7 @@ mod v1 {
 		}
 	}
 
-	fn add_to_claimqueue<T: Config>(core_idx: CoreIndex, pe: ParasEntry<BlockNumberFor<T>>) {
+	fn add_to_claim_queue<T: Config>(core_idx: CoreIndex, pe: ParasEntry<BlockNumberFor<T>>) {
 		ClaimQueue::<T>::mutate(|la| {
 			la.entry(core_idx).or_default().push_back(Some(pe));
 		});
@@ -179,7 +179,7 @@ mod v1 {
 				let core_idx = core_assignment.core;
 				let assignment = V0Assignment { para_id: core_assignment.para_id };
 				let pe = v1::ParasEntry::new(assignment, now);
-				v1::add_to_claimqueue::<T>(core_idx, pe);
+				v1::add_to_claim_queue::<T>(core_idx, pe);
 			}
 
 			let parachains = paras::Parachains::<T>::get();
@@ -248,7 +248,7 @@ mod v1 {
 				.count();
 
 			ensure!(
-				Pallet::<T>::claimqueue_len() as u32 + availability_cores_waiting as u32 ==
+				Pallet::<T>::claim_queue_len() as u32 + availability_cores_waiting as u32 ==
 					expected_len,
 				"ClaimQueue and AvailabilityCores should have the correct length",
 			);

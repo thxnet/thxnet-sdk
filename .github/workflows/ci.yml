@@ -173,7 +173,7 @@ jobs:
         run: sccache --show-stats
 
       - name: Upload binaries
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: binaries
           retention-days: 3
@@ -184,7 +184,7 @@ jobs:
             target/release/thxnet-leafchain
 
       - name: Upload WASM runtimes
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: wasm-runtimes
           retention-days: 3
@@ -210,7 +210,7 @@ jobs:
       - uses: actions/checkout@v5
 
       - name: Download binaries
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v8
         with:
           name: binaries
           path: target/release
@@ -229,7 +229,7 @@ jobs:
 
       - name: Docker metadata
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ${{ env.REGISTRY }}/${{ env.ROOTCHAIN_IMAGE }}
           tags: |
@@ -241,7 +241,7 @@ jobs:
             type=sha,prefix=
 
       - name: Build & push rootchain image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: thxnet/docker/polkadot/polkadot_injected.Dockerfile
@@ -266,7 +266,7 @@ jobs:
       - uses: actions/checkout@v5
 
       - name: Download binaries
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v8
         with:
           name: binaries
           path: target/release
@@ -285,7 +285,7 @@ jobs:
 
       - name: Docker metadata
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ${{ env.REGISTRY }}/${{ env.LEAFCHAIN_IMAGE }}
           tags: |
@@ -297,7 +297,7 @@ jobs:
             type=sha,prefix=
 
       - name: Build & push leafchain image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: thxnet/docker/leafchain/leafchain_injected.Dockerfile
@@ -333,7 +333,7 @@ jobs:
           password: ${{ secrets.PACKAGES_TOKEN }}
 
       - name: Download WASM runtimes
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v8
         with:
           name: wasm-runtimes
           path: wasm
@@ -367,7 +367,10 @@ jobs:
             --artifact-type application/wasm \
             "${WASM_FILE}:application/wasm"
 
-  # ─── Upgrade tests (upgrade/*, experiment/*, feat/endgame* branches) ─
+  # ─── Upgrade tests (upgrade/*, experiment/*, feat/endgame*, release/* branches) ─
+  # Also triggers on PRs INTO main or any release/* branch — PRs targeting a
+  # release line are high-stakes and must receive full try-runtime coverage
+  # before merge, not just on the post-merge push.
 
   build-upgrade-extras:
     name: Build try-runtime & fast-runtime
@@ -380,7 +383,8 @@ jobs:
       startsWith(github.head_ref || github.ref_name, 'feat/endgame') ||
       github.ref_name == 'main' ||
       github.ref_name == 'develop' ||
-      github.base_ref == 'main'
+      github.base_ref == 'main' ||
+      startsWith(github.base_ref, 'release/')
     runs-on: hetzner-thxnet
     container:
       image: docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
@@ -422,31 +426,59 @@ jobs:
           cp target/release/polkadot-execute-worker /tmp/fast-runtime-bins/
 
       - name: Upload try-runtime WASMs
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: try-runtime-wasm
           retention-days: 3
           path: /tmp/try-runtime-wasm/
 
       - name: Upload fast-runtime binaries
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: fast-runtime-bins
           retention-days: 3
           path: /tmp/fast-runtime-bins/
 
   try-runtime:
-    name: try-runtime migration tests
+    name: try-runtime (${{ matrix.chain }})
     needs: [preflight, build-upgrade-extras]
     runs-on: hetzner-thxnet
     permissions:
       contents: read
-    timeout-minutes: 120
+    # Bumped from 45 → 90 after enabling idempotency testing: the previous
+    # 45-min budget assumed idempotency was silently skipped (bug in
+    # snapshot_supported() fixed in Wave 1). On some leafchains the full
+    # sequence (migration + idempotency dual-pass + pallet-matrix) now
+    # clears 45 min. 90 gives headroom without being gratuitous.
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      max-parallel: 11
+      matrix:
+        chain:
+          - rootchain-testnet
+          - rootchain-mainnet
+          - leafchain-thx-testnet
+          - leafchain-thx-mainnet
+          - leafchain-sand-testnet
+          - leafchain-avatect-mainnet
+          - leafchain-lmt-testnet
+          - leafchain-lmt-mainnet
+          - leafchain-ecq-testnet
+          - leafchain-ecq-mainnet
+          - leafchain-izutsuya-testnet
     env:
-      SNAPSHOT_DIR: /home/runner/.cache/try-runtime-snapshots
-      SNAPSHOT_MAX_AGE_HOURS: "24"
-      SNAPSHOT_MAX_SIZE_GB: "50"
-      KEEP_SNAPSHOTS: "1"
+      # Use /tmp (container-local, always writable, fresh per ephemeral ARC
+      # pod) instead of /home/runner/.cache which is a hostPath mount shared
+      # across pods with leftover ownership from previous runs that the new
+      # ephemeral pod UID cannot write into. The old sequential job silently
+      # tolerated `tee: Permission denied` on the cache path; the parallel
+      # matrix's per-chain `mkdir -p` fails hard on the same condition.
+      #
+      # NOTE: cannot use ${{ runner.temp }} here — `runner.*` context is only
+      # available inside steps, not at job/workflow-level env. `/tmp` at a
+      # fixed path works because ARC pods don't mount the host /tmp.
+      SNAPSHOT_DIR: /tmp/try-runtime-snapshots/${{ matrix.chain }}
       SKIP_BUILD: "1"
       TRY_RUNTIME_BIN: /home/runner/.cargo/bin/try-runtime
       CARGO_TARGET_DIR: /tmp/try-runtime-artifacts
@@ -465,13 +497,11 @@ jobs:
       - uses: actions/checkout@v5
 
       - name: Download try-runtime WASMs
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v8
         with:
           name: try-runtime-wasm
           path: /tmp/try-runtime-wasm
 
-      # Bridge artifact filenames to the directory layout the script expects:
-      #   ${CARGO_TARGET_DIR}/release/wbuild/<pkg>/<standard_wasm_name>
       - name: Stage WASMs for script
         run: |
           WBUILD="${CARGO_TARGET_DIR}/release/wbuild"
@@ -488,64 +518,100 @@ jobs:
       - name: Prepare snapshot directory
         run: mkdir -p "${SNAPSHOT_DIR}"
 
-      # ── Basic migration tests (live or from snapshot) ──────────────────
-      # On the persistent Hetzner runner, snapshots survive between runs.
-      # If fresh snapshots exist (<24h), use the fast path; otherwise fetch live state.
-      - name: Detect snapshot capability
-        id: snapshot-cap
-        run: |
-          chmod +x scripts/try-runtime-test.sh
-          # Same logic as snapshot_supported() in scripts/try-runtime-test.sh:
-          # check whether try-runtime's `on-runtime-upgrade live` subcommand
-          # advertises the --create-snapshot flag.
-          TRY_RUNTIME_BIN="${TRY_RUNTIME_BIN:-try-runtime}"
-          if command -v "${TRY_RUNTIME_BIN}" &>/dev/null \
-             && "${TRY_RUNTIME_BIN}" on-runtime-upgrade live --help 2>&1 | grep -q -- '--create-snapshot'; then
-            echo "supported=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "supported=false" >> "$GITHUB_OUTPUT"
-          fi
+      - name: "Migration test (live state) — ${{ matrix.chain }}"
+        run: scripts/try-runtime-test.sh "test-${{ matrix.chain }}"
 
-      - name: Check for existing snapshots
-        id: snapshots
-        run: |
-          FRESH_COUNT=$( { find "${SNAPSHOT_DIR}" -name '*.snap' -mmin -$((SNAPSHOT_MAX_AGE_HOURS * 60)) 2>/dev/null || true; } | wc -l | tr -d ' ' )
-          echo "fresh_count=${FRESH_COUNT}" >> "$GITHUB_OUTPUT"
-          scripts/try-runtime-test.sh list-snapshots || true
+      - name: "Idempotency test — ${{ matrix.chain }}"
+        run: scripts/try-runtime-test.sh "test-idempotency-${{ matrix.chain }}"
 
-      - name: "Migration test (fast path: from snapshots)"
-        if: steps.snapshot-cap.outputs.supported == 'true' && steps.snapshots.outputs.fresh_count != '0'
-        run: scripts/try-runtime-test.sh test-from-snapshot-all
-
-      - name: "Migration test (full: live state)"
-        if: steps.snapshot-cap.outputs.supported != 'true' || steps.snapshots.outputs.fresh_count == '0'
-        run: scripts/try-runtime-test.sh test-all
-
-      # Create/refresh snapshots for next run (after tests pass)
-      - name: Create snapshots for caching
-        if: steps.snapshot-cap.outputs.supported == 'true' && steps.snapshots.outputs.fresh_count == '0'
-        run: scripts/try-runtime-test.sh create-snapshot-all
-
-      # ── Idempotency tests ─────────────────────────────────────────────
-      - name: "Idempotency test (all chains)"
-        run: scripts/try-runtime-test.sh test-idempotency-all
-
-      # ── Pallet-level critical migration matrix ─────────────────────────
-      - name: "Pallet migration matrix (all chains)"
+      - name: "Pallet migration matrix — ${{ matrix.chain }}"
         env:
-          MATRIX_CHAINS: "rootchain-testnet rootchain-mainnet leafchain-thx-testnet leafchain-thx-mainnet leafchain-sand-testnet leafchain-avatect-mainnet leafchain-lmt-testnet leafchain-lmt-mainnet leafchain-ecq-testnet leafchain-ecq-mainnet leafchain-izutsuya-testnet"
+          MATRIX_CHAINS: ${{ matrix.chain }}
         run: scripts/try-runtime-test.sh test-pallet-matrix
-
-      # ── Cleanup & artifacts ────────────────────────────────────────────
-      - name: Clean stale snapshots
-        if: always()
-        run: scripts/try-runtime-test.sh clean-snapshots || true
 
       - name: Upload try-runtime logs
         if: always()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
-          name: try-runtime-logs
+          name: try-runtime-logs-${{ matrix.chain }}
+          retention-days: 7
+          if-no-files-found: ignore
+          path: |
+            ${{ env.SNAPSHOT_DIR }}/*.log
+
+  try-runtime-summary:
+    name: try-runtime migration tests
+    needs: try-runtime
+    if: always()
+    runs-on: hetzner-thxnet-light
+    timeout-minutes: 2
+    steps:
+      - name: Check matrix result
+        run: |
+          result="${{ needs.try-runtime.result }}"
+          echo "Matrix result: ${result}"
+          # Treat 'skipped' as success: the heavy try-runtime matrix is gated to
+          # the upgrade/release/experiment/feat/endgame branch families. On other
+          # branches (incl. workflow_dispatch on non-matching refs), all matrix
+          # rows are skipped — that's the intended behaviour, not a failure.
+          if [[ "${result}" != "success" && "${result}" != "skipped" ]]; then
+            echo "::error::try-runtime matrix failed (result=${result})"
+            exit 1
+          fi
+
+  try-runtime-fast-forward:
+    name: try-runtime fast-forward (${{ matrix.chain }})
+    needs: [preflight, build-upgrade-extras]
+    runs-on: hetzner-thxnet
+    permissions:
+      contents: read
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        chain:
+          - rootchain-testnet
+    env:
+      SNAPSHOT_DIR: /tmp/try-runtime-snapshots/${{ matrix.chain }}
+      SKIP_BUILD: "1"
+      TRY_RUNTIME_BIN: /home/runner/.cargo/bin/try-runtime
+      CARGO_TARGET_DIR: /tmp/try-runtime-artifacts
+      ROOTCHAIN_TESTNET_URI: ${{ secrets.ROOTCHAIN_RPC_URL }}
+      LEAFCHAIN_SAND_TESTNET_URI: ${{ secrets.LEAFCHAIN_RPC_URL }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Download try-runtime WASMs
+        uses: actions/download-artifact@v8
+        with:
+          name: try-runtime-wasm
+          path: /tmp/try-runtime-wasm
+
+      - name: Stage WASMs for script
+        run: |
+          WBUILD="${CARGO_TARGET_DIR}/release/wbuild"
+          mkdir -p "${WBUILD}/thxnet-testnet-runtime" \
+                   "${WBUILD}/thxnet-runtime" \
+                   "${WBUILD}/general-runtime"
+          cp /tmp/try-runtime-wasm/thxnet-testnet-runtime-try-runtime.wasm \
+             "${WBUILD}/thxnet-testnet-runtime/thxnet_testnet_runtime.compact.compressed.wasm"
+          cp /tmp/try-runtime-wasm/thxnet-runtime-try-runtime.wasm \
+             "${WBUILD}/thxnet-runtime/thxnet_runtime.compact.compressed.wasm"
+          cp /tmp/try-runtime-wasm/general-runtime-try-runtime.wasm \
+             "${WBUILD}/general-runtime/general_runtime.compact.compressed.wasm"
+
+      - name: Prepare snapshot directory
+        run: mkdir -p "${SNAPSHOT_DIR}"
+
+      - name: "Fast-forward test — ${{ matrix.chain }}"
+        run: scripts/try-runtime-test.sh "fast-forward-${{ matrix.chain }}"
+
+      - name: Upload fast-forward logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: try-runtime-fast-forward-logs-${{ matrix.chain }}
           retention-days: 7
           if-no-files-found: ignore
           path: |
@@ -568,13 +634,13 @@ jobs:
           chmod +x "$HOME/.local/bin/zombienet"
 
       - name: Download fast-runtime binaries
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v8
         with:
           name: fast-runtime-bins
           path: /tmp/upgrade-bins
 
       - name: Download leafchain binary
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v8
         with:
           name: binaries
           path: /tmp/upgrade-bins-all
@@ -595,7 +661,7 @@ jobs:
     name: Chopsticks upgrade test
     needs: [preflight, build-binaries]
     runs-on: hetzner-thxnet
-    timeout-minutes: 30
+    timeout-minutes: 45
     if: >-
       startsWith(github.head_ref || github.ref_name, 'upgrade/') ||
       startsWith(github.head_ref || github.ref_name, 'release/') ||
@@ -603,12 +669,13 @@ jobs:
       startsWith(github.head_ref || github.ref_name, 'feat/endgame') ||
       github.ref_name == 'main' ||
       github.ref_name == 'develop' ||
-      github.base_ref == 'main'
+      github.base_ref == 'main' ||
+      startsWith(github.base_ref, 'release/')
     steps:
       - uses: actions/checkout@v5
 
       - name: Download WASM runtimes
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v8
         with:
           name: wasm-runtimes
           path: wasm
@@ -616,10 +683,14 @@ jobs:
       - name: Setup WASM paths
         run: |
           echo "Artifact contents:" && find wasm -type f
-          mkdir -p target/release/wbuild/general-runtime
+          mkdir -p target/release/wbuild/general-runtime \
+                   target/release/wbuild/thxnet-testnet-runtime
           find wasm -name "general_runtime.compact.compressed.wasm" -exec cp {} \
             target/release/wbuild/general-runtime/ \;
+          find wasm -name "thxnet_testnet_runtime.compact.compressed.wasm" -exec cp {} \
+            target/release/wbuild/thxnet-testnet-runtime/ \;
           ls -la target/release/wbuild/general-runtime/general_runtime.compact.compressed.wasm
+          ls -la target/release/wbuild/thxnet-testnet-runtime/thxnet_testnet_runtime.compact.compressed.wasm
 
       - name: Install bun and Chopsticks
         run: |
@@ -657,6 +728,19 @@ jobs:
           export PATH="$HOME/.bun/bin:$PATH"
           ./scripts/chopsticks/chopsticks-test.sh leafchain-ecq-mainnet
         timeout-minutes: 10
+
+      - name: Run Chopsticks fast-forward test (leafchain-sand-testnet)
+        run: |
+          export PATH="$HOME/.bun/bin:$PATH"
+          export N_BLOCKS=5
+          ./scripts/chopsticks/chopsticks-test.sh fast-forward-leafchain-sand-testnet
+        timeout-minutes: 10
+
+      - name: Run Chopsticks XCM test (rootchain-testnet relay + leafchain-sand-testnet para)
+        run: |
+          export PATH="$HOME/.bun/bin:$PATH"
+          ./scripts/chopsticks/chopsticks-test.sh xcm
+        timeout-minutes: 15
 
   xcm-tests:
     name: XCM integration tests
