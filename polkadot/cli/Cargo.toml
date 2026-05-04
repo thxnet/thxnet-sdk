@@ -68,14 +68,21 @@ cli = [
 runtime-benchmarks = [
 	"frame-benchmarking-cli?/runtime-benchmarks",
 	"polkadot-node-metrics/runtime-benchmarks",
+	"polkadot-primitives?/runtime-benchmarks",
+	"polkadot-runtime-parachains?/runtime-benchmarks",
 	"sc-service?/runtime-benchmarks",
 	"service/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
+	"thxnet-runtime?/runtime-benchmarks",
+	"thxnet-testnet-runtime?/runtime-benchmarks",
 ]
 full-node = ["service/full-node"]
 try-runtime = [
+	"polkadot-runtime-parachains?/try-runtime",
 	"service/try-runtime",
 	"sp-runtime/try-runtime",
+	"thxnet-runtime?/try-runtime",
+	"thxnet-testnet-runtime?/try-runtime",
 ]
 fast-runtime = ["service/fast-runtime"]
 pyroscope = ["pyro", "pyroscope_pprofrs"]
@@ -84,13 +91,13 @@ pyroscope = ["pyro", "pyroscope_pprofrs"]
 westend-native = ["service/westend-native"]
 rococo-native = ["service/rococo-native"]
 thxnet-native = [
-	"sc-client-api",
 	"polkadot-primitives",
 	"polkadot-runtime-parachains",
-	"thxnet-runtime",
-	"thxnet-testnet-runtime",
-	"thxnet-runtime-constants",
+	"sc-client-api",
 	"service/thxnet-native",
+	"thxnet-runtime",
+	"thxnet-runtime-constants",
+	"thxnet-testnet-runtime",
 ]
 
 malus = ["full-node", "service/malus"]
