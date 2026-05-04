@@ -36,6 +36,10 @@ pub enum Subcommand {
 	/// Export the state of a given block into a chain spec.
 	ExportState(sc_cli::ExportStateCmd),
 
+	/// Export a filtered + freshly-seeded fork genesis chain-spec.
+	#[cfg(feature = "thxnet-native")]
+	ForkGenesis(crate::fork_genesis_cmd::ForkGenesisCmd),
+
 	/// Import blocks.
 	ImportBlocks(sc_cli::ImportBlocksCmd),
 

@@ -23,6 +23,8 @@ clap = { version = "4.5.3", features = ["derive"], optional = true }
 log = { workspace = true, default-features = true }
 thiserror = { workspace = true }
 futures = "0.3.30"
+hex = "0.4.3"
+serde_json = { workspace = true, default-features = true }
 pyro = { package = "pyroscope", version = "0.5.3", optional = true }
 pyroscope_pprofrs = { version = "0.2", optional = true }
 
@@ -34,9 +36,15 @@ sp-keyring = { path = "../../substrate/primitives/keyring" }
 sp-maybe-compressed-blob = { path = "../../substrate/primitives/maybe-compressed-blob" }
 frame-benchmarking-cli = { path = "../../substrate/utils/frame/benchmarking-cli", optional = true }
 sc-cli = { path = "../../substrate/client/cli", optional = true }
+sc-client-api = { path = "../../substrate/client/api", optional = true }
 sc-service = { path = "../../substrate/client/service", optional = true }
 polkadot-node-metrics = { path = "../node/metrics" }
 polkadot-node-primitives = { path = "../node/primitives" }
+polkadot-primitives = { path = "../primitives", optional = true }
+polkadot-runtime-parachains = { path = "../runtime/parachains", optional = true }
+thxnet-runtime = { path = "../../thxnet/runtime/thxnet", optional = true }
+thxnet-testnet-runtime = { path = "../../thxnet/runtime/thxnet-testnet", optional = true }
+thxnet-runtime-constants = { path = "../../thxnet/runtime/thxnet/constants", optional = true }
 sc-tracing = { path = "../../substrate/client/tracing", optional = true }
 sc-sysinfo = { path = "../../substrate/client/sysinfo" }
 sc-executor = { path = "../../substrate/client/executor" }
@@ -75,7 +83,15 @@ pyroscope = ["pyro", "pyroscope_pprofrs"]
 # Configure the native runtimes to use.
 westend-native = ["service/westend-native"]
 rococo-native = ["service/rococo-native"]
-thxnet-native = ["service/thxnet-native"]
+thxnet-native = [
+	"sc-client-api",
+	"polkadot-primitives",
+	"polkadot-runtime-parachains",
+	"thxnet-runtime",
+	"thxnet-testnet-runtime",
+	"thxnet-runtime-constants",
+	"service/thxnet-native",
+]
 
 malus = ["full-node", "service/malus"]
 runtime-metrics = [

@@ -24,6 +24,8 @@ mod cli;
 mod command;
 #[cfg(feature = "cli")]
 mod error;
+#[cfg(all(feature = "cli", feature = "thxnet-native"))]
+mod fork_genesis_cmd;
 
 #[cfg(feature = "service")]
 pub use service::{self, Block, CoreApi, IdentifyVariant, ProvideRuntimeApi, TFullClient};
