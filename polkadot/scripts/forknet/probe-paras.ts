@@ -1,0 +1,21 @@
+import { ApiPromise, HttpProvider, WsProvider } from '@polkadot/api';
+const main = async () => {
+  const api = await ApiPromise.create({ provider: new HttpProvider('http://localhost:9931') });
+  await api.isReady;
+  const parachains = await api.query.paras.parachains();
+  console.log('paras.parachains:', JSON.stringify(parachains.toHuman()));
+  const cores = await api.query.paraScheduler.availabilityCores();
+  console.log('availabilityCores:', JSON.stringify(cores.toHuman()));
+  const groups = await api.query.paraScheduler.validatorGroups();
+  console.log('validatorGroups:', JSON.stringify(groups.toHuman()));
+  const claimQueue = await api.query.paraScheduler.claimQueue();
+  console.log('claimQueue:', JSON.stringify(claimQueue.toHuman()));
+  const sessions = await api.query.paraSessionInfo.sessions(0);
+  console.log('sessions(0).n_cores:', sessions.toHuman ? (sessions.toHuman() as any)?.nCores : sessions.toHuman());
+  const heads = await api.query.paras.heads(1003);
+  console.log('paras.heads(1003):', heads.toHex());
+  const mrc = await api.query.paras.mostRecentContext(1003);
+  console.log('paras.mostRecentContext(1003):', mrc.toHuman());
+  process.exit(0);
+};
+main().catch(e => { console.error(e); process.exit(1); });
