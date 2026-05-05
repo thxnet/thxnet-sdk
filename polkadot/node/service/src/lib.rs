@@ -20,6 +20,7 @@
 
 pub mod benchmarking;
 pub mod chain_spec;
+pub mod chain_spec_fork;
 mod fake_runtime_api;
 mod grandpa_support;
 mod parachains_db;

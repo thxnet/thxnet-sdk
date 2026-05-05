@@ -130,7 +130,7 @@ pub fn wococo_config() -> Result<RococoChainSpec, String> {
 
 /// The default parachains host configuration.
 #[cfg(any(feature = "westend-native", feature = "thxnet-native"))]
-fn default_parachains_host_configuration(
+pub(crate) fn default_parachains_host_configuration(
 ) -> polkadot_runtime_parachains::configuration::HostConfiguration<polkadot_primitives::BlockNumber>
 {
 	use polkadot_primitives::{
