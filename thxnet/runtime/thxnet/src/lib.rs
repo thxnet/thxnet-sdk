@@ -143,7 +143,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("thxnet"),
 	impl_name: create_runtime_str!("thxnet"),
 	authoring_version: 0,
-	spec_version: 112_000_001,
+	spec_version: 112_000_002,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 25,
@@ -2164,11 +2164,105 @@ pub mod migrations {
 		}
 	}
 
+	/// Enable async backing and coretime, atomically with `setCode`.
+	///
+	/// Identical to the testnet variant of the same name (single source of truth for
+	/// THXNet's async-backing migration). Topology-aware writes preserve any
+	/// operator-set values, while `AvailabilityCores` + `ClaimQueue` are force-cleared
+	/// so the next `ParaInherent` pass schedules fresh candidates without waiting for
+	/// session rotation.
+	///
+	/// Topology-aware semantics:
+	/// - `num_cores`: only set to `max(para_count, 1)` if currently `0` (preserve operator
+	///   overrides)
+	/// - `max_validators_per_core`: set to `Some(5)` only if currently `None` AND
+	///   `active_validators >= 15` AND `num_cores >= 3` (production rule); otherwise leave
+	/// - `lookahead`: ensure `>= 1`
+	/// - `async_backing_params`: ensure `(max_candidate_depth >= 1, allowed_ancestry_len >= 2)`
+	/// - `node_features`: always force bits 0, 1, 3 — bit 3 (CandidateReceiptV2) is critical;
+	///   without it v1.12.0+ cumulus collators advertise v2 receipts and validators reject with
+	///   `BlockedByBacking`
+	///
+	/// Atomic-with-setCode defense:
+	/// - `AvailabilityCores`: force every entry to `Free` (mirrors session rotation's
+	///   `push_occupied_cores_to_assignment_provider`)
+	/// - `ClaimQueue`: kill, so next block's `free_cores_and_fill_claimqueue` rebuilds from the
+	///   fresh `AssignmentProvider`
+	///
+	/// Caveat: relay-client subsystems cache fragment-chain / SessionInfo per session in
+	/// validator-process memory; those caches persist until the next real session boundary
+	/// OR validator-process restart. Operator runbook post-setCode:
+	/// `kubectl rollout restart deploy/validator-*`.
+	///
+	/// Idempotent: re-running on a chain where ActiveConfig is already correct only
+	/// re-stamps Free/empty into already-Free/empty storage.
+	pub struct EnableAsyncBackingAndCoretime;
+	impl frame_support::traits::OnRuntimeUpgrade for EnableAsyncBackingAndCoretime {
+		fn on_runtime_upgrade() -> Weight {
+			use primitives::AsyncBackingParams;
+
+			let para_count = parachains_paras::Parachains::<Runtime>::get().len();
+			let default_num_cores = core::cmp::max(para_count, 1) as u32;
+			let active_validators =
+				parachains_shared::ActiveValidatorKeys::<Runtime>::decode_len().unwrap_or(0) as u32;
+
+			parachains_configuration::ActiveConfig::<Runtime>::mutate(|cfg| {
+				if cfg.scheduler_params.num_cores == 0 {
+					cfg.scheduler_params.num_cores = default_num_cores;
+				}
+				if cfg.scheduler_params.max_validators_per_core.is_none() &&
+					active_validators >= 15 &&
+					cfg.scheduler_params.num_cores >= 3
+				{
+					cfg.scheduler_params.max_validators_per_core = Some(5);
+				}
+				if cfg.scheduler_params.lookahead < 1 {
+					cfg.scheduler_params.lookahead = 1;
+				}
+				if cfg.async_backing_params.max_candidate_depth < 1 {
+					cfg.async_backing_params.max_candidate_depth = 1;
+				}
+				if cfg.async_backing_params.allowed_ancestry_len < 2 {
+					cfg.async_backing_params.allowed_ancestry_len = 2;
+				}
+				if cfg.node_features.len() < 4 {
+					cfg.node_features.resize(4, false);
+				}
+				cfg.node_features.set(0, true);
+				cfg.node_features.set(1, true);
+				cfg.node_features.set(3, true);
+			});
+
+			parachains_scheduler::AvailabilityCores::<Runtime>::mutate(|cores| {
+				for core in cores.iter_mut() {
+					*core = parachains_scheduler::CoreOccupied::Free;
+				}
+			});
+			parachains_scheduler::ClaimQueue::<Runtime>::kill();
+
+			let cfg = parachains_configuration::ActiveConfig::<Runtime>::get();
+			log::info!(
+				target: "runtime",
+				"EnableAsyncBackingAndCoretime: num_cores={}, max_vals_per_core={:?}, \
+				 lookahead={}, async_backing=(depth={}, ancestry={}), node_features[0,1,3]=true, \
+				 AvailabilityCores freed, ClaimQueue cleared, active_validators={}",
+				cfg.scheduler_params.num_cores,
+				cfg.scheduler_params.max_validators_per_core,
+				cfg.scheduler_params.lookahead,
+				cfg.async_backing_params.max_candidate_depth,
+				cfg.async_backing_params.allowed_ancestry_len,
+				active_validators,
+			);
+
+			<Runtime as frame_system::Config>::DbWeight::get().reads_writes(3, 3)
+		}
+	}
+
 	/// Cumulative migrations for live chains upgrading from v0.9.40 to v1.12.0.
 	///
 	/// Each migration is internally version-guarded (checks `on_chain_storage_version`),
 	/// so already-applied migrations are no-ops. This allows a single runtime upgrade
-	/// to jump from spec_version 94000001 to 112_000_001 in one shot.
+	/// to jump from spec_version 94000001 to 112_000_002 in one shot.
 	///
 	/// Migration order follows the upstream version progression:
 	/// v1.1.0 → v1.3.0 → v1.4.0 → v1.5.0 → v1.6.0 → v1.7.0 → v1.8.0 → v1.9.0 → v1.10.0 → v1.12.0
@@ -2238,6 +2332,10 @@ pub mod migrations {
 		StampParasDisputesV1,
 		// v1.11.0 → v1.12.0
 		pallet_staking::migrations::v15::MigrateV14ToV15<Runtime>,
+		// THXNet-specific: enable async backing + set num_cores atomically with setCode.
+		// Runs LAST so ActiveConfig has all v12 fields populated correctly. See doc comment
+		// on the struct for why this is required to avoid parachain downtime post-upgrade.
+		EnableAsyncBackingAndCoretime,
 	);
 
 	/// Full cumulative migrations for live chains upgrading from v0.9.40 to v1.12.0.
