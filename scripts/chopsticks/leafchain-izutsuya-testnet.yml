@@ -1,0 +1,5 @@
+endpoint: wss://node.izutsuya.testnet.thxnet.org/archive-001/ws
+port: 8110
+mock-signature-host: true
+db: ./chopsticks-db/leafchain-izutsuya-testnet.sqlite
+runtime-log-level: 3
