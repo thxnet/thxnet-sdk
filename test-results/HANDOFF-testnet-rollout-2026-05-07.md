@@ -95,11 +95,15 @@ cd /mnt/HC_Volume_105402799/worktrees/thxnet-rehearsal   # CRITICAL: relative pa
   live --uri wss://node.testnet.thxnet.org/archive-001/ws
 
 # Leafchains (all 5 must exit 0). Endpoints follow the canonical
-# `wss://node.<leaf>.testnet.thxnet.org/<archive>/ws` form. ecq uses
-# archive-002; the other four use archive-001.
+# `wss://node.<leaf>.testnet.thxnet.org/<archive>/ws` form.
+# ecq archive segment is unresolved (see §5 caveat) — set ECQ_ARCHIVE
+# explicitly after the operator confirms archive-001 vs archive-002 against
+# the live endpoint; the other four leafchains use archive-001.
+ECQ_ARCHIVE=archive-002   # tentative per reference_paths_and_artefacts.md;
+                           # MUST verify against live before running.
 for LEAF in sand ecq lmt thx izutsuya; do
   ARCH=archive-001
-  [ "$LEAF" = "ecq" ] && ARCH=archive-002
+  [ "$LEAF" = "ecq" ] && ARCH="$ECQ_ARCHIVE"
   "$TRY" \
     --runtime target/release/wbuild/general-runtime/general_runtime.compact.compressed.wasm \
     on-runtime-upgrade --blocktime 12000 --checks=all \
@@ -278,12 +282,12 @@ For each leafchain:
   ```
   Dev-key guard applies identically to the parachain helper.
 
-  **Per-leaf endpoint table** (always `wss://...`, no `:443`):
+  **Per-leaf endpoint table** (always `wss://...`, no `:443`). For `ecq-testnet`, see the §5 ecq archive-segment caveat — the operator must confirm `archive-001` vs `archive-002` and reflect the answer here AND in `scripts/chopsticks/leafchain-ecq-testnet.yml` before this Phase 4 sub-step runs:
 
   | Leaf | Endpoint |
   |---|---|
   | sand-testnet | `wss://node.sand.testnet.thxnet.org/archive-001/ws` |
-  | ecq-testnet | `wss://node.ecq.testnet.thxnet.org/archive-002/ws` |
+  | ecq-testnet | `[OPERATOR FILL IN: see §5 ecq archive-segment caveat]` |
   | lmt-testnet | `wss://node.lmt.testnet.thxnet.org/archive-001/ws` |
   | thx-testnet | `wss://node.thx.testnet.thxnet.org/archive-001/ws` |
   | izutsuya-testnet | `wss://node.izutsuya.testnet.thxnet.org/archive-001/ws` |
@@ -400,13 +404,15 @@ If rollback is needed for ALL 5 leafchains, run the spec-21 setCode serially in 
 
 ## 5. Verification matrix
 
-**Per-chain endpoint table** — canonical form is `wss://<host>/<archive>/ws` for WS clients (polkadot.js, try-runtime, chopsticks) and `https://<host>/<archive>` for the curl helper below. Do not insert `:443`. Note: `ecq-testnet` is the only leaf on `archive-002`; the other four leafchains and the rootchain all use `archive-001`.
+**Per-chain endpoint table** — canonical form is `wss://<host>/<archive>/ws` for WS clients (polkadot.js, try-runtime, chopsticks) and `https://<host>/<archive>` for the curl helper below. Do not insert `:443`.
+
+> **ecq-testnet archive segment caveat — operator must confirm before §2.2 runs.** `AI_MEMORIES/reference_paths_and_artefacts.md` lists ecq-testnet on `/archive-002/ws`. The committed `scripts/chopsticks/leafchain-ecq-testnet.yml` uses `/archive-001/ws`. These two sources of truth disagree. Before §2.2 try-runtime + chopsticks runs, the operator MUST resolve this by `curl -s -m 5 wss-tested-host` against both forms (or `wscat -c` / polkadot.js tooling) and pick whichever returns a healthy `system_chain` response, then update both the table below and the chopsticks YAML to match. Do NOT proceed with a stale guess.
 
 | Chain | WS endpoint | HTTPS endpoint (for curl `EP=...`) |
 |---|---|---|
 | Testnet rootchain | `wss://node.testnet.thxnet.org/archive-001/ws` | `https://node.testnet.thxnet.org/archive-001` |
 | sand-testnet | `wss://node.sand.testnet.thxnet.org/archive-001/ws` | `https://node.sand.testnet.thxnet.org/archive-001` |
-| ecq-testnet | `wss://node.ecq.testnet.thxnet.org/archive-002/ws` | `https://node.ecq.testnet.thxnet.org/archive-002` |
+| ecq-testnet | `[OPERATOR FILL IN: confirm archive-001 or archive-002 — see caveat above; default tentative `wss://node.ecq.testnet.thxnet.org/archive-002/ws` per reference_paths_and_artefacts.md]` | `[OPERATOR FILL IN]` |
 | lmt-testnet | `wss://node.lmt.testnet.thxnet.org/archive-001/ws` | `https://node.lmt.testnet.thxnet.org/archive-001` |
 | thx-testnet | `wss://node.thx.testnet.thxnet.org/archive-001/ws` | `https://node.thx.testnet.thxnet.org/archive-001` |
 | izutsuya-testnet | `wss://node.izutsuya.testnet.thxnet.org/archive-001/ws` | `https://node.izutsuya.testnet.thxnet.org/archive-001` |
