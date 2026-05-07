@@ -259,15 +259,24 @@ fn authority_tuple_from_keyrings(sr: Sr25519Keyring, ed: Ed25519Keyring) -> Auth
 	)
 }
 
-/// Returns the standard Alice / Bob dev authority set.
+/// Returns the standard 6-validator dev authority set (Alice through Ferdie).
 ///
-/// All keys use bare `//Alice`, `//Bob` seeds — no sub-derivation.
-/// Stash == Controller for each authority.
+/// All keys use bare `//Alice`, `//Bob`, `//Charlie`, `//Dave`, `//Eve`, `//Ferdie`
+/// seeds — no sub-derivation. Stash == Controller for each authority.
+///
+/// 6 validators is the minimum to give meaningful backing-group quorum behavior
+/// in a forknet rehearsal: with sufficient online vals, backing reaches quorum
+/// every relay slot, allowing async backing pipelining (with capacity=2) to
+/// engage 6s/para-block.
 #[cfg(feature = "thxnet-native")]
 pub fn dev_authority_set() -> Vec<AuthorityTuple> {
 	vec![
 		authority_tuple_from_keyrings(Sr25519Keyring::Alice, Ed25519Keyring::Alice),
 		authority_tuple_from_keyrings(Sr25519Keyring::Bob, Ed25519Keyring::Bob),
+		authority_tuple_from_keyrings(Sr25519Keyring::Charlie, Ed25519Keyring::Charlie),
+		authority_tuple_from_keyrings(Sr25519Keyring::Dave, Ed25519Keyring::Dave),
+		authority_tuple_from_keyrings(Sr25519Keyring::Eve, Ed25519Keyring::Eve),
+		authority_tuple_from_keyrings(Sr25519Keyring::Ferdie, Ed25519Keyring::Ferdie),
 	]
 }
 
