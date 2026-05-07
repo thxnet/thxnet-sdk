@@ -1,32 +1,92 @@
-// setcode-parachain.ts — Upgrade running parachain via cumulus 2-step setCode flow
+// setcode-parachain.ts — Apply a cumulus 2-step parachain runtime upgrade
 //
 // Cumulus parachains REJECT direct system.setCode because the WASM blob
 // would exhaust the block / PoV limits in a single extrinsic. Instead use:
 //   1. sudo(parachainSystem.authorizeUpgrade(blake2_256(code), checkVersion=false))
 //   2. parachainSystem.enactAuthorizedUpgrade(code)  -- unsigned, validated against authorized hash
 //
-// Usage:
+// USAGE (production preferred — env vars):
+//   SUDO_SEED="<real sudo seed phrase or //path>" \
+//   WS_ENDPOINT=wss://node.<leaf>.testnet.thxnet.org/archive-001/ws \
+//   RUNTIME_WASM=/path/to/general_runtime.compact.compressed.wasm \
+//   LABEL=leafchain \
+//     bun run setcode-parachain.ts
+//
+// USAGE (CLI form — accepted only if env vars not set):
 //   bun run setcode-parachain.ts \
-//     --endpoint ws://localhost:43493 \
+//     --endpoint wss://node.<leaf>.testnet.thxnet.org/archive-001/ws \
 //     --wasm /path/to/general_runtime.compact.compressed.wasm \
 //     --label leafchain
+//
+// Env vars take precedence over CLI args when both are set.
+//
+// SAFETY:
+//   * SUDO_SEED is REQUIRED (no default). Script throws if missing.
+//   * Dev keys (//Alice .. //Ferdie) are REJECTED — this script is for
+//     production sudo only. Use forknet-only helpers in `forknet/` for dev keys.
+//   * Script prints `[label] sudo signer: <address>` then pauses 5 seconds
+//     so the operator can Ctrl-C if the address is wrong.
 
 import { ApiPromise, Keyring, WsProvider } from "@polkadot/api";
 import { blake2AsHex } from "@polkadot/util-crypto";
 import { readFileSync } from "node:fs";
 
-function getArg(name: string, fallback?: string): string {
+const DEV_KEYS = new Set([
+  "//Alice",
+  "//Bob",
+  "//Charlie",
+  "//Dave",
+  "//Eve",
+  "//Ferdie",
+]);
+
+function getCliArg(name: string): string | undefined {
   const i = process.argv.indexOf(`--${name}`);
   if (i >= 0 && i + 1 < process.argv.length) return process.argv[i + 1];
-  if (fallback !== undefined) return fallback;
-  throw new Error(`missing arg --${name}`);
+  return undefined;
 }
 
-const ENDPOINT = getArg("endpoint");
-const WASM_PATH = getArg("wasm");
-const LABEL = getArg("label", "para");
+function resolveConfig(envName: string, cliName: string): string | undefined {
+  // Env var takes precedence per spec
+  return process.env[envName] ?? getCliArg(cliName);
+}
+
+function requireConfig(envName: string, cliName: string, humanName: string): string {
+  const v = resolveConfig(envName, cliName);
+  if (!v) {
+    throw new Error(
+      `${humanName} required: set env var ${envName} or pass --${cliName}`,
+    );
+  }
+  return v;
+}
+
+function loadSudoSeed(): string {
+  const seed = process.env.SUDO_SEED;
+  if (!seed) throw new Error("SUDO_SEED env var required");
+  if (DEV_KEYS.has(seed.trim())) {
+    throw new Error(
+      "dev key rejected — production needs real sudo seed",
+    );
+  }
+  return seed;
+}
+
+const ENDPOINT = requireConfig("WS_ENDPOINT", "endpoint", "WS endpoint");
+const WASM_PATH = requireConfig("RUNTIME_WASM", "wasm", "runtime wasm path");
+const LABEL = resolveConfig("LABEL", "label") ?? "para";
+const SUDO_SEED = loadSudoSeed();
 
 async function main() {
+  // Resolve signer address up front for the abort banner
+  const keyring = new Keyring({ type: "sr25519" });
+  const signer = keyring.addFromUri(SUDO_SEED);
+  console.log(`[${LABEL}] sudo signer: ${signer.address}`);
+  console.log(`[${LABEL}] endpoint: ${ENDPOINT}`);
+  console.log(`[${LABEL}] wasm path: ${WASM_PATH}`);
+  console.log("Press Ctrl-C within 5s to abort");
+  await new Promise((r) => setTimeout(r, 5000));
+
   console.log(`[${LABEL}] connecting to ${ENDPOINT}`);
   const api = await ApiPromise.create({ provider: new WsProvider(ENDPOINT) });
   await api.isReady;
@@ -42,27 +102,31 @@ async function main() {
   const codeHash = blake2AsHex(wasmBuf, 256);
   console.log(`[${LABEL}] wasm: ${wasmBuf.length} bytes, hash=${codeHash}`);
 
-  const keyring = new Keyring({ type: "sr25519" });
-  const alice = keyring.addFromUri("//Alice");
-  console.log(`[${LABEL}] sudo signer: ${alice.address}`);
-
   // Step 1: authorize upgrade by hash (small tx, fits easily)
   // parachainSystem.authorizeUpgrade(code_hash, check_version: bool)
   const authorize = api.tx.parachainSystem.authorizeUpgrade(codeHash, false);
   const sudoAuth = api.tx.sudo.sudo(authorize);
 
-  console.log(`[${LABEL}] [1/2] submitting sudo(parachainSystem.authorizeUpgrade) ...`);
+  console.log(
+    `[${LABEL}] [1/2] submitting sudo(parachainSystem.authorizeUpgrade) ...`,
+  );
   await new Promise<void>((resolve, reject) => {
-    sudoAuth.signAndSend(alice, ({ status, dispatchError }) => {
-      if (status.isInBlock) {
-        if (dispatchError) {
-          reject(new Error(`authorize dispatch error: ${dispatchError.toString()}`));
-          return;
+    sudoAuth
+      .signAndSend(signer, ({ status, dispatchError }) => {
+        if (status.isInBlock) {
+          if (dispatchError) {
+            reject(
+              new Error(`authorize dispatch error: ${dispatchError.toString()}`),
+            );
+            return;
+          }
+          console.log(
+            `[${LABEL}] [1/2] authorized in ${status.asInBlock.toHex()}`,
+          );
+          resolve();
         }
-        console.log(`[${LABEL}] [1/2] authorized in ${status.asInBlock.toHex()}`);
-        resolve();
-      }
-    }).catch(reject);
+      })
+      .catch(reject);
   });
 
   // Wait one block for authorize to be on-chain finalized
@@ -72,24 +136,35 @@ async function main() {
   // Cumulus only allows ONE authorized upgrade at a time, and it's removed after enacting.
   const enact = api.tx.parachainSystem.enactAuthorizedUpgrade(wasmHex);
 
-  console.log(`[${LABEL}] [2/2] submitting parachainSystem.enactAuthorizedUpgrade (unsigned) ...`);
+  console.log(
+    `[${LABEL}] [2/2] submitting parachainSystem.enactAuthorizedUpgrade (unsigned) ...`,
+  );
   const start = Date.now();
   await new Promise<void>((resolve, reject) => {
-    enact.send(({ status, dispatchError }) => {
-      if (status.isInBlock) {
-        if (dispatchError) {
-          reject(new Error(`enact dispatch error: ${dispatchError.toString()}`));
-          return;
+    enact
+      .send(({ status, dispatchError }) => {
+        if (status.isInBlock) {
+          if (dispatchError) {
+            reject(new Error(`enact dispatch error: ${dispatchError.toString()}`));
+            return;
+          }
+          console.log(
+            `[${LABEL}] [2/2] InBlock ${status.asInBlock.toHex()} (${(
+              (Date.now() - start) /
+              1000
+            ).toFixed(1)}s)`,
+          );
+          resolve();
         }
-        console.log(`[${LABEL}] [2/2] InBlock ${status.asInBlock.toHex()} (${((Date.now() - start) / 1000).toFixed(1)}s)`);
-        resolve();
-      }
-    }).catch(reject);
+      })
+      .catch(reject);
   });
 
   // Cumulus parachain runtime upgrade requires a relay-chain block to advance
   // before the new runtime is actually applied. Wait ~24-36s.
-  console.log(`[${LABEL}] waiting 36s for parachain to ingest relay block + apply new runtime ...`);
+  console.log(
+    `[${LABEL}] waiting 36s for parachain to ingest relay block + apply new runtime ...`,
+  );
   await new Promise((r) => setTimeout(r, 36_000));
 
   await api.disconnect();
@@ -97,8 +172,14 @@ async function main() {
   const postSpec = api2.runtimeVersion.specVersion.toNumber();
   const postHeader = await api2.rpc.chain.getHeader();
   const postBlock = postHeader.number.toNumber();
-  console.log(`[${LABEL}] post-upgrade: ${api2.runtimeVersion.specName.toString()} v${postSpec} @ #${postBlock}`);
-  console.log(`[${LABEL}] spec bump: ${preSpec} → ${postSpec}, block advance: ${postBlock - preBlock}`);
+  console.log(
+    `[${LABEL}] post-upgrade: ${api2.runtimeVersion.specName.toString()} v${postSpec} @ #${postBlock}`,
+  );
+  console.log(
+    `[${LABEL}] spec bump: ${preSpec} → ${postSpec}, block advance: ${
+      postBlock - preBlock
+    }`,
+  );
 
   if (postSpec === preSpec) {
     console.error(`[${LABEL}] FAIL: spec_version did not change`);
@@ -110,7 +191,11 @@ async function main() {
     await api2.disconnect();
     process.exit(1);
   }
-  console.log(`[${LABEL}] PARACHAIN SETCODE OK: spec ${preSpec}→${postSpec}, block +${postBlock - preBlock}`);
+  console.log(
+    `[${LABEL}] PARACHAIN SETCODE OK: spec ${preSpec}→${postSpec}, block +${
+      postBlock - preBlock
+    }`,
+  );
   await api2.disconnect();
 }
 
