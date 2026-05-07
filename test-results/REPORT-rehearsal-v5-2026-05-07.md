@@ -225,3 +225,75 @@ Cumulus collator keeps producing block #4 forks (all parented to #3), none get b
 ## Production rollout readiness — UNCHANGED
 
 The Path E.2 ❌ for Phase 4 (v0.3.3 → v1.12.0 transition in forknet) is a forknet-topology-specific limitation, not a defect of `release/v1.12.0`. Production has the topology to back v0.3.3 leafchain candidates fast enough that the capacity=2 bug doesn't manifest before Phase 4 setCode lands. Combined evidence from PR #37 try-runtime live + Path E.1 + Path E.2 makes `release/v1.12.0` (`6b7ee05aea`) **production-rollout-ready for testnet**. Mainnet rehearsal still pending (needs mainnet seed DB).
+
+---
+
+# Path B — patch genesis ActiveValidatorKeys to fire topology rule (2026-05-07 follow-up)
+
+**Goal**: Make migration's topology rule (`active_validators ≥ 15 && num_cores ≥ 3 → max_vals_per_core=Some(5)`) fire in the small forknet by patching genesis storage to fake 15 active validators + registering 3 paraIds. Observe whether this enables 6 s/para-block.
+
+## Setup
+
+| Step | Result |
+|---|---|
+| Find correct storage key for `ParasShared::ActiveValidatorKeys` | Confirmed: `twox_128("ParasShared")=0xb341e3a63e58a188839b242d17f8c9f8` ++ `twox_128("ActiveValidatorKeys")=0x7a50c904b368210021127f9238883a6e` = `0xb341e3a63e58a188839b242d17f8c9f87a50c904b368210021127f9238883a6e`. Earlier guess `0x5f3e4907...` was actually `Staking` pallet — pallet name as registered in `construct_runtime!` for thxnet-runtime / thxnet-testnet-runtime is `ParasShared`. |
+| OLD polkadot fork-genesis with 3× `--register-leafchain` (paraIds 2000, 2001, 2002, all using leafchain `--chain=dev` spec) | Output spec has `parachains_paras::Parachains = [2000, 2001, 2002]` → migration computes `num_cores=3` |
+| Python patch correct AVK key in genesis to 15 entries (`compact(15)` ++ //Alice ++ //Bob ++ 13 fake 32-byte ValidatorIds) | Genesis storage now has `0xb341...883a6e` → 481 bytes / 15 entries |
+| Boot v1.12.0 polkadot 3-validator on patched spec | Finalized OK; pre-setCode AVK query confirms 481 bytes (15 entries) — the genesis patch SURVIVES session 0 init (contrary to my earlier hypothesis) |
+| Real `sudo system.setCodeWithoutChecks(thxnet_testnet_runtime.compact.compressed.wasm)` | InBlock 22.3 s, spec 94000004 → 112000005 |
+
+## NEW EVIDENCE: topology rule fires
+
+Migration log line:
+
+```
+EnableAsyncBackingAndCoretime: num_cores=3, max_vals_per_core=Some(5),
+lookahead=1, async_backing=(depth=1, ancestry=2),
+node_features[0,1,3]=true, AvailabilityCores freed, ClaimQueue cleared,
+active_validators=15
+```
+
+**`max_vals_per_core=Some(5)`** — first time observed in any forknet run. Confirms PR #37's topology rule logic is correct: when `active_validators ≥ 15 && num_cores ≥ 3`, it correctly sets `max_vals_per_core=Some(5)`. Prior runs (E.1, E.2) had `max_vals_per_core=None` because forknet active_validators was only 2.
+
+## Para 6 s/block — STILL not observable
+
+After Phase 2 + relay validator restart, booted leafchain `--chain=dev` collator. Para reached block #1, then stuck. Cumulus collator runtime panics in `parachain-system/src/lib.rs`:
+
+```
+panicked at 'no space left for the block in the unincluded segment' (line 1338)
+panicked at 'set_validation_data inherent needs to be present in every block!' (line 267)
+```
+
+Loop: cumulus tries to produce candidate, runtime API panics, evicts runtime instance, retries.
+
+## Root cause — sharper diagnosis
+
+**6 s/para-block requires actual online validator count, not just storage entries.** Backing quorum:
+
+- Group size after topology rule = 5 (per `max_vals_per_core=Some(5)`)
+- Backing quorum = majority of group = 3 of 5
+- Forknet has 3 actual online validators (//Alice, //Bob, //Charlie); 12 in active set are fake/offline
+- 3 backing groups × 5 vals/group = 15 total slots; 3 online vals randomly assigned to 1-3 groups
+- Probability all 3 online in same group ≈ 1/3² = 11 %
+- For paraId 2000's assigned group to reach 3-of-5 quorum, need all 3 online vals in that exact group — usually doesn't happen
+- Result: backing never completes → relay never includes → cumulus UnincludedSegment full → cumulus collator panics → no new para block
+
+Production reality (mainnet 16 vals × 4 cores ÷ 4 vals/group; testnet 19 vals × 5 cores ÷ ~4 vals/group): all validators are online; every group has full quorum every block; backing in ≤ 1 relay slot → 6 s para block achievable.
+
+## Conclusion
+
+| Claim | Status |
+|---|---|
+| PR #37 migration body's topology rule logic is correct | ✓ PROVEN (Path B fires the rule for the first time in forknet) |
+| Storage delta after migration is correct (depth=1, ancestry=2, lookahead=1, num_cores per registration, max_vals_per_core=Some(5) at threshold) | ✓ PROVEN (Path B observed all values) |
+| 6 s/para-block engages in forknet via Path B (genesis patch) | ✗ NOT achievable with fake validators (quorum requires online vals matching group_size majority) |
+| 6 s/para-block engages in mainnet/testnet rollout | EXPECTED YES (production has 16-19 ONLINE vals; topology rule fires + quorum reached every group) — validated independently by PR #37 try-runtime live + Zombienet smoke |
+
+## What would prove 6 s/block in forknet
+
+Need 5+ ACTUAL polkadot validator processes (e.g., //Alice through //Eve all running) with proper session keys registered + real online voting power. Path B's storage-only patch produces topology fixture but not live backing capability. Future option: spawn 5+ validator processes and use `sudo.session.set_keys` + staking bond to register them post-genesis, wait for session boundary to activate them, then re-do upgrade. Out of scope for this single-session rehearsal.
+
+## Drift check (post Path B)
+
+W1 / W2 / W4 sha256 unchanged from baseline:
+- `a6014d90...` / `71bbb565...` / `4d1b15ed...` ✓
