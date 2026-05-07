@@ -333,7 +333,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("thxnet-general-runtime"),
 	impl_name: create_runtime_str!("thxnet-general-runtime"),
 	authoring_version: 1,
-	spec_version: 21,
+	spec_version: 22,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -357,29 +357,19 @@ const MAXIMUM_BLOCK_WEIGHT: Weight = Weight::from_parts(
 /// Maximum number of blocks simultaneously accepted by the Runtime, not yet included
 /// into the relay chain.
 ///
-/// v1.12.0 WORKAROUND: set to 1 to prevent cumulus fork production at the source.
-/// The v1.12.0 relay-side prospective-parachains subsystem uses the pre-#4937
-/// fragment-chain (`fragment_chain/mod.rs:797`'s `is_fork_or_cycle` rejects any
-/// second candidate at the same parent). In small/uniform topologies (1 core, 1
-/// backing group) the collator re-authors block N every slot until inclusion,
-/// producing forks; fragment-chain rejects them all as "Is not a potential
-/// member", inclusion never completes, para stalls permanently.
+/// Restored to 2 after backport of paritytech/polkadot-sdk#4937 (prospective-parachains
+/// rework: take II) — see commit b72ff06ed9. With #4937's fork-aware fragment-chain
+/// (replacing pre-#4937's `is_fork_or_cycle` strict rejector), capacity=2 is safe in
+/// small/uniform topologies: forks at the same parent are accepted for unbacked
+/// candidates with `fork_selection_rule` (lowest hash wins), so the collator's
+/// re-author-block-N-every-slot pattern no longer gets stuck.
 ///
-/// Capacity=1 forces `cumulus_pallet_aura_ext::FixedVelocityConsensusHook::
-/// can_build_upon` to return false while any block is unincluded, so the collator
-/// builds exactly one block per inclusion cycle. No forks → fragment-chain
-/// accepts every candidate → inclusion pipeline stays healthy. Tradeoff: para
-/// throughput is synchronous-backing tempo (~18s per block instead of async's
-/// ~6s), but stable.
+/// With capacity=2 + node-side #4937, async backing pipelining engages:
+///   slot N: produce candidate; slot N: backed; slot N+1: produce next candidate
+///   while previous is being included → 1 candidate per relay slot = ~6s/para-block
 ///
-/// Empirically validated on forked-testnet 2026-04-18: with
-/// `BLOCK_PROCESSING_VELOCITY=1, UNINCLUDED_SEGMENT_CAPACITY=1`, para reached
-/// block 4556+ with finalization keeping pace. With capacity=2 under the same
-/// topology, para stalls at ~13-30 forever.
-///
-/// The stable2512 hop should restore capacity to 2 (async backing safe once
-/// #4937 is present).
-const UNINCLUDED_SEGMENT_CAPACITY: u32 = 1;
+/// Prior behaviour at capacity=1 was synchronous-backing tempo (~12-18s per block).
+const UNINCLUDED_SEGMENT_CAPACITY: u32 = 2;
 /// How many parachain blocks are processed by the relay chain per parent. Limits the
 /// number of blocks authored per slot.
 const BLOCK_PROCESSING_VELOCITY: u32 = 1;
