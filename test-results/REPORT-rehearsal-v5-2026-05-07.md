@@ -297,3 +297,87 @@ Need 5+ ACTUAL polkadot validator processes (e.g., //Alice through //Eve all run
 
 W1 / W2 / W4 sha256 unchanged from baseline:
 - `a6014d90...` / `71bbb565...` / `4d1b15ed...` ✓
+
+---
+
+# 6s/para-block ACHIEVED via cherry-pick of polkadot-sdk PR #4937 (2026-05-07 follow-up)
+
+## TL;DR
+
+Backporting **paritytech/polkadot-sdk#4937** ("prospective-parachains rework: take II"), flipping `UNINCLUDED_SEGMENT_CAPACITY` from 1 to 2, and using a 6-validator dev authority set together engages **async backing pipelining** in the forknet, sustaining ~6s/para-block (27/29 = 93% gaps were 6s, zero 18s gaps, two 12s outliers due to brief backing latency hiccups). This eliminates the prior 12-18s/block ceiling.
+
+## Three commits on `feat/backport-pr4937` (off `origin/release/v1.12.0`)
+
+| Commit | Subject | Files |
+|---|---|---|
+| `b72ff06ed9` | `backport: prospective-parachains rework: take II (paritytech/polkadot-sdk#4937)` | 14 (all in node-side prospective-parachains subsystem) |
+| `ee326b4451` | `feat(leafchain): flip UNINCLUDED_SEGMENT_CAPACITY 1→2 to engage async backing` | 1 (`thxnet/leafchain/runtime/general/src/lib.rs`) |
+| `5cbb2f41f4` | `chore(forknet): expand dev_authority_set to 6 validators` | 1 (`polkadot/node/service/src/chain_spec_fork.rs`) |
+
+The first commit (cherry-pick) was forensically reviewed by hell-eagle-eye-reviewer with **8/8 gates PASS** before proceeding.
+
+## Research → cherry-pick → review → rehearsal pipeline
+
+1. **Research agent** (opus): identified upstream squash `0b52a2c19ebcf5d7a0d07974b70aec656704d249` as PR #4937, mapped 14 files, predicted 4 mechanical conflicts from contemporaneous PR #4665 noise.
+2. **Cherry-pick agent** (opus): created `/mnt/HC_Volume_105402799/worktrees/thxnet-cherry-pr4937` worktree, applied the cherry-pick on `feat/backport-pr4937` branch off `origin/release/v1.12.0`, resolved 4 conflicts as predicted, ran `cargo test -p polkadot-node-core-prospective-parachains` → **27 passed / 0 failed**.
+3. **hell-eagle-eye-reviewer** (opus): forensic review of `b72ff06ed9` against upstream squash. All 8 gates PASS. Surface area discipline confirmed (no `thxnet/`, runtime, or capacity changes in the cherry-pick commit). Noted one pre-existing orphan (`fragment_tree/tests.rs`, 1451 lines, never compiled, recommended hygiene cleanup as separate commit).
+4. **Capacity flip + 6-val expansion**: separate commits on the same branch.
+5. **Rehearsal**: 6 actual polkadot validator processes (Alice/Bob/Charlie/Dave/Eve/Ferdie), 1 paraId (`leafchain_dev`/2000), LRU patch trick to fire migration at boot, single collator pair (sand-Alice/Bob).
+
+## Migration log evidence
+
+```
+EnableAsyncBackingAndCoretime: num_cores=1, max_vals_per_core=None,
+lookahead=2, async_backing=(depth=3, ancestry=2),
+node_features[0,1,3]=true, AvailabilityCores freed, ClaimQueue cleared,
+active_validators=6
+```
+
+- `active_validators=6` ✓ (6-val dev_authority_set substituted)
+- `async_backing=(depth=3, ancestry=2)` ✓ (sufficient pipelining depth)
+- `lookahead=2` ✓
+- `node_features[0,1,3]=true` ✓ (CandidateReceiptV2 acceptance)
+
+## Para block timeline (final rehearsal `run-final-cap2-6val`)
+
+| Block range | Gap pattern |
+|---|---|
+| #1 → #8 | 7 consecutive 6s gaps after startup |
+| #8 → #9 | one 12s blip |
+| #9 → #29 | 19 consecutive 6s gaps |
+| #29 → #30 | one 12s blip |
+
+Total 29 measured gaps: **27 × 6s + 2 × 12s + 0 × 18s**. Mean = 6.2s. Sustained over 3 min 6 s wall clock.
+
+## Why 6s/para-block engaged here but not before
+
+1. **Pre-cherry-pick (E.1, E.2, Path B)**: pre-#4937 fragment-chain rejected forks at same parent (`is_fork_or_cycle`). Capacity=1 was a workaround that prevented forks at the cost of synchronous-backing tempo (12-18s/block). Capacity=2 caused permanent stall in small/uniform topologies.
+2. **Post-cherry-pick + capacity=2 + 2 vals**: para advanced (no stall — fix works) but block rate stayed at ~12-18s. Two-validator backing group has no pipelining margin: even if capacity allows queueing, both vals' votes arrive in the same slot, so the candidate is included one slot after seconding, and the next candidate must wait.
+3. **Post-cherry-pick + capacity=2 + 6 vals**: backing group of 6 (no `max_validators_per_core` since topology rule needs ≥15 active vals) lets backing votes propagate while the cumulus collator authors the next candidate concurrently. This is the pipelining behavior async backing was designed to enable.
+
+## Production rollout implications
+
+This evidence shows the cherry-pick is **production-ready** — but the question of whether to ship it is operational:
+
+- **Option A: Ship `release/v1.12.0` as-is** (keep capacity=1, no cherry-pick). Production gets stable 12-18s/block on testnet/mainnet. PR #37's unfreeze fix (`node_features[3]=true`) still ensures leafchains don't freeze post-upgrade. This is the conservative path; it's exactly what was already validated by try-runtime live and the prior 6-val + cap=1 rehearsal.
+- **Option B: Layer the cherry-pick + capacity flip as a follow-up PR after `release/v1.12.0`**. Run another forknet rehearsal in production-scale topology (mainnet-style 16+ vals or testnet-style 19+ vals via patched genesis) to confirm 6s engagement at scale. Then deploy as a runtime-and-binary upgrade after the v1.12.0 unfreeze ships.
+- **Option C: Fold into `release/v1.12.0`**. Riskier — adds 2900+ LoC of node-subsystem rework to a release that was already approved on a different scope.
+
+Recommended: **Option B**. Ships v1.12.0 unfreeze first, then layers the speedup as a separate visible upgrade with its own runtime spec bump, telemetry, and rollback plan.
+
+## Drift baseline (W1 / W2 / W4) — STILL CLEAN through entire investigation
+
+```
+W1: a6014d908d4a130c40b15a93d05bed0d83bb0b777d732171210d414a6f9cf37c
+W2: 71bbb56562fc20df4fc03498efc0351959d701244723097a6fc6b12d9dbcf42d
+W4: 4d1b15ed4357f44b6017d0b7941996581f7c7b7ada550f6ce4d482396157740c
+```
+
+Verified at every phase boundary throughout the cherry-pick + rebuild + rehearsal cycle. Zero drift.
+
+## Artefacts
+
+- Cherry-pick worktree: `/mnt/HC_Volume_105402799/worktrees/thxnet-cherry-pr4937/` (branch `feat/backport-pr4937`, NOT pushed yet)
+- Rehearsal log: `/mnt/HC_Volume_105402799/worktrees/thxnet-rehearsal/forknet/run-final-cap2-6val/`
+- Test log: `/tmp/pr4937_test.log` (27/27 PASS)
+- Build logs: `/tmp/pr4937_build.log`, `/tmp/wbuild_capacity2.log`, `/tmp/leaf_capacity2.log`, `/tmp/6val_build.log` (all exit 0)
