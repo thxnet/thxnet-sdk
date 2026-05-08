@@ -112,11 +112,11 @@ Required boot flags (verified again this session — drop any one and backing pe
 
 ## Drift baseline (W1 / W2 / W4)
 
-| Worktree | Path | sha256 | Verdict |
-|---|---|---|---|
-| W1 | `/root/Works/thxnet-sdk` | `a6014d908d4a130c40b15a93d05bed0d83bb0b777d732171210d414a6f9cf37c` | unchanged |
-| W2 | `/mnt/HC_Volume_105402799/worktrees/thxnet-release-v1.12` | `71bbb56562fc20df4fc03498efc0351959d701244723097a6fc6b12d9dbcf42d` | unchanged |
-| W4 | `/mnt/HC_Volume_105402799/worktrees/thxnet-upgrade-v1.12` | `4d1b15ed4357f44b6017d0b7941996581f7c7b7ada550f6ce4d482396157740c` | unchanged |
+| Worktree | sha256 of `git status --porcelain` | Verdict |
+|---|---|---|
+| W1 (primary checkout) | `a6014d908d4a130c40b15a93d05bed0d83bb0b777d732171210d414a6f9cf37c` | unchanged |
+| W2 (release-v1.12 worktree) | `71bbb56562fc20df4fc03498efc0351959d701244723097a6fc6b12d9dbcf42d` | unchanged |
+| W4 (upgrade-v1.12 worktree) | `4d1b15ed4357f44b6017d0b7941996581f7c7b7ada550f6ce4d482396157740c` | unchanged |
 
 ## Conclusion
 

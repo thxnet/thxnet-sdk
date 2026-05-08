@@ -406,7 +406,7 @@ If rollback is needed for ALL 5 leafchains, run the spec-21 setCode serially in 
 
 **Per-chain endpoint table** — canonical form is `wss://<host>/<archive>/ws` for WS clients (polkadot.js, try-runtime, chopsticks) and `https://<host>/<archive>` for the curl helper below. Do not insert `:443`.
 
-> **ecq-testnet archive segment caveat — operator must confirm before §2.2 runs.** `AI_MEMORIES/reference_paths_and_artefacts.md` lists ecq-testnet on `/archive-002/ws`. The committed `scripts/chopsticks/leafchain-ecq-testnet.yml` uses `/archive-001/ws`. These two sources of truth disagree. Before §2.2 try-runtime + chopsticks runs, the operator MUST resolve this by `curl -s -m 5 wss-tested-host` against both forms (or `wscat -c` / polkadot.js tooling) and pick whichever returns a healthy `system_chain` response, then update both the table below and the chopsticks YAML to match. Do NOT proceed with a stale guess.
+> **ecq-testnet archive segment caveat — operator must confirm before §2.2 runs.** Internal infra notes record ecq-testnet on `/archive-002/ws`, while the committed `scripts/chopsticks/leafchain-ecq-testnet.yml` uses `/archive-001/ws`. These two sources disagree. Before §2.2 try-runtime + chopsticks runs, the operator MUST resolve this by `curl -s -m 5 wss-tested-host` against both forms (or `wscat -c` / polkadot.js tooling) and pick whichever returns a healthy `system_chain` response, then update both the table below and the chopsticks YAML to match. Do NOT proceed with a stale guess.
 
 | Chain | WS endpoint | HTTPS endpoint (for curl `EP=...`) |
 |---|---|---|
@@ -588,7 +588,7 @@ From `REPORT-rehearsal-v5-2026-05-07.md`:
 Mainnet rollout is the next major milestone after the testnet 24 h soak passes. Documented here so operators know what's next without re-engaging engineering.
 
 **Status**:
-- Mainnet rehearsal (forknet against mainnet seed DB) is **PENDING**. Tracker: `AI_MEMORIES/todo_mini_fork_rehearsal_mainnet_testnet.md`. Testnet portion completed 2026-05-06; mainnet portion not started.
+- Mainnet rehearsal (forknet against mainnet seed DB) is **PENDING**. Testnet portion completed 2026-05-06; mainnet portion not started.
 - Mainnet seed DB not yet acquired. Acquisition: `kubectl cp` from a mainnet validator or archive node → `/data/forknet-test/mainnet-seed/`. Size ~80–120 GB.
 - Mainnet runtime in `release/v1.12.0` is `thxnet` spec `112_000_002` — byte-identical migration body to testnet's `112_000_005` (PR #37 invariant).
 - try-runtime live evidence at PR #37 merge: `active_validators=16, num_cores=4, max_vals_per_core=Some(5), node_features[0,1,3]=true` — topology rule fires correctly.
@@ -633,16 +633,13 @@ Mainnet rollout is the next major milestone after the testnet 24 h soak passes. 
 
 **Rehearsal evidence references** (traceability; operators should not need these during execution):
 
-| Document | Path |
+| Document | Location |
 |---|---|
-| Original P0–P6.4 verification | `/root/Works/AI_MEMORIES/_W3_irreplaceable_backup/test-results/REPORT.md` |
-| Path E.1 + E.2 + Path B + 6 s/block achievement | `/mnt/HC_Volume_105402799/worktrees/thxnet-rehearsal/test-results/REPORT-rehearsal-v5-2026-05-07.md` |
-| PR #37 try-runtime live evidence | `/root/Works/AI_MEMORIES/project_pr37_async_backing_unified.md` |
-| PR #36 fork-genesis port + path changes | `/root/Works/AI_MEMORIES/project_pr36_fork_genesis_merged.md` |
-| Substrate gotchas index | `/root/Works/AI_MEMORIES/feedback_testing_traps.md` |
-| Three-leafchain-source disambiguation | `/root/Works/AI_MEMORIES/reference_three_leafchain_sources.md` |
-| Forknet topology + boot rules | `/root/Works/AI_MEMORIES/reference_forknet_topology.md` |
-| Path / artefact catalogue | `/root/Works/AI_MEMORIES/reference_paths_and_artefacts.md` |
+| Path E.1 + E.2 + Path B + 6 s/block achievement (this repo) | `test-results/REPORT-rehearsal-v5-2026-05-07.md` |
+| Earlier setCode-mechanics rehearsal (this repo) | `test-results/REPORT-rehearsal-2026-05-06.md` |
+| Original P0–P6.4 verification | internal — request from rollout coordinator |
+| PR #36 / PR #37 / PR #38 / PR #39 context | `gh pr view <N> --repo thxnet/thxnet-sdk` |
+| Substrate gotchas, forknet topology, path catalogue, three-leafchain disambiguation | internal engineering notes — request from rollout coordinator |
 
 ---
 
