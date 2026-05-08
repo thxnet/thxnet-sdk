@@ -1,7 +1,6 @@
 # Mini-fork Rehearsal Report — testnet rootchain (post PR #36 + #37)
 
 **Date**: 2026-05-06
-**Worktree**: `/mnt/HC_Volume_105402799/worktrees/thxnet-rehearsal`
 **Branch**: `review/v1.12.0-post-pr37` (tracks `origin/release/v1.12.0`)
 **HEAD**: `6b7ee05aeaabdce1417e2b4f0f50405ce9a5ac9f` (PR #37 merge — unified `EnableAsyncBackingAndCoretime`)
 **Scope**: testnet rootchain forknet rehearsal only (mainnet rehearsal explicitly deferred this session — mainnet seed DB not locally available)
@@ -14,7 +13,7 @@
 |---|---|
 | Build polkadot binary (`cargo build --release -p polkadot -p thxnet-leafchain`) | **PASS** — 22m 08s, exit 0 |
 | `polkadot fork-genesis --help` | PRESENT (PR #36 port verified end-to-end) |
-| fork-genesis from `/data/forknet-test/rootchain-seed` | PASS — 21.7 MB output, paraId 2000 registered |
+| fork-genesis from internal rootchain seed snapshot | PASS — 21.7 MB output, paraId 2000 registered |
 | Relay finalize first block (3 validators) | PASS — finalized within 30 s |
 | Para advance past #1 | PASS — para reached #5 within ~85 s of collator boot |
 | Cumulus 2-step setCode `[1/2] authorizeUpgrade` | PASS — InBlock, no dispatch error |
@@ -31,7 +30,7 @@ Two operational notes — neither indicates a regression:
 ## Build artefacts
 
 ```
-/mnt/HC_Volume_105402799/worktrees/thxnet-rehearsal/
+<rehearsal worktree>/
 ├── target/release/
 │   ├── polkadot                    148 MB  (polkadot 1.12.0-6b7ee05aeaa, fork-genesis baked in)
 │   ├── thxnet-leafchain            180 MB  (thxnet-leafchain 0.5.0-6b7ee05aeaa)
@@ -48,7 +47,7 @@ Toolchain: rustc 1.95.0 + nightly-2024-04-10 (workspace-pinned).
 
 ## Spec JSONs regenerated
 
-W3 deletion took the prior spec JSONs with it. We regenerated:
+The prior spec JSONs were lost when an earlier internal worktree was removed. We regenerated:
 
 | File | Source | Size | Purpose |
 |---|---|---|---|
@@ -74,12 +73,12 @@ First boot attempt used `w6-t3-verify-v1.12.0.json` (sand-testnet baseline + v1.
 
 After pivot: para advanced #0 → #5 within 85 s of collator boot.
 
-**Memo for next time**: any "fresh-state" mini-fork rehearsal should start from a leafchain `--chain=dev` spec rather than the sand-testnet `Live` spec. The original P6.4 work pre-2026-05-04 used a livenet-state-merged sand-testnet para spec (where the Aura authorities had been substituted by the operator who created the spec); this session's W3-rebuilt baseline didn't carry that substitution.
+**Memo for next time**: any "fresh-state" mini-fork rehearsal should start from a leafchain `--chain=dev` spec rather than the sand-testnet `Live` spec. The original P6.4 work pre-2026-05-04 used a livenet-state-merged sand-testnet para spec (where the Aura authorities had been substituted by the operator who created the spec); this session's baseline (rebuilt from internal backup) didn't carry that substitution.
 
 ## Topology
 
 ```
-RELAY (3-validator forknet, fork-genesis from /data/forknet-test/rootchain-seed)
+RELAY (3-validator forknet, fork-genesis from internal rootchain seed snapshot)
   Alice    --alice    p2p=40331  rpc=9931  bootnode for Bob+Charlie
   Bob      --bob      p2p=40332  rpc=9932
   Charlie  --charlie  p2p=40333  rpc=9933

@@ -1,8 +1,11 @@
-// patch-avk-then-setcode.ts — Path B helper: patch parachains_shared::ActiveValidatorKeys
-// at runtime via sudo.system.setStorage, then trigger relay setCode.
+// patch-avk-then-setcode.ts — Path B helper: patch ParasShared::ActiveValidatorKeys
+// post-genesis, then issue `setCodeWithoutChecks` in the same block.
 //
-// Goal: make migration's `decode_len()` see 15 (genesis patch gets reset by session init,
-// so we must do this AT runtime within session 0).
+// Used during forknet rehearsal Path B to inject 6 active validators into a
+// 2-validator-genesis snapshot before the relay parachain backing pipeline
+// initialises. Empirically the genesis patch SURVIVES session 0 init (verified
+// during rehearsal Path B); the runtime-side re-patch here covers cases where
+// only a post-genesis touch-up is desired.
 //
 // Usage:
 //   bun run patch-avk-then-setcode.ts \
@@ -13,7 +16,11 @@
 import { ApiPromise, Keyring, WsProvider } from "@polkadot/api";
 import { readFileSync } from "node:fs";
 
-const AVK_KEY = "0x5f3e4907f716ac89b6347d15ececedca5579297f4dfb9609e7e4c2ebab9ce40a";
+// twox_128("ParasShared") ++ twox_128("ActiveValidatorKeys")
+// = 0xb341e3a63e58a188839b242d17f8c9f8 ++ 0x7a50c904b368210021127f9238883a6e
+// (empirically verified during rehearsal Path B; the earlier guess
+// 0x5f3e4907... was actually the Staking pallet's storage key.)
+const AVK_KEY = "0xb341e3a63e58a188839b242d17f8c9f87a50c904b368210021127f9238883a6e";
 
 function getArg(name: string, fallback?: string): string {
   const i = process.argv.indexOf(`--${name}`);

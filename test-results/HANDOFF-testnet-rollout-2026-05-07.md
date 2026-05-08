@@ -70,7 +70,7 @@ Run **all** of these immediately before opening the rollout window. Any single f
 
 ### 2.1 Build artefacts
 
-- [ ] CI green for `release/v1.12.0` HEAD `6b7ee05aea` — `gh run list --branch release/v1.12.0 --limit 5 --workflow ci.yml`. Semver-noise jobs are ignored per `project_pr37_async_backing_unified.md`.
+- [ ] CI green for `release/v1.12.0` HEAD `6b7ee05aea` — `gh run list --branch release/v1.12.0 --limit 5 --workflow ci.yml`. Semver-noise jobs are ignored per internal engineering notes.
 - [ ] Polkadot binary tarball downloaded; `sha256sum` verified; `./polkadot --version` reports `1.12.0-<git>-x86_64-linux-gnu`. Original CI run is `25221252584`; the post-PR-#37 successor run is `[OPERATOR FILL IN: post-merge CI run ID for 6b7ee05aea]`.
 - [ ] `thxnet_testnet_runtime.compact.compressed.wasm` downloaded; `b2sum -l 256` matches `[OPERATOR FILL IN: expected blake2-256]`.
 - [ ] `general_runtime.compact.compressed.wasm` (spec 21 Scenario A; spec 22 Scenario B) — `b2sum -l 256` matches `[OPERATOR FILL IN]`.
@@ -84,8 +84,9 @@ Run **all** of these immediately before opening the rollout window. Any single f
 - [ ] Chopsticks fork + setCode + advance ≥ 3 blocks × all 6 chains — PASS
 
 ```bash
-TRY=/mnt/HC_Volume_105402799/tools/try-runtime-cli-git/bin/try-runtime
-cd /mnt/HC_Volume_105402799/worktrees/thxnet-rehearsal   # CRITICAL: relative path; try-runtime lowercases absolute paths
+# TRY = path to the try-runtime CLI binary on the operator host
+TRY=[OPERATOR FILL IN: path to try-runtime binary on the operator host]
+cd <repo checkout root>   # CRITICAL: relative path; try-runtime lowercases absolute paths
 
 # Rootchain (must show migration log: active_validators=19, num_cores=5,
 # max_vals_per_core=Some(5), node_features[0,1,3]=true; 60 try-state PASS)
@@ -99,8 +100,7 @@ cd /mnt/HC_Volume_105402799/worktrees/thxnet-rehearsal   # CRITICAL: relative pa
 # ecq archive segment is unresolved (see §5 caveat) — set ECQ_ARCHIVE
 # explicitly after the operator confirms archive-001 vs archive-002 against
 # the live endpoint; the other four leafchains use archive-001.
-ECQ_ARCHIVE=archive-002   # tentative per reference_paths_and_artefacts.md;
-                           # MUST verify against live before running.
+ECQ_ARCHIVE=archive-002   # tentative — MUST verify against live before running.
 for LEAF in sand ecq lmt thx izutsuya; do
   ARCH=archive-001
   [ "$LEAF" = "ecq" ] && ARCH="$ECQ_ARCHIVE"
@@ -113,7 +113,7 @@ done
 # Chopsticks (run each in its own shell + run setCode + advance per chain).
 # Config filenames follow `rootchain-testnet.yml` for the relay and
 # `leafchain-<leaf>-testnet.yml` for each parachain.
-cd /mnt/HC_Volume_105402799/worktrees/thxnet-rehearsal
+cd <repo checkout root>
 bun install && ( cd node_modules/sqlite3 && npx node-gyp rebuild )   # sqlite native binding
 
 # Relay (rootchain) fork
@@ -133,7 +133,7 @@ done
 - [ ] Two cluster operators present (one driver, one observer)
 - [ ] **Kubernetes namespace confirmed** for the testnet relay + collator deployments. Every `kubectl` command in this handoff is written in unqualified form (no `-n <ns>`); operators MUST prefix each invocation with `-n <namespace placeholder>` (e.g. `kubectl -n thxnet-testnet ...`) or set `kubectl config set-context --current --namespace=<ns>` once at session start. Confirm the namespace name with the cluster owner and write it on the rollout-channel pinned message.
 - [ ] On-call SRE paged in
-- [ ] Stakeholder communication sent (T-2h announcement); see Section 10
+- [ ] Stakeholder communication sent (T-2h announcement); see §11
 - [ ] Rollback artefacts staged on the deployment host
   - [ ] Previous polkadot binary tarball (the build currently in production — `[OPERATOR FILL IN: actual production binary version, e.g. release/v0.9.40 or whatever is live]`) — `[OPERATOR FILL IN: path on deploy host]`
   - [ ] Previous `thxnet_testnet_runtime.compact.compressed.wasm` (whatever spec_version is currently live, expected `94000004`)
@@ -316,7 +316,7 @@ After Phase 4 completes for all 5 leafchains:
 - Finality gap on rootchain ≤ 3 blocks
 - Collator logs free of `BlockedByBacking` / panic / `Cluster has too many pending statements`
 
-Begin **24-hour soak monitoring** (Section 9). Mark rollout COMPLETE only after the soak window closes cleanly.
+Begin **24-hour soak monitoring** (§10). Mark rollout COMPLETE only after the soak window closes cleanly.
 
 ---
 
@@ -330,7 +330,7 @@ Phase-by-phase deltas from Scenario A:
 
 | Phase | Delta from Scenario A |
 |---|---|
-| **Phase 1** | Binary artefact is the PR #38 build. Same kubectl-set-image mechanics. Same passive nature (no chain effect until Phase 2). PR #38 binary is wire-compatible with the pre-Phase-2 chain because the cherry-picked node-side subsystem changes are **operationally backward-compatible** with the existing capacity=1 runtime. (Validated by 27/27 unit tests + hell-eagle-eye 8/8 forensic gates + 6-val + cap=2 forknet rehearsal sustaining 6s.) |
+| **Phase 1** | Binary artefact is the PR #38 build. Same kubectl-set-image mechanics. Same passive nature (no chain effect until Phase 2). PR #38 binary is wire-compatible with the pre-Phase-2 chain because the cherry-picked node-side subsystem changes are **operationally backward-compatible** with the existing capacity=1 runtime. (Validated by 27/27 unit tests + all internal review gates + 6-val + cap=2 forknet rehearsal sustaining 6s.) |
 | **Phase 2** | Identical to Scenario A. Same runtime WASM (`thxnet_testnet_runtime` spec `112_000_005`). |
 | **Phase 2.1** | Identical to Scenario A. |
 | **Phase 3** | Collators get the PR #38 `thxnet-leafchain` binary. Same passive nature. |
@@ -375,7 +375,7 @@ ETA ~10 min per leafchain (100 blocks × 6 s = 600 s); run all 5 in parallel.
   ```bash
   # EP = HTTPS endpoint from the §5 per-chain endpoint table
   # (e.g. EP=https://node.sand.testnet.thxnet.org/archive-001 for sand-testnet)
-  EP=https://<leaf-endpoint>; OUT=/tmp/blocktime-<leaf>.csv; : > "$OUT"
+  EP=https://<leaf-endpoint>; OUT="$(mktemp -t blocktime-XXXXXX.csv)"; : > "$OUT"
   PREV=""; SEEN=0
   while [ "$SEEN" -lt 101 ]; do
     HEX=$(curl -s -m 3 -X POST "$EP" -H 'Content-Type: application/json' \
@@ -406,13 +406,26 @@ If rollback is needed for ALL 5 leafchains, run the spec-21 setCode serially in 
 
 **Per-chain endpoint table** — canonical form is `wss://<host>/<archive>/ws` for WS clients (polkadot.js, try-runtime, chopsticks) and `https://<host>/<archive>` for the curl helper below. Do not insert `:443`.
 
-> **ecq-testnet archive segment caveat — operator must confirm before §2.2 runs.** Internal infra notes record ecq-testnet on `/archive-002/ws`, while the committed `scripts/chopsticks/leafchain-ecq-testnet.yml` uses `/archive-001/ws`. These two sources disagree. Before §2.2 try-runtime + chopsticks runs, the operator MUST resolve this by `curl -s -m 5 wss-tested-host` against both forms (or `wscat -c` / polkadot.js tooling) and pick whichever returns a healthy `system_chain` response, then update both the table below and the chopsticks YAML to match. Do NOT proceed with a stale guess.
+> **ecq-testnet archive segment caveat — operator must confirm before §2.2 runs.** Internal infra notes record ecq-testnet on `/archive-002/ws`, while the committed `scripts/chopsticks/leafchain-ecq-testnet.yml` uses `/archive-001/ws`. These two sources disagree. Before §2.2 try-runtime + chopsticks runs, the operator MUST resolve this by probing both archive segments and picking whichever returns a healthy `system_chain` response, then update both the table below and the chopsticks YAML to match. Do NOT proceed with a stale guess. Probe via HTTPS POST jsonrpc (curl cannot speak the WebSocket protocol with a one-shot GET, so do NOT `curl wss://...`):
+>
+> ```bash
+> # Probe both archive segments — pick whichever returns a healthy `system_chain` response.
+> for ARCH in archive-001 archive-002; do
+>   printf 'archive=%s -> ' "$ARCH"
+>   curl -s -m 5 -X POST "https://node.ecq.testnet.thxnet.org/${ARCH}" \
+>     -H 'Content-Type: application/json' \
+>     -d '{"jsonrpc":"2.0","method":"system_chain","params":[],"id":1}'
+>   echo
+> done
+> ```
+>
+> Or, if the cluster doesn't expose HTTPS, the simpler alternative is `wscat -c wss://node.ecq.testnet.thxnet.org/archive-001/ws` (and again for `archive-002/ws`) and call `system_chain` interactively.
 
 | Chain | WS endpoint | HTTPS endpoint (for curl `EP=...`) |
 |---|---|---|
 | Testnet rootchain | `wss://node.testnet.thxnet.org/archive-001/ws` | `https://node.testnet.thxnet.org/archive-001` |
 | sand-testnet | `wss://node.sand.testnet.thxnet.org/archive-001/ws` | `https://node.sand.testnet.thxnet.org/archive-001` |
-| ecq-testnet | `[OPERATOR FILL IN: confirm archive-001 or archive-002 — see caveat above; default tentative `wss://node.ecq.testnet.thxnet.org/archive-002/ws` per reference_paths_and_artefacts.md]` | `[OPERATOR FILL IN]` |
+| ecq-testnet | OPERATOR FILL IN — confirm archive-001 or archive-002 against the §5 caveat above; tentative default is wss://node.ecq.testnet.thxnet.org/archive-002/ws per internal infra notes | OPERATOR FILL IN |
 | lmt-testnet | `wss://node.lmt.testnet.thxnet.org/archive-001/ws` | `https://node.lmt.testnet.thxnet.org/archive-001` |
 | thx-testnet | `wss://node.thx.testnet.thxnet.org/archive-001/ws` | `https://node.thx.testnet.thxnet.org/archive-001` |
 | izutsuya-testnet | `wss://node.izutsuya.testnet.thxnet.org/archive-001/ws` | `https://node.izutsuya.testnet.thxnet.org/archive-001` |
@@ -503,7 +516,7 @@ For Scenario B Phase-5 failure: downgrading spec 22 → 21 (cap=2 → cap=1) is 
 
 ## 7. Known gotchas
 
-Distilled from `feedback_testing_traps.md`, validated by Path E.1/E.2/B in `REPORT-rehearsal-v5-2026-05-07.md`.
+Distilled from internal engineering notes, validated by Path E.1/E.2/B in `REPORT-rehearsal-v5-2026-05-07.md`.
 
 | Gotcha | Failure mode | Mitigation |
 |---|---|---|
@@ -511,7 +524,7 @@ Distilled from `feedback_testing_traps.md`, validated by Path E.1/E.2/B in `REPO
 | **Phase 2.1 NON-OPTIONAL** | Validator processes hold stale `ActiveConfig` cache (~2 h on testnet) without restart → ghost `BlockedByBacking` post-migration. | Always run Phase 2.1. |
 | **Cumulus 2-step setCode required** | Direct `system.setCode` on a leafchain → `1010: would exhaust block limits` (WASM ~1.3 MB > block budget). | Use `setcode-parachain.ts`: authorize (small) + enact (unsigned). |
 | **24–36 s wait after `enactAuthorizedUpgrade`** | Cumulus needs next relay block + apply runtime before spec flips. Re-issuing causes confusion. | Wait 60 s before re-checking `state_getRuntimeVersion`. |
-| **try-runtime CLI lowercases absolute paths** | Uppercase paths (`/mnt/HC_Volume_...`) silently lowercased → `No such file or directory` panic. | Always invoke try-runtime with relative paths (`cd` first). |
+| **try-runtime CLI lowercases absolute paths** | Absolute paths with uppercase characters are silently lowercased → `No such file or directory` panic. | Always invoke try-runtime with relative paths (`cd` first). |
 | **`bridge-hub-westend-runtime` workspace check** | Pre-existing CI noise; Westend not in THXNET. | Ignore. |
 | **CI flake `Cargo check (thxnet crates)`** | Known cancel/fail @ ~1h on PR #36/#37/#38. Not a code defect. | Use a clean re-run if you need definitive CI green; otherwise the P0–P6.4 + try-runtime + chopsticks evidence is sufficient. |
 | **Migration log may appear multiple times** | Validators that catch up across the upgrade block re-emit the line. | Informational; migration body is idempotent (`if cfg.x < y { x = y }` is no-op post-migration). |
@@ -526,7 +539,7 @@ Distilled from `feedback_testing_traps.md`, validated by Path E.1/E.2/B in `REPO
 | **R-1** | Phase 2 migration body fails on testnet livenet state | LOW × HIGH (try-runtime live PASS multiple times in PR #37 evidence; 60 try-state PASS per chain; 4× idempotent re-runs identical) | Counter-setCode to previous runtime (Phase-2 caveats apply — §6); diagnose via try-runtime against post-failure live state. Watch finality dashboard + migration-log presence. | Sudo holder + engineering escalation |
 | **R-2** | Phase 2.1 kubectl rollout restart fails | MED × MED (multi-pod orchestration tail risk; cache pinning self-recovers at next session ~2 h) | Manual `kubectl -n <namespace placeholder> delete pod <name>` per stuck validator; escalate if multiple. Watch pod-ready count + per-validator log tails. | Cluster operator |
 | **R-3** | Leafchains freeze between Phase 2 and Phase 4 | **NEAR-ZERO × HIGH** — this is exactly what PR #37 prevents (`node_features[3]=true` set atomically with setCode → V2 receipts accepted) | Complete Phase 4 promptly. Multi-hour gap should still self-recover post-Phase-4. Watch per-leafchain height + collator logs for `BlockedByBacking`. | Cluster operator + sudo holder |
-| **R-4** | (Scenario B) PR #4937 fragment-chain regression at production scale | V.LOW × HIGH (27/27 unit tests + hell-eagle-eye 8/8 forensic + 6-val cap=2 forknet sustained 6s; pre-existing orphan `fragment_tree/tests.rs` is dead code) | Runtime-only rollback to spec 21 → reverts to Scenario A regime (no freeze). **Do NOT roll back PR #38 binary; downgrade general_runtime only.** Watch Phase-5 gap distribution + relay log for `BlockedByBacking`. | Engineering escalation |
+| **R-4** | (Scenario B) PR #4937 fragment-chain regression at production scale | V.LOW × HIGH (27/27 unit tests + all internal review gates + 6-val cap=2 forknet sustained 6s; pre-existing orphan `fragment_tree/tests.rs` is dead code) | Runtime-only rollback to spec 21 → reverts to Scenario A regime (no freeze). **Do NOT roll back PR #38 binary; downgrade general_runtime only.** Watch Phase-5 gap distribution + relay log for `BlockedByBacking`. | Engineering escalation |
 | **R-5** | (Scenario B) capacity=2 stalls in production topology | LOW × HIGH (forknet 6 vals + cap=2 = 93% 6s gaps; prod 19 vals = strictly more pipelining margin) | Same as R-4. | Engineering escalation |
 | **R-6** | Sudo key holder unavailable mid-rollout | LOW × HIGH (operational discipline) | Pre-sign + queue Phase 2 + per-leaf Phase 4 txs on offline signer; verify signatures pre-rollout. | Sudo holder + cluster operator |
 | **R-7** | Wrong WASM blob submitted (typo/artefact mix-up) | LOW × HIGH (blake2-256 verified pre-flight §2.1) | Hash double-check before signing; observer reads it back; tx event log shows `CodeUpdated`; check `state_getRuntimeVersion` immediately post-tx. | Sudo holder + observer |
@@ -567,7 +580,76 @@ From `REPORT-rehearsal-v5-2026-05-07.md`:
 
 ---
 
-## 10. Communication protocol
+## 10. 24-hour soak monitoring procedure
+
+The §9 catalogue lists **what** to watch; this section is the **procedure** for the 24 h soak window that immediately follows Scenario A finalisation (Phase 4 success) or Scenario B finalisation (Phase 5 success).
+
+### Window
+
+- **T0** = wall-clock timestamp (UTC) of Phase 4 success in Scenario A, or Phase 5 success in Scenario B. Use wall-clock specifically — block-time is not a substitute (a stalled chain would falsely "freeze" the soak clock).
+- **T0 + 24 h** = soak window closes. Until then, the rollout is **NOT** declared COMPLETE.
+
+### Watch schedule
+
+Four hand-off slots, six hours each. Each slot has a primary watcher; pair with a second pair of eyes (same-slot observer or cross-slot hand-off) wherever staffing allows:
+
+| Slot | Wall-clock from T0 | Primary | Pair (where possible) |
+|---|---|---|---|
+| Slot 1 | T+0 → T+6h | OPERATOR FILL IN | OPERATOR FILL IN |
+| Slot 2 | T+6h → T+12h | OPERATOR FILL IN | OPERATOR FILL IN |
+| Slot 3 | T+12h → T+18h | OPERATOR FILL IN | OPERATOR FILL IN |
+| Slot 4 | T+18h → T+24h | OPERATOR FILL IN | OPERATOR FILL IN |
+
+Each hand-off MUST hand the soak journal (running notes file or chat thread) to the next operator, naming the most recent finality lag, last `chain_getHeader` numbers per chain, and any soft-violation entries from the previous slot.
+
+### Per-slot checks (every 30 min)
+
+Run each of the following at least once every 30 minutes during the slot. The §5 verification matrix has the exact RPC commands; this list is the threshold sheet:
+
+| Check | Threshold | Source |
+|---|---|---|
+| Rootchain finalisation gap (head − finalised) | < 120 s wall-clock | `chain_getHeader` + `chain_getFinalizedHead` per §5 |
+| Per-leafchain block gap, Scenario A | < 12 s | `chain_getHeader` polled twice 30 s apart |
+| Per-leafchain block gap, Scenario B (cap=2) | < 8 s | same |
+| `OOM` / `panicked` / `panic` strings in container logs | zero in last 30 min | `kubectl -n <ns> logs ... --since=30m \| grep -E 'OOM\|panicked\|panic'` |
+| Validator peer count | stable, ≥ 18 (rootchain), ≥ 4 (leafchain typical) | `system_health` |
+| Para-disputes count | zero new disputes since last slot | `parasDisputes::Disputes` query (see §5) |
+| Telemetry alerts (cf. §9 Suggested dashboards / alerts) | all cleared | dashboard inspection |
+
+Record each 30-min sample in the soak journal: timestamp + threshold check outcomes. A sample is PASS only if **every** row above is within threshold.
+
+### Soft vs hard violations
+
+- **Soft violation**: a single sample row exceeds threshold for < 60 s and self-recovers by the next 30-min sample (e.g. a transient finality blip caused by a single slow validator catching up). Action: log in soak journal with timestamp + recovered-by timestamp; continue.
+- **Hard violation**: any single threshold exceeded for ≥ 60 s, OR any non-zero `OOM`/`panicked` line, OR a new para-dispute, OR finality lag exceeded threshold cumulative > 5 minutes during the entire soak. Action: **immediate engineering escalation — do not wait for the next slot**.
+
+### Exit criteria (soak PASS)
+
+All of the following must hold at T0 + 24 h:
+
+1. 24 h of wall-clock elapsed since T0.
+2. Zero hard violations recorded in the soak journal.
+3. Cumulative time the rootchain finalisation lag exceeded its threshold (120 s) is **< 5 minutes** total across the entire window.
+4. Every leafchain has at least one PASS sample in every slot.
+
+If all four hold, declare rollout COMPLETE per §11 communication protocol. If any fail, treat as rollback decision (next subsection).
+
+### Rollback trigger during soak
+
+The rollback triggers are the same in substance as those embedded in §3 (Scenario A phases) and §4 (Scenario B phases) — what changes during the soak is **who pulls the trigger**: the on-shift soak watcher, not the rollout-window operator. Specifically, during the soak window the watcher MUST initiate rollback (and engineering escalation in parallel) if any of the following appears:
+
+- Rootchain finality gap > 120 s for ≥ 60 s, OR cumulative > 5 minutes since T0
+- Any leafchain stops advancing for ≥ 60 s
+- `BlockedByBacking` rate spikes > 10/min sustained for ≥ 2 min on relay or any collator
+- `panicked` / `OOM` in any validator or collator container
+- New para-dispute observed
+- `state_getRuntimeVersion` ever reports a value other than the post-rollout target (rootchain `112000005`; leafchains `21` Scenario A or `22` Scenario B)
+
+The rollback procedure itself is unchanged — see §6. Only the responder identity differs (soak watcher escalates to sudo holder + engineering on-call; runs the same `setcode-runtime-upgrade.ts` / `setcode-parachain.ts` countering with the previous-version WASM).
+
+---
+
+## 11. Communication protocol
 
 **Pre-rollout (T-2 h)** — announce to stakeholders. Template:
 
@@ -583,13 +665,13 @@ From `REPORT-rehearsal-v5-2026-05-07.md`:
 
 ---
 
-## 11. Mainnet followup (NOT part of this rollout)
+## 12. Mainnet followup (NOT part of this rollout)
 
 Mainnet rollout is the next major milestone after the testnet 24 h soak passes. Documented here so operators know what's next without re-engaging engineering.
 
 **Status**:
 - Mainnet rehearsal (forknet against mainnet seed DB) is **PENDING**. Testnet portion completed 2026-05-06; mainnet portion not started.
-- Mainnet seed DB not yet acquired. Acquisition: `kubectl cp` from a mainnet validator or archive node → `/data/forknet-test/mainnet-seed/`. Size ~80–120 GB.
+- Mainnet seed DB not yet acquired. Acquisition: `kubectl cp` from a mainnet validator or archive node → an internal forknet seed directory on the operator host (request path from rollout coordinator). Size ~80–120 GB.
 - Mainnet runtime in `release/v1.12.0` is `thxnet` spec `112_000_002` — byte-identical migration body to testnet's `112_000_005` (PR #37 invariant).
 - try-runtime live evidence at PR #37 merge: `active_validators=16, num_cores=4, max_vals_per_core=Some(5), node_features[0,1,3]=true` — topology rule fires correctly.
 
@@ -603,7 +685,7 @@ Mainnet rollout is the next major milestone after the testnet 24 h soak passes. 
 
 ---
 
-## 12. Appendix: build artefact provenance
+## 13. Appendix: build artefact provenance
 
 > CI run IDs and artefact hashes shift each rebuild. Verify each at pre-flight time; lock in actual values for the rollout window.
 

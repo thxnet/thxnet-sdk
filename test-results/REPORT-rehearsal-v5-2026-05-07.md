@@ -4,7 +4,7 @@
 
 **Branch / HEAD**: `review/v1.12.0-post-pr37` tracking `origin/release/v1.12.0` @ `6b7ee05aea` (PR #37 merge)
 
-**Seed**: `/data/forknet-test/rootchain-seed/` — fresh testnet livenet rsynced 2026-05-07 (52 GB, chain head `#15,985,675`, `specVersion=94000004`, `specName=thxnet`). The seed reflects production testnet state pre-v1.12.0 deployment.
+**Seed**: internal testnet livenet snapshot rsynced 2026-05-07 (52 GB, chain head `#15,985,675`, `specVersion=94000004`, `specName=thxnet`). The seed reflects production testnet state pre-v1.12.0 deployment.
 
 ## Headline result
 
@@ -104,7 +104,7 @@ The mechanical setCode flow on the parachain works under the post-migration rela
 
 ### `leafchain-shim.sh` updated for new worktree
 
-The shim that translates fork-genesis's `export-genesis-state` call to v1.12.0's `export-genesis-head` had a hardcoded path to the deleted W3 worktree. Wrote `/tmp/leafchain-shim.sh` pointing to the rehearsal worktree's `target/release/thxnet-leafchain`.
+The shim that translates fork-genesis's `export-genesis-state` call to v1.12.0's `export-genesis-head` had a hardcoded path to a previously-removed internal worktree. Rewrote the shim (kept on the operator host outside the repo) to point to the rehearsal worktree's `target/release/thxnet-leafchain`.
 
 ### LRU patch trick (Path C — partial dead-end, captured for reference)
 
@@ -140,7 +140,7 @@ Async backing **will be enabled** post-step-3 (storage delta proven). Para block
 ## Logs / artefacts
 
 ```
-/mnt/HC_Volume_105402799/worktrees/thxnet-rehearsal/forknet/run-3val-v5/
+forknet/run-3val-v5/   (under the rehearsal worktree, gitignored)
 ├── forked-old.json                             — OLD fork-genesis output (18 MB, v0.9.x layout, paraId=2000 registered)
 ├── logs/
 │   ├── relay-alice.log                         — contains EnableAsyncBackingAndCoretime log line at 01:11:37
@@ -152,14 +152,12 @@ Async backing **will be enabled** post-step-3 (storage delta proven). Para block
 └── state/                                      — RocksDB state for each node (~few GB)
 ```
 
-Driver scripts:
-```
-/tmp/p6-rehearsal-v5.sh                         — orchestrator (Path E.1)
-/tmp/leafchain-shim.sh                          — export-genesis-{state→head} translator
-/tmp/p6e1-setcode-relay.log                     — Phase 2 setCode tx output
-/tmp/p6e1-setcode-para.log                      — Phase 4 cumulus 2-step output
-/tmp/p6e1-probe.log                             — post-Phase-4 probe
-```
+Driver scripts (kept on the operator host outside the repo — request from rollout coordinator):
+- `p6-rehearsal-v5.sh`                         — orchestrator (Path E.1)
+- `leafchain-shim.sh`                          — export-genesis-{state→head} translator
+- `p6e1-setcode-relay.log`                     — Phase 2 setCode tx output
+- `p6e1-setcode-para.log`                      — Phase 4 cumulus 2-step output
+- `p6e1-probe.log`                             — post-Phase-4 probe
 
 ---
 
@@ -171,7 +169,7 @@ Driver scripts:
 
 | Step | Result |
 |---|---|
-| OLD v0.3.3 leafchain `fork-genesis --base-path=/data/forknet-test/leafchain-sand-seed --para-id=1003` | PASS — output `forked-sand.json` (1.76 MB; paraId=1003, //Alice/Bob substituted as Aura authorities automatically, v0.3.3 :code 878 KB, 55 storage keys after fork-genesis filtering) |
+| OLD v0.3.3 leafchain `fork-genesis --base-path=<internal sand-testnet leaf seed> --para-id=1003` | PASS — output `forked-sand.json` (1.76 MB; paraId=1003, //Alice/Bob substituted as Aura authorities automatically, v0.3.3 :code 878 KB, 55 storage keys after fork-genesis filtering) |
 | OLD polkadot fork-genesis on rootchain-seed with `--register-leafchain="1003:forked-sand.json"` `--leafchain-binary=$OLD_LEAF` | PASS — output `forked-rootchain.json` (19.8 MB; paraId 1003 registered with v0.3.3 leafchain :code as validation_code) |
 | Phase 1 sim: v1.12.0 polkadot binary boots on OLD relay spec | PASS — pre-setCode `specVersion=94000004` ✓ |
 | Phase 3 sim: v1.12.0 leafchain (=v0.5.0) binary boots on v0.3.3 livenet para spec | PASS — para reached #3, pre-setCode `specName=thxnet-general-runtime, specVersion=4` |
@@ -198,7 +196,7 @@ Para stuck at block #4 — cannot include the `[1/2] sudo(parachainSystem.author
 
 Cumulus collator keeps producing block #4 forks (all parented to #3), none get backed/included on relay → para never advances to #5 → setCode tx (which would land in #5+) can never be included. The bun script timed out waiting for `[1/2] InBlock`.
 
-**Diagnosis**: v0.3.3 leafchain has `UNINCLUDED_SEGMENT_CAPACITY=2` (the documented fragment-chain bug per `reference_three_leafchain_sources.md` — "with capacity=2 under the same topology, para stalls at ~13-30 forever"). In a 2-validator forknet, backing latency exceeds 1 relay slot, so the unincluded segment fills with capacity=2 forks of the same height. v0.3.3 cumulus enters a permanent "fork at #4" loop. The bug is **fixed in v1.12.0 leafchain (capacity=1)** — but applying that fix requires the setCode tx to be included, which requires para to advance, which is blocked by the bug. Chicken-and-egg in our small forknet.
+**Diagnosis**: v0.3.3 leafchain has `UNINCLUDED_SEGMENT_CAPACITY=2` (the documented fragment-chain bug per internal engineering notes — "with capacity=2 under the same topology, para stalls at ~13-30 forever"). In a 2-validator forknet, backing latency exceeds 1 relay slot, so the unincluded segment fills with capacity=2 forks of the same height. v0.3.3 cumulus enters a permanent "fork at #4" loop. The bug is **fixed in v1.12.0 leafchain (capacity=1)** — but applying that fix requires the setCode tx to be included, which requires para to advance, which is blocked by the bug. Chicken-and-egg in our small forknet.
 
 **Production rollout reality**: testnet (19 validators × 5 cores) has fast backing quorum → v0.3.3 capacity=2 bug manifests rarely → setCode tx gets included → Phase 4 succeeds → para upgrades to v1.12.0 (capacity=1, bug eliminated). Mainnet (16 validators × 4 cores) similarly.
 
@@ -314,13 +312,13 @@ Backporting **paritytech/polkadot-sdk#4937** ("prospective-parachains rework: ta
 | `ee326b4451` | `feat(leafchain): flip UNINCLUDED_SEGMENT_CAPACITY 1→2 to engage async backing` | 1 (`thxnet/leafchain/runtime/general/src/lib.rs`) |
 | `5cbb2f41f4` | `chore(forknet): expand dev_authority_set to 6 validators` | 1 (`polkadot/node/service/src/chain_spec_fork.rs`) |
 
-The first commit (cherry-pick) was forensically reviewed by hell-eagle-eye-reviewer with **8/8 gates PASS** before proceeding.
+The first commit (cherry-pick) passed all internal review gates before proceeding.
 
 ## Research → cherry-pick → review → rehearsal pipeline
 
-1. **Research agent** (opus): identified upstream squash `0b52a2c19ebcf5d7a0d07974b70aec656704d249` as PR #4937, mapped 14 files, predicted 4 mechanical conflicts from contemporaneous PR #4665 noise.
-2. **Cherry-pick agent** (opus): created `/mnt/HC_Volume_105402799/worktrees/thxnet-cherry-pr4937` worktree, applied the cherry-pick on `feat/backport-pr4937` branch off `origin/release/v1.12.0`, resolved 4 conflicts as predicted, ran `cargo test -p polkadot-node-core-prospective-parachains` → **27 passed / 0 failed**.
-3. **hell-eagle-eye-reviewer** (opus): forensic review of `b72ff06ed9` against upstream squash. All 8 gates PASS. Surface area discipline confirmed (no `thxnet/`, runtime, or capacity changes in the cherry-pick commit). Noted one pre-existing orphan (`fragment_tree/tests.rs`, 1451 lines, never compiled, recommended hygiene cleanup as separate commit).
+1. **Research**: identified upstream squash `0b52a2c19ebcf5d7a0d07974b70aec656704d249` as PR #4937, mapped 14 files, predicted 4 mechanical conflicts from contemporaneous PR #4665 noise.
+2. **Cherry-pick**: applied via internal automation on a separate worktree on the `feat/backport-pr4937` branch off `origin/release/v1.12.0`, resolved 4 conflicts as predicted, ran `cargo test -p polkadot-node-core-prospective-parachains` → **27 passed / 0 failed**.
+3. **Internal review**: forensic review of `b72ff06ed9` against upstream squash. All internal review gates PASS. Surface area discipline confirmed (no `thxnet/`, runtime, or capacity changes in the cherry-pick commit). Noted one pre-existing orphan (`fragment_tree/tests.rs`, 1451 lines, never compiled, recommended hygiene cleanup as separate commit).
 4. **Capacity flip + 6-val expansion**: separate commits on the same branch.
 5. **Rehearsal**: 6 actual polkadot validator processes (Alice/Bob/Charlie/Dave/Eve/Ferdie), 1 paraId (`leafchain_dev`/2000), LRU patch trick to fire migration at boot, single collator pair (sand-Alice/Bob).
 
@@ -377,7 +375,7 @@ Verified at every phase boundary throughout the cherry-pick + rebuild + rehearsa
 
 ## Artefacts
 
-- Cherry-pick worktree: `/mnt/HC_Volume_105402799/worktrees/thxnet-cherry-pr4937/` (branch `feat/backport-pr4937`, NOT pushed yet)
-- Rehearsal log: `/mnt/HC_Volume_105402799/worktrees/thxnet-rehearsal/forknet/run-final-cap2-6val/`
-- Test log: `/tmp/pr4937_test.log` (27/27 PASS)
-- Build logs: `/tmp/pr4937_build.log`, `/tmp/wbuild_capacity2.log`, `/tmp/leaf_capacity2.log`, `/tmp/6val_build.log` (all exit 0)
+- Cherry-pick worktree: internal cherry-pick worktree (branch `feat/backport-pr4937`)
+- Rehearsal log: `forknet/run-final-cap2-6val/` under the rehearsal worktree (gitignored)
+- Test log: `pr4937_test.log` on the operator host (27/27 PASS)
+- Build logs: `pr4937_build.log`, `wbuild_capacity2.log`, `leaf_capacity2.log`, `6val_build.log` on the operator host (all exit 0)

@@ -30,16 +30,13 @@
 //   5. Confirm spec_version bumped, head advanced
 
 import { ApiPromise, Keyring, WsProvider } from "@polkadot/api";
+import { blake2AsHex } from "@polkadot/util-crypto";
 import { readFileSync } from "node:fs";
 
-const DEV_KEYS = new Set([
-  "//Alice",
-  "//Bob",
-  "//Charlie",
-  "//Dave",
-  "//Eve",
-  "//Ferdie",
-]);
+// Reject //alice / //ALICE / //Alice//stash / //bob//controller etc — case
+// insensitive, with optional derivation path suffix.
+const DEV_KEY_PATTERN =
+  /^\s*\/\/(alice|bob|charlie|dave|eve|ferdie)(\/\/.*)?\s*$/i;
 
 function getCliArg(name: string): string | undefined {
   const i = process.argv.indexOf(`--${name}`);
@@ -64,8 +61,10 @@ function requireConfig(envName: string, cliName: string, humanName: string): str
 
 function loadSudoSeed(): string {
   const seed = process.env.SUDO_SEED;
-  if (!seed) throw new Error("SUDO_SEED env var required");
-  if (DEV_KEYS.has(seed.trim())) {
+  if (!seed || !seed.trim()) {
+    throw new Error("SUDO_SEED env var required");
+  }
+  if (DEV_KEY_PATTERN.test(seed)) {
     throw new Error(
       "dev key rejected — production needs real sudo seed",
     );
@@ -79,13 +78,22 @@ const LABEL = resolveConfig("LABEL", "label") ?? "chain";
 const SUDO_SEED = loadSudoSeed();
 
 async function main() {
-  // Resolve signer address up front for the abort banner
+  // Resolve signer address AND read+hash the WASM BEFORE the abort banner so
+  // the operator can verify the hash against the §2.1 pre-flight record while
+  // the 5s timer is still running.
   const keyring = new Keyring({ type: "sr25519" });
   const signer = keyring.addFromUri(SUDO_SEED);
+
+  const wasmBuf = readFileSync(WASM_PATH);
+  const wasmHex = "0x" + wasmBuf.toString("hex");
+  const wasmHash = blake2AsHex(wasmBuf, 256);
+
   console.log(`[${LABEL}] sudo signer: ${signer.address}`);
-  console.log(`[${LABEL}] endpoint: ${ENDPOINT}`);
-  console.log(`[${LABEL}] wasm path: ${WASM_PATH}`);
-  console.log("Press Ctrl-C within 5s to abort");
+  console.log(`[${LABEL}] endpoint:    ${ENDPOINT}`);
+  console.log(`[${LABEL}] wasm path:   ${WASM_PATH}`);
+  console.log(`[${LABEL}] wasm bytes:  ${wasmBuf.length}`);
+  console.log(`[${LABEL}] wasm hash:   ${wasmHash}`);
+  console.log("Press Ctrl-C within 5s to abort if any of the above is wrong");
   await new Promise((r) => setTimeout(r, 5000));
 
   console.log(`[${LABEL}] connecting to ${ENDPOINT}`);
@@ -97,10 +105,6 @@ async function main() {
   const preHeader = await api.rpc.chain.getHeader();
   const preBlock = preHeader.number.toNumber();
   console.log(`[${LABEL}] pre-upgrade: ${preName} v${preSpec} @ #${preBlock}`);
-
-  const wasmBuf = readFileSync(WASM_PATH);
-  const wasmHex = "0x" + wasmBuf.toString("hex");
-  console.log(`[${LABEL}] wasm loaded: ${wasmBuf.length} bytes`);
 
   // Use setCodeWithoutChecks to bypass strict spec_version increment check
   // (we explicitly disable that for forked-genesis multi-version jumps)
@@ -140,6 +144,35 @@ async function main() {
             console.error(`[${LABEL}] DISPATCH ERROR:`, decoded);
             reject(new Error(`dispatch error: ${JSON.stringify(decoded)}`));
             return;
+          }
+
+          // Outer sudo tx may succeed (no dispatchError) while the INNER
+          // call fails — that surfaces as a sudo.Sudid event with payload
+          // Err(...). Scan for it before declaring success.
+          const sudidEvent = events.find(({ event }) =>
+            api.events.sudo.Sudid.is(event),
+          );
+          if (sudidEvent) {
+            const result = sudidEvent.event.data[0] as unknown as {
+              isErr: boolean;
+              asErr: {
+                isModule: boolean;
+                asModule: Parameters<
+                  typeof api.registry.findMetaError
+                >[0];
+                toString: () => string;
+              };
+            };
+            if (result.isErr) {
+              const err = result.asErr;
+              let errMsg = err.toString();
+              if (err.isModule) {
+                const decoded = api.registry.findMetaError(err.asModule);
+                errMsg = `${decoded.section}.${decoded.method}: ${decoded.docs.join(" ")}`;
+              }
+              reject(new Error(`sudo inner call failed: ${errMsg}`));
+              return;
+            }
           }
 
           // Look for CodeUpdated event
