@@ -1,32 +1,101 @@
-// setcode-runtime-upgrade.ts — Upgrade running forknet to release/v1.12.0 via sudo.setCode
+// setcode-runtime-upgrade.ts — Apply a sudo system.setCodeWithoutChecks runtime upgrade
 //
-// Usage:
+// USAGE (production preferred — env vars):
+//   SUDO_SEED="<real sudo seed phrase or //path>" \
+//   WS_ENDPOINT=wss://node.testnet.thxnet.org/archive-001/ws \
+//   RUNTIME_WASM=/path/to/thxnet_testnet_runtime.compact.compressed.wasm \
+//   LABEL=rootchain \
+//     bun run setcode-runtime-upgrade.ts
+//
+// USAGE (CLI form — accepted only if env vars not set):
 //   bun run setcode-runtime-upgrade.ts \
-//     --endpoint ws://localhost:9931 \
+//     --endpoint wss://node.testnet.thxnet.org/archive-001/ws \
 //     --wasm /path/to/thxnet_testnet_runtime.compact.compressed.wasm \
 //     --label rootchain
 //
-// Flow:
-//   1. Connect, capture pre-upgrade spec_version + head block
-//   2. Submit `sudo(system.setCodeWithoutChecks(wasm))` signed by Alice
-//   3. Wait for InBlock + Finalized
-//   4. Confirm spec_version bumped, head advanced N more blocks
+// Env vars take precedence over CLI args when both are set.
+//
+// SAFETY:
+//   * SUDO_SEED is REQUIRED (no default). Script throws if missing.
+//   * Dev keys (//Alice .. //Ferdie) are REJECTED — this script is for
+//     production sudo only. Use forknet-only helpers in `forknet/` for dev keys.
+//   * Script prints `[label] sudo signer: <address>` then pauses 5 seconds
+//     so the operator can Ctrl-C if the address is wrong.
+//
+// FLOW:
+//   1. Load + sanity-check seed; print signer address; 5-second abort window
+//   2. Connect, capture pre-upgrade spec_version + head block
+//   3. Submit `sudo.sudoUncheckedWeight(system.setCodeWithoutChecks(wasm))`
+//   4. Wait for InBlock + Finalized; assert CodeUpdated event
+//   5. Confirm spec_version bumped, head advanced
 
 import { ApiPromise, Keyring, WsProvider } from "@polkadot/api";
+import { blake2AsHex } from "@polkadot/util-crypto";
 import { readFileSync } from "node:fs";
 
-function getArg(name: string, fallback?: string): string {
+// Reject //alice / //ALICE / //Alice//stash / //bob//controller etc — case
+// insensitive, with optional derivation path suffix.
+const DEV_KEY_PATTERN =
+  /^\s*\/\/(alice|bob|charlie|dave|eve|ferdie)(\/\/.*)?\s*$/i;
+
+function getCliArg(name: string): string | undefined {
   const i = process.argv.indexOf(`--${name}`);
   if (i >= 0 && i + 1 < process.argv.length) return process.argv[i + 1];
-  if (fallback !== undefined) return fallback;
-  throw new Error(`missing arg --${name}`);
+  return undefined;
 }
 
-const ENDPOINT = getArg("endpoint");
-const WASM_PATH = getArg("wasm");
-const LABEL = getArg("label", "chain");
+function resolveConfig(envName: string, cliName: string): string | undefined {
+  // Env var takes precedence per spec
+  return process.env[envName] ?? getCliArg(cliName);
+}
+
+function requireConfig(envName: string, cliName: string, humanName: string): string {
+  const v = resolveConfig(envName, cliName);
+  if (!v) {
+    throw new Error(
+      `${humanName} required: set env var ${envName} or pass --${cliName}`,
+    );
+  }
+  return v;
+}
+
+function loadSudoSeed(): string {
+  const seed = process.env.SUDO_SEED;
+  if (!seed || !seed.trim()) {
+    throw new Error("SUDO_SEED env var required");
+  }
+  if (DEV_KEY_PATTERN.test(seed)) {
+    throw new Error(
+      "dev key rejected — production needs real sudo seed",
+    );
+  }
+  return seed;
+}
+
+const ENDPOINT = requireConfig("WS_ENDPOINT", "endpoint", "WS endpoint");
+const WASM_PATH = requireConfig("RUNTIME_WASM", "wasm", "runtime wasm path");
+const LABEL = resolveConfig("LABEL", "label") ?? "chain";
+const SUDO_SEED = loadSudoSeed();
 
 async function main() {
+  // Resolve signer address AND read+hash the WASM BEFORE the abort banner so
+  // the operator can verify the hash against the §2.1 pre-flight record while
+  // the 5s timer is still running.
+  const keyring = new Keyring({ type: "sr25519" });
+  const signer = keyring.addFromUri(SUDO_SEED);
+
+  const wasmBuf = readFileSync(WASM_PATH);
+  const wasmHex = "0x" + wasmBuf.toString("hex");
+  const wasmHash = blake2AsHex(wasmBuf, 256);
+
+  console.log(`[${LABEL}] sudo signer: ${signer.address}`);
+  console.log(`[${LABEL}] endpoint:    ${ENDPOINT}`);
+  console.log(`[${LABEL}] wasm path:   ${WASM_PATH}`);
+  console.log(`[${LABEL}] wasm bytes:  ${wasmBuf.length}`);
+  console.log(`[${LABEL}] wasm hash:   ${wasmHash}`);
+  console.log("Press Ctrl-C within 5s to abort if any of the above is wrong");
+  await new Promise((r) => setTimeout(r, 5000));
+
   console.log(`[${LABEL}] connecting to ${ENDPOINT}`);
   const api = await ApiPromise.create({ provider: new WsProvider(ENDPOINT) });
   await api.isReady;
@@ -37,14 +106,6 @@ async function main() {
   const preBlock = preHeader.number.toNumber();
   console.log(`[${LABEL}] pre-upgrade: ${preName} v${preSpec} @ #${preBlock}`);
 
-  const wasmBuf = readFileSync(WASM_PATH);
-  const wasmHex = "0x" + wasmBuf.toString("hex");
-  console.log(`[${LABEL}] wasm loaded: ${wasmBuf.length} bytes`);
-
-  const keyring = new Keyring({ type: "sr25519" });
-  const alice = keyring.addFromUri("//Alice");
-  console.log(`[${LABEL}] sudo signer: ${alice.address}`);
-
   // Use setCodeWithoutChecks to bypass strict spec_version increment check
   // (we explicitly disable that for forked-genesis multi-version jumps)
   const setCodeCall = api.tx.system.setCodeWithoutChecks(wasmHex);
@@ -53,20 +114,28 @@ async function main() {
     proofSize: 1_000_000,
   });
 
-  console.log(`[${LABEL}] submitting sudo.sudoUncheckedWeight(system.setCodeWithoutChecks(...)) ...`);
+  console.log(
+    `[${LABEL}] submitting sudo.sudoUncheckedWeight(system.setCodeWithoutChecks(...)) ...`,
+  );
   const start = Date.now();
 
   return new Promise<void>((resolve, reject) => {
     sudoCall
-      .signAndSend(alice, ({ status, dispatchError, events }) => {
+      .signAndSend(signer, ({ status, dispatchError, events }) => {
         if (status.isInBlock) {
           console.log(
-            `[${LABEL}] InBlock ${status.asInBlock.toHex()} (${((Date.now() - start) / 1000).toFixed(1)}s)`
+            `[${LABEL}] InBlock ${status.asInBlock.toHex()} (${(
+              (Date.now() - start) /
+              1000
+            ).toFixed(1)}s)`,
           );
         }
         if (status.isFinalized) {
           console.log(
-            `[${LABEL}] Finalized ${status.asFinalized.toHex()} (${((Date.now() - start) / 1000).toFixed(1)}s)`
+            `[${LABEL}] Finalized ${status.asFinalized.toHex()} (${(
+              (Date.now() - start) /
+              1000
+            ).toFixed(1)}s)`,
           );
           if (dispatchError) {
             const decoded = dispatchError.isModule
@@ -75,6 +144,35 @@ async function main() {
             console.error(`[${LABEL}] DISPATCH ERROR:`, decoded);
             reject(new Error(`dispatch error: ${JSON.stringify(decoded)}`));
             return;
+          }
+
+          // Outer sudo tx may succeed (no dispatchError) while the INNER
+          // call fails — that surfaces as a sudo.Sudid event with payload
+          // Err(...). Scan for it before declaring success.
+          const sudidEvent = events.find(({ event }) =>
+            api.events.sudo.Sudid.is(event),
+          );
+          if (sudidEvent) {
+            const result = sudidEvent.event.data[0] as unknown as {
+              isErr: boolean;
+              asErr: {
+                isModule: boolean;
+                asModule: Parameters<
+                  typeof api.registry.findMetaError
+                >[0];
+                toString: () => string;
+              };
+            };
+            if (result.isErr) {
+              const err = result.asErr;
+              let errMsg = err.toString();
+              if (err.isModule) {
+                const decoded = api.registry.findMetaError(err.asModule);
+                errMsg = `${decoded.section}.${decoded.method}: ${decoded.docs.join(" ")}`;
+              }
+              reject(new Error(`sudo inner call failed: ${errMsg}`));
+              return;
+            }
           }
 
           // Look for CodeUpdated event
@@ -97,12 +195,20 @@ async function main() {
 
       // Reconnect to pick up new metadata
       await api.disconnect();
-      const api2 = await ApiPromise.create({ provider: new WsProvider(ENDPOINT) });
+      const api2 = await ApiPromise.create({
+        provider: new WsProvider(ENDPOINT),
+      });
       const postSpec = api2.runtimeVersion.specVersion.toNumber();
       const postHeader = await api2.rpc.chain.getHeader();
       const postBlock = postHeader.number.toNumber();
-      console.log(`[${LABEL}] post-upgrade: ${api2.runtimeVersion.specName.toString()} v${postSpec} @ #${postBlock}`);
-      console.log(`[${LABEL}] spec bump: ${preSpec} → ${postSpec}, block advance: ${postBlock - preBlock}`);
+      console.log(
+        `[${LABEL}] post-upgrade: ${api2.runtimeVersion.specName.toString()} v${postSpec} @ #${postBlock}`,
+      );
+      console.log(
+        `[${LABEL}] spec bump: ${preSpec} → ${postSpec}, block advance: ${
+          postBlock - preBlock
+        }`,
+      );
 
       if (postSpec === preSpec) {
         console.error(`[${LABEL}] FAIL: spec_version did not change`);
@@ -114,7 +220,11 @@ async function main() {
         await api2.disconnect();
         process.exit(1);
       }
-      console.log(`[${LABEL}] SETCODE OK: spec ${preSpec}→${postSpec}, block +${postBlock - preBlock}`);
+      console.log(
+        `[${LABEL}] SETCODE OK: spec ${preSpec}→${postSpec}, block +${
+          postBlock - preBlock
+        }`,
+      );
       await api2.disconnect();
     })
     .catch((e) => {
