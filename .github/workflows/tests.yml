@@ -65,7 +65,9 @@ jobs:
   bench-check:
     name: Benchmark compilation check
     runs-on: hetzner-thxnet
-    timeout-minutes: 60
+    # Cold-cache compiles (new branch → empty sccache) can exceed 60 min on the
+    # full benchmark-feature build. Warm-cache finishes well under 60.
+    timeout-minutes: 120
     container:
       image: docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
       volumes:
@@ -110,7 +112,9 @@ jobs:
   test-syscalls:
     name: Syscalls validation
     runs-on: hetzner-thxnet
-    timeout-minutes: 60
+    # Cold-cache compiles (new branch → empty sccache) can exceed 60 min on the
+    # musl build of execute/prepare workers. Warm-cache finishes well under 60.
+    timeout-minutes: 120
     continue-on-error: true
     container:
       image: docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408

@@ -745,7 +745,9 @@ jobs:
   xcm-tests:
     name: XCM integration tests
     needs: preflight
-    timeout-minutes: 60
+    # Chopsticks setup + leafchain spinup + XCM transfer matrix can exceed 60 min
+    # on cold-cache or busy-runner conditions. Warm runs finish well under 60.
+    timeout-minutes: 120
     if: >-
       startsWith(github.head_ref || github.ref_name, 'upgrade/') ||
       startsWith(github.head_ref || github.ref_name, 'release/') ||

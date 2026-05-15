@@ -1997,10 +1997,32 @@ pub mod node_features {
 		/// The value stored there represents the assumed core index where the candidates
 		/// are backed. This is needed for the elastic scaling MVP.
 		ElasticScalingMVP = 1,
+		/// Tells if the chunk mapping feature is enabled.
+		/// Enables the implementation of
+		/// [RFC-47](https://github.com/polkadot-fellows/RFCs/blob/main/text/0047-assignment-of-availability-chunks.md).
+		/// Must not be enabled unless all validators and collators have stopped using `req_chunk`
+		/// protocol version 1. If it is enabled, validators can start systematic chunk recovery.
+		///
+		/// Name reservation only on `release/v1.12.0`: this binary has no implementation behind
+		/// this bit. Setting it on-chain would silently no-op the chunk-mapping path. Backported
+		/// from `paritytech/polkadot-sdk#1644` (FeatureIndex extension only) so that runtimes
+		/// declaring higher bits do not trigger the "node doesn't support" warning in
+		/// `polkadot/node/subsystem-util/src/runtime/mod.rs`.
+		AvailabilityChunkMapping = 2,
+		/// Enables node side support of `CoreIndex` committed candidate receipts.
+		/// See [RFC-103](https://github.com/polkadot-fellows/RFCs/pull/103) for details.
+		/// Only enable if at least 2/3 of nodes support the feature.
+		///
+		/// Name reservation only on `release/v1.12.0`: this binary has no V2 receipt parsing path.
+		/// Backported from `paritytech/polkadot-sdk#4665` (FeatureIndex slot only) to align with
+		/// upstream naming and silence the spurious `FirstUnassigned` warning when the runtime
+		/// declares bit 3. Even upstream `polkadot-v1.16.x` has zero consumers of this variant;
+		/// real RFC-103 plumbing lives in the stable2412+ lines.
+		CandidateReceiptV2 = 3,
 		/// First unassigned feature bit.
 		/// Every time a new feature flag is assigned it should take this value.
 		/// and this should be incremented.
-		FirstUnassigned = 2,
+		FirstUnassigned = 4,
 	}
 }
 
