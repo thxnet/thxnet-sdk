@@ -143,7 +143,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("thxnet"),
 	impl_name: create_runtime_str!("thxnet"),
 	authoring_version: 0,
-	spec_version: 112_000_002,
+	spec_version: 112_000_003,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 25,
@@ -2179,9 +2179,15 @@ pub mod migrations {
 	///   `active_validators >= 15` AND `num_cores >= 3` (production rule); otherwise leave
 	/// - `lookahead`: ensure `>= 1`
 	/// - `async_backing_params`: ensure `(max_candidate_depth >= 1, allowed_ancestry_len >= 2)`
-	/// - `node_features`: always force bits 0, 1, 3 — bit 3 (CandidateReceiptV2) is critical;
-	///   without it v1.12.0+ cumulus collators advertise v2 receipts and validators reject with
-	///   `BlockedByBacking`
+	/// - `node_features`: force bits 0 (`EnableAssignmentsV2`) and 1 (`ElasticScalingMVP`) only.
+	///   Earlier revisions also set bit 3 (`CandidateReceiptV2`) under the assumption that v1.12.0
+	///   cumulus collators would advertise V2 receipts and validators would reject with
+	///   `BlockedByBacking` otherwise. That premise does not hold on `release/v1.12.0`: this tree
+	///   has zero `CandidateReceiptV2` codepaths in cumulus (collators emit V1) and the relay
+	///   binary has no V2 receipt parser. Declaring bit 3 only triggers a spurious "Runtime
+	///   requires feature bit 3 that node doesn't support" warning every session via
+	///   `polkadot/node/subsystem-util/src/runtime/mod.rs`. Bit 3 must stay off until the relay
+	///   binary actually backports RFC-103 plumbing.
 	///
 	/// Atomic-with-setCode defense:
 	/// - `AvailabilityCores`: force every entry to `Free` (mirrors session rotation's
@@ -2225,12 +2231,17 @@ pub mod migrations {
 				if cfg.async_backing_params.allowed_ancestry_len < 2 {
 					cfg.async_backing_params.allowed_ancestry_len = 2;
 				}
-				if cfg.node_features.len() < 4 {
-					cfg.node_features.resize(4, false);
+				if cfg.node_features.len() < 2 {
+					cfg.node_features.resize(2, false);
 				}
 				cfg.node_features.set(0, true);
 				cfg.node_features.set(1, true);
-				cfg.node_features.set(3, true);
+				// Actively clear bit 3 on chains where an earlier revision of this migration
+				// already wrote it to storage. Without this the spurious "Runtime requires
+				// feature bit 3" warning persists across the fix's deployment.
+				if cfg.node_features.len() > 3 {
+					cfg.node_features.set(3, false);
+				}
 			});
 
 			parachains_scheduler::AvailabilityCores::<Runtime>::mutate(|cores| {
@@ -2244,7 +2255,7 @@ pub mod migrations {
 			log::info!(
 				target: "runtime",
 				"EnableAsyncBackingAndCoretime: num_cores={}, max_vals_per_core={:?}, \
-				 lookahead={}, async_backing=(depth={}, ancestry={}), node_features[0,1,3]=true, \
+				 lookahead={}, async_backing=(depth={}, ancestry={}), node_features[0,1]=true, \
 				 AvailabilityCores freed, ClaimQueue cleared, active_validators={}",
 				cfg.scheduler_params.num_cores,
 				cfg.scheduler_params.max_validators_per_core,
@@ -2262,7 +2273,7 @@ pub mod migrations {
 	///
 	/// Each migration is internally version-guarded (checks `on_chain_storage_version`),
 	/// so already-applied migrations are no-ops. This allows a single runtime upgrade
-	/// to jump from spec_version 94000001 to 112_000_002 in one shot.
+	/// to jump from spec_version 94000001 to 112_000_003 in one shot.
 	///
 	/// Migration order follows the upstream version progression:
 	/// v1.1.0 → v1.3.0 → v1.4.0 → v1.5.0 → v1.6.0 → v1.7.0 → v1.8.0 → v1.9.0 → v1.10.0 → v1.12.0
