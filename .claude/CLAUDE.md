@@ -1,5 +1,8 @@
 # Git Workflow
 
+M-G cross-repository continuity is maintained in
+[`../thxnet-blockchain-helper-go/docs/CONTINUITY.md`](../../thxnet-blockchain-helper-go/docs/CONTINUITY.md).
+
 - **Never** commit or push without explicit confirmation. Present changes for review first; await instructions before proceeding.
 
 # Terminology

@@ -1,5 +1,8 @@
 # THXNET. SDK
 
+M-G cross-repository continuity is maintained in
+[`../thxnet-blockchain-helper-go/docs/CONTINUITY.md`](../thxnet-blockchain-helper-go/docs/CONTINUITY.md).
+
 Fork of [polkadot-sdk](https://github.com/paritytech/polkadot-sdk) powering the THXNET. blockchain network: 2 rootchains (relay chains) and 9+ leafchains (parachains) across testnet and mainnet environments.
 
 ---

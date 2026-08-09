@@ -23,8 +23,41 @@ pub mod hash;
 
 use error::Error;
 use jsonrpsee::proc_macros::rpc;
-use sc_transaction_pool_api::TransactionStatus;
+use sc_transaction_pool_api::{TransactionPoolEvent, TransactionStatus};
+use serde::{Deserialize, Serialize};
 use sp_core::Bytes;
+
+/// Queue containing a transaction returned by `thxnet_pendingExtrinsicsFull`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FullPendingTransactionQueue {
+	/// Transaction is ready for block inclusion.
+	Ready,
+	/// Transaction waits for one or more dependency tags.
+	Future,
+}
+
+/// One transaction returned by `thxnet_pendingExtrinsicsFull`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FullPendingTransaction<Hash> {
+	/// Transaction hash.
+	pub hash: Hash,
+	/// SCALE-encoded extrinsic bytes.
+	pub extrinsic: Bytes,
+	/// Queue containing the transaction.
+	pub queue: FullPendingTransactionQueue,
+	/// Pool priority.
+	pub priority: u64,
+	/// Remaining validation longevity as reported at import.
+	pub longevity: u64,
+	/// Dependency tags required by the transaction.
+	pub requires: Vec<Bytes>,
+	/// Tags provided by the transaction.
+	pub provides: Vec<Bytes>,
+	/// Whether the transaction may be propagated to peers.
+	pub propagable: bool,
+}
 
 /// Substrate authoring RPC API
 #[rpc(client, server)]
@@ -59,6 +92,10 @@ pub trait AuthorApi<Hash, BlockHash> {
 	#[method(name = "author_pendingExtrinsics")]
 	fn pending_extrinsics(&self) -> Result<Vec<Bytes>, Error>;
 
+	/// Returns every ready and future transaction with its queue and validity facts.
+	#[method(name = "thxnet_pendingExtrinsicsFull")]
+	fn pending_extrinsics_full(&self) -> Result<Vec<FullPendingTransaction<Hash>>, Error>;
+
 	/// Remove given extrinsic from the pool and temporarily ban it to prevent reimporting.
 	#[method(name = "author_removeExtrinsic")]
 	fn remove_extrinsic(
@@ -76,4 +113,15 @@ pub trait AuthorApi<Hash, BlockHash> {
 		item = TransactionStatus<Hash, BlockHash>,
 	)]
 	fn watch_extrinsic(&self, bytes: Bytes);
+
+	/// Subscribe to sequenced transaction-pool lifecycle events.
+	///
+	/// `since_seq` is the last event already seen. When supplied, the subscription first replays
+	/// every retained event after that cursor, then continues with live delivery.
+	#[subscription(
+		name = "thxnet_subscribeTxPoolEvents" => "thxnet_txPoolEvent",
+		unsubscribe = "thxnet_unsubscribeTxPoolEvents",
+		item = TransactionPoolEvent<Hash, BlockHash>,
+	)]
+	fn subscribe_tx_pool_events(&self, since_seq: Option<u64>);
 }

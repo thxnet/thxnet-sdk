@@ -195,6 +195,104 @@ pub type TransactionStatusStream<Hash, BlockHash> =
 /// The import notification event stream.
 pub type ImportNotificationStream<H> = futures::channel::mpsc::Receiver<H>;
 
+/// A transaction-pool lifecycle event kind.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TransactionPoolEventKind {
+	/// A transaction was accepted by the pool.
+	Imported,
+	/// A transaction entered the ready queue.
+	Ready,
+	/// A transaction entered the future queue.
+	Future,
+	/// A transaction was broadcast to peers.
+	Broadcast,
+	/// A transaction left the pool without being included in a block.
+	Evicted,
+	/// A transaction was included in a block and pruned from the pool.
+	Pruned,
+	/// A block containing the transaction was retracted.
+	Retracted,
+	/// A block containing the transaction was finalized.
+	Finalized,
+	/// Finality was not observed within the pool's tracking window.
+	FinalityTimeout,
+}
+
+/// Why a transaction was evicted from the pool.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TransactionPoolEventReason {
+	/// The pool dropped the transaction.
+	Dropped,
+	/// A transaction providing the same tags replaced it.
+	Usurped,
+	/// Validation or an explicit removal marked it invalid.
+	Invalid,
+}
+
+/// A sequenced transaction-pool lifecycle event.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TransactionPoolEvent<Hash, BlockHash> {
+	/// Per-process strictly increasing sequence number.
+	pub seq: u64,
+	/// Transaction hash.
+	pub tx_hash: Hash,
+	/// Lifecycle event kind.
+	pub kind: TransactionPoolEventKind,
+	/// Eviction reason, when `kind` is `evicted`.
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub reason: Option<TransactionPoolEventReason>,
+	/// Replacement transaction hash for an usurpation.
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub replacement_hash: Option<Hash>,
+	/// Related block hash for block lifecycle events.
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub block_hash: Option<BlockHash>,
+	/// Transaction index within a related block.
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub block_index: Option<usize>,
+	/// Peers that received a broadcast.
+	#[serde(default, skip_serializing_if = "Vec::is_empty")]
+	pub peers: Vec<String>,
+}
+
+/// A stream of sequenced transaction-pool lifecycle events.
+pub type TransactionPoolEventStream<Hash, BlockHash> =
+	dyn Stream<Item = TransactionPoolEvent<Hash, BlockHash>> + Send;
+
+/// Errors returned while opening a transaction-pool event stream.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, thiserror::Error)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum TransactionPoolEventStreamError {
+	/// This transaction-pool implementation does not expose lifecycle events.
+	#[error("transaction-pool event stream is unsupported")]
+	Unsupported,
+	/// The requested cursor predates the retained journal.
+	#[error(
+		"transaction-pool event cursor {requested_seq} is unavailable; retained range is {oldest_seq}..={latest_seq}"
+	)]
+	CursorExpired {
+		/// Requested last-seen sequence.
+		requested_seq: u64,
+		/// Oldest retained sequence.
+		oldest_seq: u64,
+		/// Latest produced sequence.
+		latest_seq: u64,
+	},
+	/// The requested cursor is ahead of this process's latest event.
+	#[error(
+		"transaction-pool event cursor {requested_seq} is ahead of latest sequence {latest_seq}"
+	)]
+	CursorAhead {
+		/// Requested last-seen sequence.
+		requested_seq: u64,
+		/// Latest produced sequence.
+		latest_seq: u64,
+	},
+}
+
 /// Transaction hash type for a pool.
 pub type TxHash<P> = <P as TransactionPool>::Hash;
 /// Block hash type for a pool.
@@ -297,6 +395,17 @@ pub trait TransactionPool: Send + Sync {
 	/// Get an iterator for ready transactions ordered by priority.
 	fn ready(&self) -> Box<dyn ReadyTransactions<Item = Arc<Self::InPoolTransaction>> + Send>;
 
+	/// Snapshot the ready and future queues together.
+	///
+	/// Implementations must override this method and take one pool read lock.
+	/// `None` refuses the full-pool RPC instead of presenting two non-atomic
+	/// reads as a complete union.
+	fn ready_and_futures(
+		&self,
+	) -> Option<(Vec<Arc<Self::InPoolTransaction>>, Vec<Self::InPoolTransaction>)> {
+		None
+	}
+
 	// *** Block production
 	/// Remove transactions identified by given hashes (and dependent transactions) from the pool.
 	fn remove_invalid(&self, hashes: &[TxHash<Self>]) -> Vec<Arc<Self::InPoolTransaction>>;
@@ -311,6 +420,20 @@ pub trait TransactionPool: Send + Sync {
 	// *** logging / RPC / networking
 	/// Return an event stream of transactions imported to the pool.
 	fn import_notification_stream(&self) -> ImportNotificationStream<TxHash<Self>>;
+
+	/// Return a race-free replay-plus-live stream of transaction-pool lifecycle events.
+	///
+	/// `since_seq` is the last event already seen by the caller. Implementations must either
+	/// replay every event after it before live delivery, or return an explicit cursor error.
+	fn transaction_pool_event_stream(
+		&self,
+		_since_seq: Option<u64>,
+	) -> Result<
+		Pin<Box<TransactionPoolEventStream<TxHash<Self>, BlockHash<Self>>>>,
+		TransactionPoolEventStreamError,
+	> {
+		Err(TransactionPoolEventStreamError::Unsupported)
+	}
 
 	// *** networking
 	/// Notify the pool about transactions broadcast.

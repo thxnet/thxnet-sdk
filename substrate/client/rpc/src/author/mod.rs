@@ -47,6 +47,27 @@ use self::error::{Error, Result};
 /// Re-export the API for backward compatibility.
 pub use sc_rpc_api::author::*;
 
+fn full_pending_transaction<T>(
+	tx: &T,
+	queue: FullPendingTransactionQueue,
+) -> FullPendingTransaction<T::Hash>
+where
+	T: InPoolTransaction,
+	T::Transaction: Encode,
+	T::Hash: Clone,
+{
+	FullPendingTransaction {
+		hash: tx.hash().clone(),
+		extrinsic: tx.data().encode().into(),
+		queue,
+		priority: *tx.priority(),
+		longevity: *tx.longevity(),
+		requires: tx.requires().iter().cloned().map(Into::into).collect(),
+		provides: tx.provides().iter().cloned().map(Into::into).collect(),
+		propagable: tx.is_propagable(),
+	}
+}
+
 /// Authoring API
 pub struct Author<P, Client> {
 	/// Substrate client
@@ -153,6 +174,21 @@ where
 		Ok(self.pool.ready().map(|tx| tx.data().encode().into()).collect())
 	}
 
+	fn pending_extrinsics_full(&self) -> Result<Vec<FullPendingTransaction<TxHash<P>>>> {
+		let (ready, futures) =
+			self.pool.ready_and_futures().ok_or(Error::FullPoolSnapshotUnsupported)?;
+		let mut transactions = ready
+			.iter()
+			.map(|tx| full_pending_transaction(tx.as_ref(), FullPendingTransactionQueue::Ready))
+			.collect::<Vec<_>>();
+		transactions.extend(
+			futures
+				.iter()
+				.map(|tx| full_pending_transaction(tx, FullPendingTransactionQueue::Future)),
+		);
+		Ok(transactions)
+	}
+
 	fn remove_extrinsic(
 		&self,
 		bytes_or_hash: Vec<hash::ExtrinsicOrHash<TxHash<P>>>,
@@ -206,5 +242,16 @@ where
 		};
 
 		spawn_subscription_task(&self.executor, fut);
+	}
+
+	fn subscribe_tx_pool_events(&self, pending: PendingSubscriptionSink, since_seq: Option<u64>) {
+		let stream = match self.pool.transaction_pool_event_stream(since_seq) {
+			Ok(stream) => stream,
+			Err(error) => {
+				spawn_subscription_task(&self.executor, pending.reject(Error::from(error)));
+				return
+			},
+		};
+		spawn_subscription_task(&self.executor, pipe_from_stream(pending, stream));
 	}
 }

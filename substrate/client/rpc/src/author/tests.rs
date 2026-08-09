@@ -23,7 +23,9 @@ use assert_matches::assert_matches;
 use codec::Encode;
 use jsonrpsee::{core::EmptyServerParams as EmptyParams, MethodsError as RpcError, RpcModule};
 use sc_transaction_pool::{BasicPool, FullChainApi};
-use sc_transaction_pool_api::TransactionStatus;
+use sc_transaction_pool_api::{
+	TransactionPoolEvent, TransactionPoolEventKind, TransactionPoolEventReason, TransactionStatus,
+};
 use sp_core::{
 	bytes::to_hex,
 	crypto::{ByteArray, Pair},
@@ -173,6 +175,98 @@ async fn author_should_return_pending_extrinsics() {
 	let pending: Vec<Bytes> =
 		api.call("author_pendingExtrinsics", EmptyParams::new()).await.unwrap();
 	assert_eq!(pending, vec![xt_bytes]);
+}
+
+#[tokio::test]
+async fn thxnet_pending_extrinsics_full_includes_ready_and_future_queues() {
+	let api = TestSetup::into_rpc();
+	let ready_bytes: Bytes = uxt(AccountKeyring::Alice, 0).encode().into();
+	let future_bytes: Bytes = uxt(AccountKeyring::Alice, 2).encode().into();
+
+	api.call::<_, H256>("author_submitExtrinsic", [to_hex(&ready_bytes, true)])
+		.await
+		.unwrap();
+	api.call::<_, H256>("author_submitExtrinsic", [to_hex(&future_bytes, true)])
+		.await
+		.unwrap();
+
+	let ready_only: Vec<Bytes> =
+		api.call("author_pendingExtrinsics", EmptyParams::new()).await.unwrap();
+	let full: Vec<FullPendingTransaction<H256>> =
+		api.call("thxnet_pendingExtrinsicsFull", EmptyParams::new()).await.unwrap();
+
+	assert_eq!(ready_only, vec![ready_bytes.clone()]);
+	assert_eq!(full.len(), 2);
+	assert!(full.iter().any(|tx| {
+		tx.queue == FullPendingTransactionQueue::Ready && tx.extrinsic == ready_bytes
+	}));
+	assert!(full.iter().any(|tx| {
+		tx.queue == FullPendingTransactionQueue::Future && tx.extrinsic == future_bytes
+	}));
+}
+
+#[tokio::test]
+async fn thxnet_tx_pool_events_replay_exact_sequence_gap_and_real_eviction() {
+	let setup = TestSetup::default();
+	let api = setup.author().into_rpc();
+	let future_bytes = uxt(AccountKeyring::Alice, 2).encode();
+	let future_hash: H256 = blake2_256(&future_bytes).into();
+	let mut live = api
+		.subscribe_unbounded("thxnet_subscribeTxPoolEvents", [Option::<u64>::None])
+		.await
+		.unwrap();
+
+	api.call::<_, H256>("author_submitExtrinsic", [to_hex(&future_bytes, true)])
+		.await
+		.unwrap();
+	let imported = timeout_secs(10, live.next::<TransactionPoolEvent<H256, H256>>())
+		.await
+		.unwrap()
+		.unwrap()
+		.unwrap()
+		.0;
+	let future = timeout_secs(10, live.next::<TransactionPoolEvent<H256, H256>>())
+		.await
+		.unwrap()
+		.unwrap()
+		.unwrap()
+		.0;
+	assert_eq!((imported.seq, imported.kind), (1, TransactionPoolEventKind::Imported));
+	assert_eq!((future.seq, future.kind), (2, TransactionPoolEventKind::Future));
+
+	let _: Vec<H256> = api
+		.call("author_removeExtrinsic", vec![vec![hash::ExtrinsicOrHash::Hash(future_hash)]])
+		.await
+		.unwrap();
+	let evicted = timeout_secs(10, live.next::<TransactionPoolEvent<H256, H256>>())
+		.await
+		.unwrap()
+		.unwrap()
+		.unwrap()
+		.0;
+	assert_eq!((evicted.seq, evicted.kind), (3, TransactionPoolEventKind::Evicted));
+	assert_eq!(evicted.reason, Some(TransactionPoolEventReason::Invalid));
+
+	// Deliberately reconnect from seq=1: the exact omitted interval is 2..=3.
+	let mut replay = api
+		.subscribe_unbounded("thxnet_subscribeTxPoolEvents", [Some(imported.seq)])
+		.await
+		.unwrap();
+	let replayed_future = timeout_secs(10, replay.next::<TransactionPoolEvent<H256, H256>>())
+		.await
+		.unwrap()
+		.unwrap()
+		.unwrap()
+		.0;
+	let replayed_eviction = timeout_secs(10, replay.next::<TransactionPoolEvent<H256, H256>>())
+		.await
+		.unwrap()
+		.unwrap()
+		.unwrap()
+		.0;
+	assert_eq!((replayed_future.seq, replayed_eviction.seq), (2, 3));
+	assert_eq!(replayed_future.kind, TransactionPoolEventKind::Future);
+	assert_eq!(replayed_eviction.kind, TransactionPoolEventKind::Evicted);
 }
 
 #[tokio::test]

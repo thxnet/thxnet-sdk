@@ -25,7 +25,9 @@ use std::{
 use crate::LOG_TARGET;
 use futures::channel::mpsc::{channel, Sender};
 use parking_lot::{Mutex, RwLock};
-use sc_transaction_pool_api::{error, PoolStatus, ReadyTransactions};
+use sc_transaction_pool_api::{
+	error, PoolStatus, ReadyTransactions, TransactionPoolEvent, TransactionPoolEventStreamError,
+};
 use serde::Serialize;
 use sp_runtime::{
 	generic::BlockId,
@@ -212,7 +214,7 @@ impl<B: ChainApi> ValidatedPool<B> {
 				}
 
 				let mut listener = self.listener.write();
-				fire_events(&mut *listener, &imported);
+				fire_events(&mut *listener, &imported, true);
 				Ok(*imported.hash())
 			},
 			ValidatedTransaction::Invalid(hash, err) => {
@@ -459,7 +461,7 @@ impl<B: ChainApi> ValidatedPool<B> {
 		{
 			let mut listener = self.listener.write();
 			for promoted in &status.promoted {
-				fire_events(&mut *listener, promoted);
+				fire_events(&mut *listener, promoted, false);
 			}
 			for f in &status.failed {
 				listener.dropped(f, None);
@@ -578,6 +580,17 @@ impl<B: ChainApi> ValidatedPool<B> {
 		stream
 	}
 
+	/// Return a replay-plus-live stream of sequenced transaction-pool lifecycle events.
+	pub fn transaction_pool_event_stream(
+		&self,
+		since_seq: Option<u64>,
+	) -> Result<
+		EventStream<TransactionPoolEvent<ExtrinsicHash<B>, BlockHash<B>>>,
+		TransactionPoolEventStreamError,
+	> {
+		self.listener.write().event_stream(since_seq)
+	}
+
 	/// Invoked when extrinsics are broadcasted.
 	pub fn on_broadcasted(&self, propagated: HashMap<ExtrinsicHash<B>, Vec<String>>) {
 		let mut listener = self.listener.write();
@@ -647,18 +660,29 @@ impl<B: ChainApi> ValidatedPool<B> {
 	}
 }
 
-fn fire_events<H, B, Ex>(listener: &mut Listener<H, B>, imported: &base::Imported<H, Ex>)
-where
+fn fire_events<H, B, Ex>(
+	listener: &mut Listener<H, B>,
+	imported: &base::Imported<H, Ex>,
+	is_new_import: bool,
+) where
 	H: hash::Hash + Eq + traits::Member + Serialize,
 	B: ChainApi,
 {
 	match *imported {
 		base::Imported::Ready { ref promoted, ref failed, ref removed, ref hash } => {
+			if is_new_import {
+				listener.imported(hash);
+			}
 			listener.ready(hash, None);
 			failed.iter().for_each(|f| listener.invalid(f));
 			removed.iter().for_each(|r| listener.dropped(&r.hash, Some(hash)));
 			promoted.iter().for_each(|p| listener.ready(p, None));
 		},
-		base::Imported::Future { ref hash } => listener.future(hash),
+		base::Imported::Future { ref hash } => {
+			if is_new_import {
+				listener.imported(hash);
+			}
+			listener.future(hash);
+		},
 	}
 }

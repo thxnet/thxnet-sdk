@@ -52,7 +52,8 @@ use std::{
 use graph::{ExtrinsicHash, IsValidator};
 use sc_transaction_pool_api::{
 	error::Error as TxPoolError, ChainEvent, ImportNotificationStream, MaintainedTransactionPool,
-	PoolFuture, PoolStatus, ReadyTransactions, TransactionFor, TransactionPool, TransactionSource,
+	PoolFuture, PoolStatus, ReadyTransactions, TransactionFor, TransactionPool,
+	TransactionPoolEventStream, TransactionPoolEventStreamError, TransactionSource,
 	TransactionStatusStreamFor, TxHash,
 };
 use sp_core::traits::SpawnEssentialNamed;
@@ -319,6 +320,16 @@ where
 		self.pool.validated_pool().import_notification_stream()
 	}
 
+	fn transaction_pool_event_stream(
+		&self,
+		since_seq: Option<u64>,
+	) -> Result<
+		Pin<Box<TransactionPoolEventStream<TxHash<Self>, <Block as BlockT>::Hash>>>,
+		TransactionPoolEventStreamError,
+	> {
+		Ok(Box::pin(self.pool.validated_pool().transaction_pool_event_stream(since_seq)?))
+	}
+
 	fn hash_of(&self, xt: &TransactionFor<Self>) -> TxHash<Self> {
 		self.pool.hash_of(xt)
 	}
@@ -361,6 +372,15 @@ where
 
 	fn ready(&self) -> ReadyIteratorFor<PoolApi> {
 		Box::new(self.pool.validated_pool().ready())
+	}
+
+	fn ready_and_futures(
+		&self,
+	) -> Option<(Vec<Arc<Self::InPoolTransaction>>, Vec<Self::InPoolTransaction>)> {
+		let pool = self.pool.validated_pool().pool.read();
+		let ready = pool.ready().collect::<Vec<_>>();
+		let futures = pool.futures().cloned().collect::<Vec<_>>();
+		Some((ready, futures))
 	}
 
 	fn futures(&self) -> Vec<Self::InPoolTransaction> {

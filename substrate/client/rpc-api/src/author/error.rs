@@ -51,6 +51,12 @@ pub enum Error {
 	/// Call to an unsafe RPC was denied.
 	#[error(transparent)]
 	UnsafeRpcCalled(#[from] crate::policy::UnsafeRpcError),
+	/// Transaction-pool event replay cursor error.
+	#[error(transparent)]
+	TransactionPoolEventStream(#[from] sc_transaction_pool_api::TransactionPoolEventStreamError),
+	/// The pool cannot provide an atomic ready and future queue snapshot.
+	#[error("Transaction-pool full snapshot is unsupported")]
+	FullPoolSnapshotUnsupported,
 }
 
 /// Base code for all authorship errors.
@@ -85,12 +91,26 @@ const POOL_INVALID_BLOCK_ID: i32 = POOL_INVALID_TX + 10;
 const POOL_FUTURE_TX: i32 = POOL_INVALID_TX + 11;
 /// Other error.
 const OTHER_ERR: i32 = BASE_ERROR + 40;
+/// The requested transaction-pool event cursor cannot be served exactly.
+const TXPOOL_EVENT_CURSOR_ERROR: i32 = BASE_ERROR + 41;
+/// The pool cannot provide an atomic full snapshot.
+const FULL_POOL_SNAPSHOT_UNSUPPORTED: i32 = BASE_ERROR + 42;
 
 impl From<Error> for ErrorObjectOwned {
 	fn from(e: Error) -> ErrorObjectOwned {
 		use sc_transaction_pool_api::error::Error as PoolError;
 
 		match e {
+			Error::FullPoolSnapshotUnsupported => ErrorObject::owned(
+				FULL_POOL_SNAPSHOT_UNSUPPORTED,
+				"Transaction-pool full snapshot is unsupported",
+				None::<()>,
+			),
+			Error::TransactionPoolEventStream(error) => ErrorObject::owned(
+				TXPOOL_EVENT_CURSOR_ERROR,
+				"Transaction-pool event cursor cannot be served exactly",
+				Some(error),
+			),
 			Error::BadFormat(e) => ErrorObject::owned(
 				BAD_FORMAT,
 				format!("Extrinsic has invalid format: {}", e),
