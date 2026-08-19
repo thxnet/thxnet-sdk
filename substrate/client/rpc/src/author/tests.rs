@@ -179,7 +179,8 @@ async fn author_should_return_pending_extrinsics() {
 
 #[tokio::test]
 async fn thxnet_pending_extrinsics_full_includes_ready_and_future_queues() {
-	let api = TestSetup::into_rpc();
+	let setup = TestSetup::default();
+	let api = setup.author().into_rpc();
 	let ready_bytes: Bytes = uxt(AccountKeyring::Alice, 0).encode().into();
 	let future_bytes: Bytes = uxt(AccountKeyring::Alice, 2).encode().into();
 
@@ -192,17 +193,62 @@ async fn thxnet_pending_extrinsics_full_includes_ready_and_future_queues() {
 
 	let ready_only: Vec<Bytes> =
 		api.call("author_pendingExtrinsics", EmptyParams::new()).await.unwrap();
-	let full: Vec<FullPendingTransaction<H256>> =
+	let full: FullPendingExtrinsicsResponse<H256, H256> =
 		api.call("thxnet_pendingExtrinsicsFull", EmptyParams::new()).await.unwrap();
 
 	assert_eq!(ready_only, vec![ready_bytes.clone()]);
-	assert_eq!(full.len(), 2);
-	assert!(full.iter().any(|tx| {
-		tx.queue == FullPendingTransactionQueue::Ready && tx.extrinsic == ready_bytes
-	}));
-	assert!(full.iter().any(|tx| {
-		tx.queue == FullPendingTransactionQueue::Future && tx.extrinsic == future_bytes
-	}));
+	assert_eq!(full.schema_version, FULL_PENDING_EXTRINSICS_SCHEMA_VERSION);
+	assert_ne!(full.snapshot_id, H256::zero());
+	assert_eq!(full.best_hash, setup.client.info().best_hash);
+	assert_eq!(full.limitations, vec![FULL_PENDING_BEST_HASH_LIMITATION]);
+	assert_eq!(full.ready.len(), 1);
+	assert_eq!(full.ready[0].queue, FullPendingTransactionQueue::Ready);
+	assert_eq!(full.ready[0].extrinsic, ready_bytes);
+	assert_eq!(full.future.len(), 1);
+	assert_eq!(full.future[0].queue, FullPendingTransactionQueue::Future);
+	assert_eq!(full.future[0].extrinsic, future_bytes);
+}
+
+#[tokio::test]
+async fn thxnet_pending_extrinsics_full_keeps_empty_shape_and_rejects_unknown_options() {
+	let api = TestSetup::into_rpc();
+	let empty: FullPendingExtrinsicsResponse<H256, H256> =
+		api.call("thxnet_pendingExtrinsicsFull", EmptyParams::new()).await.unwrap();
+	assert_eq!(empty.schema_version, FULL_PENDING_EXTRINSICS_SCHEMA_VERSION);
+	assert!(empty.ready.is_empty() && empty.future.is_empty());
+	assert_ne!(empty.snapshot_id, H256::zero());
+
+	let with_empty_options: FullPendingExtrinsicsResponse<H256, H256> =
+		api.call("thxnet_pendingExtrinsicsFull", [serde_json::json!({})]).await.unwrap();
+	assert_eq!(with_empty_options, empty);
+
+	let unknown = api
+		.call::<_, FullPendingExtrinsicsResponse<H256, H256>>(
+			"thxnet_pendingExtrinsicsFull",
+			[serde_json::json!({"include_future": true})],
+		)
+		.await
+		.expect_err("unknown option must not be silently accepted");
+	assert_matches!(unknown, RpcError::JsonRpc(error) if error.code() == -32602);
+}
+
+#[test]
+fn thxnet_pending_extrinsics_full_snapshot_identity_covers_transaction_metadata() {
+	let best_hash = H256::repeat_byte(0x11);
+	let mut tx = FullPendingTransaction {
+		hash: H256::repeat_byte(0x22),
+		extrinsic: Bytes(vec![0xaa]),
+		queue: FullPendingTransactionQueue::Ready,
+		priority: 7,
+		longevity: 64,
+		requires: vec![Bytes(vec![0x01])],
+		provides: vec![Bytes(vec![0x02])],
+		propagable: true,
+	};
+	let before = full_pending_snapshot_id(&best_hash, &[tx.clone()], &[]);
+	tx.priority += 1;
+	let after = full_pending_snapshot_id(&best_hash, &[tx], &[]);
+	assert_ne!(before, after, "metadata drift must change snapshot identity");
 }
 
 #[tokio::test]

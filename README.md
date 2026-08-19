@@ -5,6 +5,16 @@ M-G cross-repository continuity is maintained in
 
 Fork of [polkadot-sdk](https://github.com/paritytech/polkadot-sdk) powering the THXNET. blockchain network: 2 rootchains (relay chains) and 9+ leafchains (parachains) across testnet and mainnet environments.
 
+## THXNET. transaction-pool RPCs
+
+The hetdev node line exposes `thxnet_pendingExtrinsicsFull` and the replayable
+`thxnet_subscribeTxPoolEvents` subscription. Full-pool schema v1 always returns
+an object with `schema_version`, `snapshot_id`, `best_hash`, `ready`, `future`
+and `limitations`, including when both queues are empty. Unknown options are
+rejected; clients must not treat an unreadable response as an empty pool. The
+cross-repository client contract and rollout continuity live in the TBHGO
+[`docs/CONTINUITY.md`](../thxnet-blockchain-helper-go/docs/CONTINUITY.md).
+
 ---
 
 ## Git Operations

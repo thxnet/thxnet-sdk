@@ -68,6 +68,38 @@ where
 	}
 }
 
+fn full_pending_snapshot_id<Hash: Encode, BestHash: Encode>(
+	best_hash: &BestHash,
+	ready: &[FullPendingTransaction<Hash>],
+	future: &[FullPendingTransaction<Hash>],
+) -> sp_core::H256 {
+	let mut material = FULL_PENDING_EXTRINSICS_SCHEMA_VERSION.encode();
+	material.extend(FULL_PENDING_BEST_HASH_LIMITATION.encode());
+	material.extend(best_hash.encode());
+	material.extend((ready.len() as u64).encode());
+	for tx in ready {
+		extend_full_pending_transaction_identity(&mut material, tx);
+	}
+	material.extend((future.len() as u64).encode());
+	for tx in future {
+		extend_full_pending_transaction_identity(&mut material, tx);
+	}
+	sp_core::H256::from(sp_core::hashing::blake2_256(&material))
+}
+
+fn extend_full_pending_transaction_identity<Hash: Encode>(
+	material: &mut Vec<u8>,
+	tx: &FullPendingTransaction<Hash>,
+) {
+	material.extend(tx.hash.encode());
+	material.extend(tx.extrinsic.encode());
+	material.extend(tx.priority.encode());
+	material.extend(tx.longevity.encode());
+	material.extend(tx.requires.encode());
+	material.extend(tx.provides.encode());
+	material.extend(tx.propagable.encode());
+}
+
 /// Authoring API
 pub struct Author<P, Client> {
 	/// Substrate client
@@ -174,19 +206,32 @@ where
 		Ok(self.pool.ready().map(|tx| tx.data().encode().into()).collect())
 	}
 
-	fn pending_extrinsics_full(&self) -> Result<Vec<FullPendingTransaction<TxHash<P>>>> {
+	fn pending_extrinsics_full(
+		&self,
+		_options: Option<FullPendingExtrinsicsOptions>,
+	) -> Result<FullPendingExtrinsicsResponse<TxHash<P>, BlockHash<P>>> {
+		let best_hash = self.client.info().best_hash;
 		let (ready, futures) =
 			self.pool.ready_and_futures().ok_or(Error::FullPoolSnapshotUnsupported)?;
-		let mut transactions = ready
+		let ready = ready
 			.iter()
 			.map(|tx| full_pending_transaction(tx.as_ref(), FullPendingTransactionQueue::Ready))
 			.collect::<Vec<_>>();
-		transactions.extend(
-			futures
-				.iter()
-				.map(|tx| full_pending_transaction(tx, FullPendingTransactionQueue::Future)),
-		);
-		Ok(transactions)
+		let future = futures
+			.iter()
+			.map(|tx| full_pending_transaction(tx, FullPendingTransactionQueue::Future))
+			.collect::<Vec<_>>();
+
+		let snapshot_id = full_pending_snapshot_id(&best_hash, &ready, &future);
+
+		Ok(FullPendingExtrinsicsResponse {
+			schema_version: FULL_PENDING_EXTRINSICS_SCHEMA_VERSION,
+			snapshot_id,
+			best_hash,
+			ready,
+			future,
+			limitations: vec![FULL_PENDING_BEST_HASH_LIMITATION.to_owned()],
+		})
 	}
 
 	fn remove_extrinsic(

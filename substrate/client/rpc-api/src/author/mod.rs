@@ -25,7 +25,24 @@ use error::Error;
 use jsonrpsee::proc_macros::rpc;
 use sc_transaction_pool_api::{TransactionPoolEvent, TransactionStatus};
 use serde::{Deserialize, Serialize};
-use sp_core::Bytes;
+use sp_core::{Bytes, H256};
+
+/// Version of the stable `thxnet_pendingExtrinsicsFull` response envelope.
+pub const FULL_PENDING_EXTRINSICS_SCHEMA_VERSION: u32 = 1;
+
+/// The pool queues are atomic, while the best hash is read from the client
+/// immediately before that pool snapshot and is therefore attribution only.
+pub const FULL_PENDING_BEST_HASH_LIMITATION: &str = "best_hash_observed_outside_pool_lock";
+
+/// Reserved options for `thxnet_pendingExtrinsicsFull`.
+///
+/// The object is intentionally empty in schema v1. Accepting an explicit `{}`
+/// gives the method an extensible parameter boundary, while
+/// `deny_unknown_fields` prevents misspelled or imagined controls from being
+/// silently treated as a complete snapshot.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct FullPendingExtrinsicsOptions {}
 
 /// Queue containing a transaction returned by `thxnet_pendingExtrinsicsFull`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -57,6 +74,28 @@ pub struct FullPendingTransaction<Hash> {
 	pub provides: Vec<Bytes>,
 	/// Whether the transaction may be propagated to peers.
 	pub propagable: bool,
+}
+
+/// Stable, attributable full-pool response.
+///
+/// Ready and future are captured together under one pool read lock. The
+/// independently observed best hash is bound into `snapshot_id`, but its
+/// non-atomic relationship to the pool is stated in `limitations` rather than
+/// hidden. The object shape is returned even when both queues are empty.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FullPendingExtrinsicsResponse<Hash, BlockHash> {
+	/// Response schema version.
+	pub schema_version: u32,
+	/// Content identity over schema, best hash and every ordered transaction field.
+	pub snapshot_id: H256,
+	/// Best block hash observed immediately before the pool snapshot.
+	pub best_hash: BlockHash,
+	/// Transactions ready for block inclusion.
+	pub ready: Vec<FullPendingTransaction<Hash>>,
+	/// Transactions waiting for dependency tags.
+	pub future: Vec<FullPendingTransaction<Hash>>,
+	/// Explicit qualifications a client must retain with this evidence.
+	pub limitations: Vec<String>,
 }
 
 /// Substrate authoring RPC API
@@ -94,7 +133,10 @@ pub trait AuthorApi<Hash, BlockHash> {
 
 	/// Returns every ready and future transaction with its queue and validity facts.
 	#[method(name = "thxnet_pendingExtrinsicsFull")]
-	fn pending_extrinsics_full(&self) -> Result<Vec<FullPendingTransaction<Hash>>, Error>;
+	fn pending_extrinsics_full(
+		&self,
+		options: Option<FullPendingExtrinsicsOptions>,
+	) -> Result<FullPendingExtrinsicsResponse<Hash, BlockHash>, Error>;
 
 	/// Remove given extrinsic from the pool and temporarily ban it to prevent reimporting.
 	#[method(name = "author_removeExtrinsic")]
