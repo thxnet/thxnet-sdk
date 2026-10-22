@@ -1,0 +1,42 @@
+name: thx-build
+
+on:
+  push:
+    branches: ["ci/**"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: thx-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: thxnet-sdk-heavy
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: lane
+        id: lane
+        run: echo "name=$(echo "${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}" | tr '/' '-')" >> "$GITHUB_OUTPUT"
+      - name: release build (polkadot, thxnet-leafchain)
+        env:
+          THX_CACHE_ROOT: /srv/thx-ci/cache
+          THX_TARGET_DIR: /srv/thx-ci/target/${{ steps.lane.outputs.name }}
+        run: |
+          set -o pipefail
+          thxnet/ci/cargo.sh cargo build --locked --release -p polkadot -p thxnet-leafchain 2>&1 | tee "$RUNNER_TEMP/build.log"
+      - name: summary
+        if: always()
+        run: |
+          {
+            echo "### build"
+            echo '```'
+            grep -E '^elapsed_sec=|^Compile requests|^Cache hits|^Cache misses|^Cache hits rate' "$RUNNER_TEMP/build.log" || true
+            echo '```'
+            echo "lane: ${{ steps.lane.outputs.name }}"
+            df -h /srv | tail -1
+          } >> "$GITHUB_STEP_SUMMARY"
