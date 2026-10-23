@@ -29,6 +29,8 @@ jobs:
         run: |
           set -o pipefail
           thxnet/ci/cargo.sh cargo build --locked --release -p polkadot -p thxnet-leafchain 2>&1 | tee "$RUNNER_TEMP/build.log"
+      - name: rbv smoke (thxnet-dev relay)
+        run: thxnet/ci/rbv-smoke.sh "/srv/thx-ci/target/${{ steps.lane.outputs.name }}/release/polkadot" thxnet-dev "$RUNNER_TEMP/smoke"
       - name: stop leftover containers
         if: always()
         run: docker ps -q --filter "label=thx.ci.run=${{ github.run_id }}" | xargs -r docker stop -t 10
@@ -42,4 +44,8 @@ jobs:
             echo '```'
             echo "lane: ${{ steps.lane.outputs.name }}"
             df -h /srv | tail -1
+            echo "### rbv smoke"
+            echo '```'
+            cat "$RUNNER_TEMP/smoke/result.json" 2>/dev/null || echo "no smoke result"
+            echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
