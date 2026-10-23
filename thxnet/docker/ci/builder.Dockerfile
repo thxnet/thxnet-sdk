@@ -1,10 +1,12 @@
 FROM docker.io/library/ubuntu:24.04
 
 ARG RUST_TOOLCHAIN
+ARG RUST_COMPONENTS
+ARG RUST_TARGETS
 ARG SCCACHE_VERSION
 ARG SCCACHE_SHA256
 
-RUN test -n "$RUST_TOOLCHAIN" && test -n "$SCCACHE_VERSION" && test -n "$SCCACHE_SHA256"
+RUN test -n "$RUST_TOOLCHAIN" && test -n "$RUST_TARGETS" && test -n "$SCCACHE_VERSION" && test -n "$SCCACHE_SHA256"
 
 RUN apt-get update && \
 	DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
@@ -17,8 +19,8 @@ ENV RUSTUP_HOME=/usr/local/rustup \
 	PATH=/usr/local/cargo/bin:$PATH
 
 RUN curl -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path --profile minimal --default-toolchain "$RUST_TOOLCHAIN" && \
-	rustup component add rust-src clippy rustfmt && \
-	rustup target add wasm32v1-none && \
+	rustup component add $RUST_COMPONENTS && \
+	rustup target add $RUST_TARGETS && \
 	rustc --version
 
 RUN f="sccache-${SCCACHE_VERSION}-x86_64-unknown-linux-musl" && \
