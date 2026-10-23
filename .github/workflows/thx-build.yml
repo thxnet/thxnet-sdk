@@ -29,6 +29,9 @@ jobs:
         run: |
           set -o pipefail
           thxnet/ci/cargo.sh cargo build --locked --release -p polkadot -p thxnet-leafchain 2>&1 | tee "$RUNNER_TEMP/build.log"
+      - name: stop leftover containers
+        if: always()
+        run: docker ps -q --filter "label=thx.ci.run=${{ github.run_id }}" | xargs -r docker stop -t 10
       - name: summary
         if: always()
         run: |
