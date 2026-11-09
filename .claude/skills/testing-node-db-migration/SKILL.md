@@ -8,7 +8,7 @@ description: >
   the node-native DB layer that try-runtime cannot reach.
   Use when: db migration, binary upgrade test, database compatibility, node upgrade,
   chain data migration, RocksDB migration, binary swap test, old data new binary,
-  node-level migration, DB schema upgrade, 資料庫遷移測試, 節點二進制升級.
+  node-level migration, DB schema upgrade, database migration test, node binary upgrade.
 ---
 
 # Node Binary DB Migration Testing

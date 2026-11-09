@@ -5,7 +5,7 @@
 **Subject release**: `release/v1.12.0` HEAD `6b7ee05aea` (PR #37 merge tip)
 **Handoff intent**: This document is self-contained. Operators should be able to execute the rollout without further consultation with the engineering team that produced the release.
 
-> **zh-tw 摘要**: 本次升級交付 `release/v1.12.0`，核心修正是 PR #37 的 unified `EnableAsyncBackingAndCoretime` migration —— 它把 `node_features[3]=true` 設定到 relay-side scheduler config，這是避免 v1.12.0 升級後 leafchain 因 `BlockedByBacking` 而凍結的關鍵。場景 A 為最小可上線版本（async backing 已啟用，para 出塊 12-18s）；場景 B 為加掛 PR #38 + #39 之後的加速版本（para 出塊穩定 ~6s）。後續所有營運說明採英文撰寫。
+> **Summary**: This upgrade delivers `release/v1.12.0`. The core fix is PR #37's unified `EnableAsyncBackingAndCoretime` migration: it sets `node_features[3]=true` in the relay-side scheduler config, which is what keeps the leafchains from freezing on `BlockedByBacking` after the v1.12.0 upgrade. Scenario A is the minimum shippable version (async backing enabled, para blocks every 12-18s); Scenario B is the faster version with PR #38 + #39 added on top (para blocks steady at ~6s). All operational notes below are in English.
 
 ---
 

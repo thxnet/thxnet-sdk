@@ -7,7 +7,7 @@ description: >
   state roots and pallet storage to prove determinism. Covers all 6 CI chains.
   Use when: idempotency test, migration determinism, snapshot workaround,
   try-runtime snapshot blocker, migration reproducibility, run migration twice,
-  chopsticks idempotency, migration safety, 冪等性測試, 遷移確定性.
+  chopsticks idempotency, migration safety.
 ---
 
 # Migration Idempotency Testing (Chopsticks-based)
