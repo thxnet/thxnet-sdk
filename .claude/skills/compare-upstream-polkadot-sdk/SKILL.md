@@ -16,8 +16,7 @@ description: >
   fork audit, upst, upstream, compare with ../polkadot-sdk,
   migration chain, livenet deployment, feature toggle, chain-data ops,
   which migrations need to run, deployment matrix, rollout plan,
-  跟上游比, 跟上游比較, 跟 polkadot-sdk 對比, fork 差異,
-  上游同步, 上游偏移, 部署矩陣, 遷移鏈, 功能開關.
+  fork differences, upstream drift, feature switch.
 ---
 
 # Compare Upstream

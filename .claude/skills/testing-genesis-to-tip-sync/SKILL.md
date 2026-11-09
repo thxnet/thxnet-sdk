@@ -9,7 +9,7 @@ description: >
   transition errors that try-runtime and Chopsticks cannot surface.
   Use when: genesis sync, full sync test, chain integrity, genesis to tip,
   sync from scratch, fresh node sync, block import test, historical blocks,
-  chain integrity invariant, 從創世塊同步, 全同步測試, 鏈完整性.
+  chain integrity invariant, sync from genesis.
 ---
 
 # Genesis-to-Tip Sync Testing
