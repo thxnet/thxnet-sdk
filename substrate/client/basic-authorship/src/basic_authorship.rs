@@ -38,6 +38,7 @@ use sp_core::traits::SpawnNamed;
 use sp_inherents::InherentData;
 use sp_runtime::{
 	traits::{BlakeTwo256, Block as BlockT, Hash as HashT, Header as HeaderT},
+	transaction_validity::{InvalidTransaction, TransactionValidityError},
 	Digest, ExtrinsicInclusionMode, Percent, SaturatedConversion,
 };
 use std::{marker::PhantomData, pin::Pin, sync::Arc, time};
@@ -515,6 +516,16 @@ where
 						);
 						break EndProposingReason::HitBlockWeightLimit
 					}
+				},
+				Err(ApplyExtrinsicFailed(Validity(TransactionValidityError::Invalid(
+					InvalidTransaction::Future | InvalidTransaction::Stale,
+				)))) => {
+					pending_iterator.report_invalid(&pending_tx);
+					debug!(
+						target: LOG_TARGET,
+						"[{:?}] Future or stale at this parent: skipped, kept in the pool.",
+						pending_tx_hash
+					);
 				},
 				Err(e) => {
 					pending_iterator.report_invalid(&pending_tx);
