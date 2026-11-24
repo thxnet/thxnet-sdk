@@ -518,12 +518,12 @@ where
 					}
 				},
 				Err(ApplyExtrinsicFailed(Validity(TransactionValidityError::Invalid(
-					InvalidTransaction::Future | InvalidTransaction::Stale,
+					InvalidTransaction::Future,
 				)))) => {
 					pending_iterator.report_invalid(&pending_tx);
 					debug!(
 						target: LOG_TARGET,
-						"[{:?}] Future or stale at this parent: skipped, kept in the pool.",
+						"[{:?}] Future at this parent: skipped, kept in the pool.",
 						pending_tx_hash
 					);
 				},
